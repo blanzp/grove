@@ -79,6 +79,7 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+L` | Insert link |
+| `Ctrl+M` | New meeting note |
 | `Ctrl+V` | Paste image from clipboard |
 | `F2` | Rename note |
 | `Delete` | Delete note |

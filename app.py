@@ -249,6 +249,7 @@ Click the **📤 Share** button to:
 | `Ctrl+S` | Save |
 | `Ctrl+N` | New note |
 | `Ctrl+P` | Toggle preview |
+| `Ctrl+M` | New meeting |
 | `Ctrl+K` | Search |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
