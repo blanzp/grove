@@ -171,7 +171,14 @@ def create_vault():
     if path.exists():
         return jsonify({'error': 'vault already exists'}), 400
     path.mkdir(parents=True, exist_ok=True)
-    (path / '.templates').mkdir(exist_ok=True)
+    tpl_dir = path / '.templates'
+    tpl_dir.mkdir(exist_ok=True)
+    # Copy standard templates from default vault
+    src_tpl = DEFAULT_VAULT_PATH / '.templates'
+    if src_tpl.exists():
+        for tpl_file in src_tpl.iterdir():
+            if tpl_file.is_file() and tpl_file.suffix == '.md':
+                (tpl_dir / tpl_file.name).write_text(tpl_file.read_text())
     # Seed with a welcome README
     readme = path / 'README.md'
     readme.write_text(f"""---
