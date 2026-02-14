@@ -1,0 +1,329 @@
+"""MDVault Web - Markdown vault manager web application."""
+
+from flask import Flask, render_template, request, jsonify
+from pathlib import Path
+import os
+import json
+import re
+from datetime import datetime
+
+app = Flask(__name__)
+VAULT_PATH = Path(__file__).parent / "vault"
+VAULT_PATH.mkdir(exist_ok=True)
+
+TEMPLATES_PATH = VAULT_PATH / ".templates"
+TEMPLATES_PATH.mkdir(exist_ok=True)
+
+
+def get_vault_structure(base_path=None):
+    """Get the vault directory structure as a tree."""
+    if base_path is None:
+        base_path = VAULT_PATH
+    
+    structure = []
+    
+    try:
+        items = sorted(base_path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
+        for item in items:
+            if item.name.startswith('.'):
+                continue
+            
+            if item.is_dir():
+                structure.append({
+                    'name': item.name,
+                    'path': str(item.relative_to(VAULT_PATH)),
+                    'type': 'folder',
+                    'children': get_vault_structure(item)
+                })
+            elif item.suffix == '.md':
+                structure.append({
+                    'name': item.stem,
+                    'path': str(item.relative_to(VAULT_PATH)),
+                    'type': 'file'
+                })
+    except PermissionError:
+        pass
+    
+    return structure
+
+
+def extract_frontmatter(content):
+    """Extract YAML frontmatter from markdown content."""
+    fm_match = re.match(r'^---\n(.*?)\n---\n(.*)', content, re.DOTALL)
+    if not fm_match:
+        return {}, content
+    
+    fm_text = fm_match.group(1)
+    body = fm_match.group(2)
+    
+    frontmatter = {}
+    
+    title_match = re.search(r'title:\s*(.+)', fm_text)
+    if title_match:
+        frontmatter['title'] = title_match.group(1).strip()
+    
+    tags_match = re.search(r'tags:\s*\n((?:\s*-\s*.+\n?)+)', fm_text)
+    if tags_match:
+        frontmatter['tags'] = [t.strip('- ').strip() for t in tags_match.group(1).split('\n') if t.strip()]
+    else:
+        frontmatter['tags'] = []
+    
+    return frontmatter, body
+
+
+def build_frontmatter(title, tags):
+    """Build YAML frontmatter."""
+    fm = "---\n"
+    fm += f"title: {title}\n"
+    fm += f"created: {datetime.now().isoformat()}\n"
+    if tags:
+        fm += "tags:\n"
+        for tag in tags:
+            fm += f"  - {tag}\n"
+    fm += "---\n\n"
+    return fm
+
+
+@app.route('/')
+def index():
+    """Render the main application."""
+    return render_template('index.html')
+
+
+@app.route('/api/tree')
+def get_tree():
+    """Get the vault directory tree."""
+    return jsonify(get_vault_structure())
+
+
+@app.route('/api/note/<path:note_path>')
+def get_note(note_path):
+    """Get a note's content."""
+    file_path = VAULT_PATH / note_path
+    
+    if not file_path.exists() or not file_path.suffix == '.md':
+        return jsonify({'error': 'Note not found'}), 404
+    
+    content = file_path.read_text()
+    fm, body = extract_frontmatter(content)
+    
+    return jsonify({
+        'path': note_path,
+        'title': fm.get('title', file_path.stem),
+        'tags': fm.get('tags', []),
+        'content': content,
+        'body': body
+    })
+
+
+@app.route('/api/note/<path:note_path>', methods=['PUT'])
+def save_note(note_path):
+    """Save a note's content."""
+    data = request.json
+    content = data.get('content', '')
+    
+    file_path = VAULT_PATH / note_path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content)
+    
+    return jsonify({'success': True, 'path': note_path})
+
+
+@app.route('/api/note', methods=['POST'])
+def create_note():
+    """Create a new note."""
+    data = request.json
+    title = data.get('title', 'Untitled')
+    folder = data.get('folder', '')
+    tags = data.get('tags', [])
+    template = data.get('template', None)
+    
+    # Sanitize filename
+    filename = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '-').lower()
+    filename = re.sub(r'[-\s]+', '-', filename)
+    
+    # Determine path
+    if folder:
+        file_path = VAULT_PATH / folder / f"{filename}.md"
+    else:
+        file_path = VAULT_PATH / f"{filename}.md"
+    
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Build content
+    if template:
+        template_path = TEMPLATES_PATH / f"{template}.md"
+        if template_path.exists():
+            content = template_path.read_text()
+            # Replace placeholders
+            content = content.replace('{{title}}', title)
+            content = content.replace('{{date}}', datetime.now().strftime('%Y-%m-%d'))
+        else:
+            content = build_frontmatter(title, tags) + f"# {title}\n\n"
+    else:
+        content = build_frontmatter(title, tags) + f"# {title}\n\n"
+    
+    file_path.write_text(content)
+    
+    return jsonify({
+        'success': True,
+        'path': str(file_path.relative_to(VAULT_PATH))
+    })
+
+
+@app.route('/api/folder', methods=['POST'])
+def create_folder():
+    """Create a new folder."""
+    data = request.json
+    name = data.get('name', 'New Folder')
+    parent = data.get('parent', '')
+    
+    # Sanitize folder name
+    folder_name = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '-').lower()
+    
+    if parent:
+        folder_path = VAULT_PATH / parent / folder_name
+    else:
+        folder_path = VAULT_PATH / folder_name
+    
+    folder_path.mkdir(parents=True, exist_ok=True)
+    
+    return jsonify({
+        'success': True,
+        'path': str(folder_path.relative_to(VAULT_PATH))
+    })
+
+
+@app.route('/api/daily', methods=['POST'])
+def create_daily():
+    """Create today's daily note."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    daily_folder = VAULT_PATH / 'daily'
+    daily_folder.mkdir(exist_ok=True)
+    
+    file_path = daily_folder / f"{today}.md"
+    
+    if not file_path.exists():
+        content = f"""---
+title: {today}
+created: {datetime.now().isoformat()}
+tags:
+  - daily
+---
+
+# {today}
+
+## Notes
+
+## Tasks
+
+- [ ] 
+
+## Links
+
+"""
+        file_path.write_text(content)
+    
+    return jsonify({
+        'success': True,
+        'path': str(file_path.relative_to(VAULT_PATH))
+    })
+
+
+@app.route('/api/search')
+def search_notes():
+    """Search notes by name or tags."""
+    query = request.args.get('q', '').lower()
+    tag_filter = request.args.get('tag', '').lower()
+    
+    results = []
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        if md_file.name.startswith('.'):
+            continue
+        
+        content = md_file.read_text()
+        fm, body = extract_frontmatter(content)
+        
+        title = fm.get('title', md_file.stem)
+        tags = fm.get('tags', [])
+        
+        # Filter by query
+        if query and query not in title.lower() and query not in content.lower():
+            continue
+        
+        # Filter by tag
+        if tag_filter and tag_filter not in [t.lower() for t in tags]:
+            continue
+        
+        results.append({
+            'path': str(md_file.relative_to(VAULT_PATH)),
+            'title': title,
+            'tags': tags
+        })
+    
+    return jsonify(results)
+
+
+@app.route('/api/tags')
+def get_tags():
+    """Get all tags in the vault."""
+    tag_counts = {}
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        if md_file.name.startswith('.'):
+            continue
+        
+        content = md_file.read_text()
+        fm, _ = extract_frontmatter(content)
+        
+        for tag in fm.get('tags', []):
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    
+    return jsonify(tag_counts)
+
+
+@app.route('/api/templates')
+def get_templates():
+    """Get available templates."""
+    templates = []
+    for template_file in TEMPLATES_PATH.glob('*.md'):
+        templates.append(template_file.stem)
+    return jsonify(templates)
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Handle file upload (drag and drop)."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    folder = request.form.get('folder', '')
+    
+    if file.filename == '':
+        return jsonify({'error': 'Empty filename'}), 400
+    
+    # Sanitize filename
+    filename = re.sub(r'[^\w\s.-]', '', file.filename)
+    
+    # Ensure .md extension
+    if not filename.endswith('.md'):
+        filename += '.md'
+    
+    if folder:
+        file_path = VAULT_PATH / folder / filename
+    else:
+        file_path = VAULT_PATH / filename
+    
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file.save(str(file_path))
+    
+    return jsonify({
+        'success': True,
+        'path': str(file_path.relative_to(VAULT_PATH))
+    })
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

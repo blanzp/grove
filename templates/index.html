@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDVault Web</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-book"></i> MDVault</h1>
+                <div class="toolbar">
+                    <button id="new-note" title="New Note"><i class="fas fa-file-alt"></i></button>
+                    <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
+                    <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
+                </div>
+            </div>
+            
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search notes...">
+                <button id="search-btn"><i class="fas fa-search"></i></button>
+            </div>
+            
+            <div class="tags-bar">
+                <select id="tag-filter">
+                    <option value="">All Tags</option>
+                </select>
+            </div>
+            
+            <div class="file-tree" id="file-tree">
+                <!-- Tree will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Main Editor -->
+        <div class="main-content">
+            <div class="editor-header">
+                <input type="text" id="note-title" placeholder="Note Title" disabled>
+                <div class="editor-actions">
+                    <button id="save-btn" disabled><i class="fas fa-save"></i> Save</button>
+                </div>
+            </div>
+            
+            <div class="editor-tags">
+                <input type="text" id="tags-input" placeholder="Add tags (comma separated)" disabled>
+            </div>
+            
+            <div class="editor-container" id="drop-zone">
+                <textarea id="editor" placeholder="Select or create a note to start editing..."></textarea>
+                <div class="drop-overlay">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drop markdown files here</p>
+                </div>
+            </div>
+            
+            <div class="preview-container" id="preview">
+                <!-- Markdown preview will render here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal" id="new-note-modal">
+        <div class="modal-content">
+            <h2>New Note</h2>
+            <input type="text" id="modal-note-title" placeholder="Note Title">
+            <input type="text" id="modal-note-tags" placeholder="Tags (comma separated)">
+            <label>
+                Template:
+                <select id="modal-template">
+                    <option value="">None</option>
+                </select>
+            </label>
+            <input type="hidden" id="modal-folder">
+            <div class="modal-actions">
+                <button class="btn-primary" id="create-note-btn">Create</button>
+                <button class="btn-secondary" id="cancel-note-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="new-folder-modal">
+        <div class="modal-content">
+            <h2>New Folder</h2>
+            <input type="text" id="modal-folder-name" placeholder="Folder Name">
+            <input type="hidden" id="modal-parent-folder">
+            <div class="modal-actions">
+                <button class="btn-primary" id="create-folder-btn">Create</button>
+                <button class="btn-secondary" id="cancel-folder-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
