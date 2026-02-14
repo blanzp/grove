@@ -1,0 +1,246 @@
+/* Theme-specific color updates */
+.sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+}
+
+.sidebar-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h1 {
+    color: var(--text-secondary);
+}
+
+.toolbar button {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.toolbar button:hover {
+    background: var(--hover-color);
+}
+
+.search-bar input,
+.tags-bar select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.search-bar button {
+    background: var(--accent-color);
+}
+
+.tree-item {
+    color: var(--text-primary);
+}
+
+.tree-item:hover {
+    background: var(--hover-color);
+}
+
+.tree-item.active {
+    background: var(--active-color);
+}
+
+.tree-item i {
+    color: var(--text-secondary);
+}
+
+.main-content {
+    background: var(--bg-primary);
+}
+
+.editor-header,
+.editor-tags {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.editor-header input,
+.editor-tags input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.editor-actions button {
+    background: var(--accent-color);
+}
+
+.editor-actions button:disabled {
+    background: var(--bg-tertiary);
+    color: #666;
+}
+
+#editor {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.preview-container {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.modal {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.modal-content h2 {
+    color: var(--text-secondary);
+}
+
+.modal-content input,
+.modal-content select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.modal-content label {
+    color: var(--text-secondary);
+}
+
+.btn-primary {
+    background: var(--accent-color);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--hover-color);
+}
+
+/* New UI Components */
+.breadcrumbs {
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-height: 32px;
+}
+
+.breadcrumb-path {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.breadcrumb-sep {
+    color: #666;
+}
+
+.save-status {
+    font-size: 12px;
+    color: var(--accent-color);
+}
+
+.save-status.saving {
+    color: #ffa500;
+}
+
+.save-status.saved {
+    color: #4caf50;
+}
+
+.recent-files {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recent-files h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.recent-item {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.recent-item:hover {
+    background: var(--hover-color);
+}
+
+/* Full screen mode */
+body.fullscreen .sidebar {
+    display: none;
+}
+
+body.fullscreen .main-content {
+    margin-left: 0;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -300px;
+        transition: left 0.3s;
+        z-index: 1000;
+        height: 100vh;
+    }
+    
+    .sidebar.mobile-open {
+        left: 0;
+    }
+    
+    .main-content {
+        width: 100%;
+    }
+    
+    .editor-container.split-view {
+        flex-direction: column;
+    }
+    
+    .editor-container.split-view #editor,
+    .editor-container.split-view .preview-container {
+        width: 100%;
+        height: 50%;
+    }
+    
+    .toolbar button {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+}
+
+/* Wikilinks in preview */
+.wikilink {
+    color: var(--accent-color);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--accent-color);
+    cursor: pointer;
+}
+
+.wikilink:hover {
+    background: var(--hover-color);
+    text-decoration: none;
+}

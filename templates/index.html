@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MDVault Web</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -14,9 +15,11 @@
             <div class="sidebar-header">
                 <h1><i class="fas fa-book"></i> MDVault</h1>
                 <div class="toolbar">
-                    <button id="new-note" title="New Note"><i class="fas fa-file-alt"></i></button>
+                    <button id="new-note" title="New Note (Ctrl+N)"><i class="fas fa-file-alt"></i></button>
                     <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
                     <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
+                    <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
+                    <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
             
@@ -31,6 +34,11 @@
                 </select>
             </div>
             
+            <div class="recent-files">
+                <h3>Recent Files</h3>
+                <div id="recent-list"></div>
+            </div>
+            
             <div class="file-tree" id="file-tree">
                 <!-- Tree will be populated here -->
             </div>
@@ -38,11 +46,16 @@
         
         <!-- Main Editor -->
         <div class="main-content">
+            <div class="breadcrumbs" id="breadcrumbs">
+                <span class="save-status" id="save-status"></span>
+            </div>
+            
             <div class="editor-header">
                 <input type="text" id="note-title" placeholder="Note Title" disabled>
                 <div class="editor-actions">
-                    <button id="preview-toggle" disabled><i class="fas fa-eye"></i> Preview</button>
-                    <button id="save-btn" disabled><i class="fas fa-save"></i> Save</button>
+                    <button id="preview-toggle" disabled title="Preview (Ctrl+P)"><i class="fas fa-eye"></i> Preview</button>
+                    <button id="delete-btn" disabled title="Delete Note (Del)"><i class="fas fa-trash"></i></button>
+                    <button id="rename-btn" disabled title="Rename (F2)"><i class="fas fa-edit"></i></button>
                 </div>
             </div>
             

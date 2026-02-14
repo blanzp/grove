@@ -367,5 +367,59 @@ def move_note():
     })
 
 
+@app.route('/api/note/<path:note_path>', methods=['DELETE'])
+def delete_note(note_path):
+    """Delete a note."""
+    file_path = VAULT_PATH / note_path
+    
+    if not file_path.exists():
+        return jsonify({'error': 'Note not found'}), 404
+    
+    file_path.unlink()
+    
+    return jsonify({'success': True})
+
+
+@app.route('/api/rename', methods=['POST'])
+def rename_note():
+    """Rename a note."""
+    data = request.json
+    old_path = data.get('old_path')
+    new_name = data.get('new_name')
+    
+    if not old_path or not new_name:
+        return jsonify({'error': 'Old path and new name required'}), 400
+    
+    old_file = VAULT_PATH / old_path
+    
+    if not old_file.exists():
+        return jsonify({'error': 'Note not found'}), 404
+    
+    # Sanitize new filename
+    new_filename = re.sub(r'[^\w\s-]', '', new_name).strip().replace(' ', '-').lower()
+    new_filename = re.sub(r'[-\s]+', '-', new_filename)
+    
+    if not new_filename.endswith('.md'):
+        new_filename += '.md'
+    
+    # Keep same folder
+    new_file = old_file.parent / new_filename
+    
+    if new_file.exists() and new_file != old_file:
+        return jsonify({'error': 'A note with that name already exists'}), 400
+    
+    # Update title in frontmatter
+    content = old_file.read_text()
+    content = re.sub(r'title:.*', f'title: {new_name}', content)
+    
+    old_file.rename(new_file)
+    new_file.write_text(content)
+    
+    return jsonify({
+        'success': True,
+        'path': str(new_file.relative_to(VAULT_PATH))
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

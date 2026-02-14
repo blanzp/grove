@@ -9,7 +9,12 @@ tags:
 
 ## Attendees
 
+bob, fred, steve
+
 ## Agenda
+
+* reviewed data
+* discussed
 
 ## Notes
 

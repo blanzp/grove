@@ -3,15 +3,20 @@
 let currentNote = null;
 let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
+let autoSaveTimeout = null;
+let recentFiles = JSON.parse(localStorage.getItem('mdvault-recent') || '[]');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     loadTree();
     loadTags();
     loadTemplates();
+    loadRecentFiles();
     setupEventListeners();
     setupDragAndDrop();
     setupTreeDragAndDrop();
+    setupKeyboardShortcuts();
+    loadTheme();
 });
 
 // Setup tree drag and drop for root level
@@ -149,8 +154,18 @@ async function loadNote(path) {
     document.getElementById('tags-input').disabled = false;
     document.getElementById('editor').value = note.content;
     document.getElementById('editor').disabled = false;
-    document.getElementById('save-btn').disabled = false;
     document.getElementById('preview-toggle').disabled = false;
+    document.getElementById('delete-btn').disabled = false;
+    document.getElementById('rename-btn').disabled = false;
+    
+    // Add to recent files
+    addToRecent(path, note.title);
+    
+    // Update breadcrumbs
+    updateBreadcrumbs();
+    
+    // Setup auto-save for this note
+    setupAutoSave();
     
     // Highlight active note
     document.querySelectorAll('.tree-item').forEach(item => {
@@ -161,21 +176,9 @@ async function loadNote(path) {
     });
 }
 
-// Save current note
-async function saveNote() {
-    if (!currentNote) return;
-    
-    const content = document.getElementById('editor').value;
-    
-    const response = await fetch(`/api/note/${currentNote}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-    });
-    
-    if (response.ok) {
-        showNotification('Note saved successfully');
-    }
+// Save current note (keep for compatibility, redirect to new function)
+async function saveNote(isAutoSave = false) {
+    return saveNoteUpdated(isAutoSave);
 }
 
 // Create new note
@@ -352,8 +355,17 @@ function setupEventListeners() {
         }
     });
     
-    // Save button
-    document.getElementById('save-btn').addEventListener('click', saveNote);
+    // Delete button
+    document.getElementById('delete-btn').addEventListener('click', deleteNote);
+    
+    // Rename button
+    document.getElementById('rename-btn').addEventListener('click', renameNote);
+    
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    
+    // Full-screen toggle
+    document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
     
     // Auto-save on Ctrl+S
     document.getElementById('editor').addEventListener('keydown', (e) => {
@@ -570,3 +582,300 @@ function showNotification(message) {
     console.log(message);
     // Could add a toast notification system here
 }
+
+// Auto-save functionality
+function setupAutoSave() {
+    document.getElementById('editor').addEventListener('input', () => {
+        setSaveStatus('saving');
+        
+        if (autoSaveTimeout) {
+            clearTimeout(autoSaveTimeout);
+        }
+        
+        autoSaveTimeout = setTimeout(() => {
+            saveNote(true);
+        }, 2000); // Auto-save after 2 seconds of inactivity
+    });
+}
+
+function setSaveStatus(status) {
+    const statusEl = document.getElementById('save-status');
+    if (status === 'saving') {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status saving';
+    } else if (status === 'saved') {
+        statusEl.textContent = 'Saved';
+        statusEl.className = 'save-status saved';
+        setTimeout(() => {
+            statusEl.textContent = '';
+        }, 2000);
+    }
+}
+
+// Update save function to support auto-save
+async function saveNoteUpdated(isAutoSave = false) {
+    if (!currentNote) return;
+    
+    const content = document.getElementById('editor').value;
+    
+    if (!isAutoSave) {
+        setSaveStatus('saving');
+    }
+    
+    const response = await fetch(`/api/note/${currentNote}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+    
+    if (response.ok) {
+        setSaveStatus('saved');
+        if (!isAutoSave) {
+            showNotification('Note saved');
+        }
+    }
+}
+
+// Delete note
+async function deleteNote() {
+    if (!currentNote) return;
+    
+    if (!confirm('Are you sure you want to delete this note?')) return;
+    
+    const response = await fetch(`/api/note/${currentNote}`, {
+        method: 'DELETE'
+    });
+    
+    if (response.ok) {
+        showNotification('Note deleted');
+        currentNote = null;
+        document.getElementById('note-title').value = '';
+        document.getElementById('note-title').disabled = true;
+        document.getElementById('tags-input').value = '';
+        document.getElementById('tags-input').disabled = true;
+        document.getElementById('editor').value = '';
+        document.getElementById('editor').disabled = true;
+        document.getElementById('save-btn').disabled = true;
+        document.getElementById('preview-toggle').disabled = true;
+        document.getElementById('delete-btn').disabled = true;
+        document.getElementById('rename-btn').disabled = true;
+        loadTree();
+        removeFromRecent(currentNote);
+    }
+}
+
+// Rename note
+async function renameNote() {
+    if (!currentNote) return;
+    
+    const newName = prompt('Enter new note name:', document.getElementById('note-title').value);
+    if (!newName) return;
+    
+    const response = await fetch('/api/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            old_path: currentNote,
+            new_name: newName
+        })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+        showNotification('Note renamed');
+        currentNote = result.path;
+        document.getElementById('note-title').value = newName;
+        loadTree();
+        updateBreadcrumbs();
+        updateRecentFile(result.path, newName);
+    } else {
+        alert(result.error);
+    }
+}
+
+// Recent files management
+function addToRecent(path, title) {
+    // Remove if already exists
+    recentFiles = recentFiles.filter(f => f.path !== path);
+    
+    // Add to front
+    recentFiles.unshift({ path, title });
+    
+    // Keep only last 10
+    recentFiles = recentFiles.slice(0, 10);
+    
+    localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+    loadRecentFiles();
+}
+
+function removeFromRecent(path) {
+    recentFiles = recentFiles.filter(f => f.path !== path);
+    localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+    loadRecentFiles();
+}
+
+function updateRecentFile(path, title) {
+    const file = recentFiles.find(f => f.path === path);
+    if (file) {
+        file.title = title;
+        localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+        loadRecentFiles();
+    }
+}
+
+function loadRecentFiles() {
+    const container = document.getElementById('recent-list');
+    container.innerHTML = '';
+    
+    if (recentFiles.length === 0) {
+        container.innerHTML = '<div style="font-size: 12px; color: #888; padding: 4px 8px;">No recent files</div>';
+        return;
+    }
+    
+    recentFiles.forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'recent-item';
+        item.textContent = file.title;
+        item.addEventListener('click', () => loadNote(file.path));
+        container.appendChild(item);
+    });
+}
+
+// Breadcrumbs
+function updateBreadcrumbs() {
+    const breadcrumbs = document.getElementById('breadcrumbs');
+    if (!currentNote) {
+        breadcrumbs.innerHTML = '<span class="save-status" id="save-status"></span>';
+        return;
+    }
+    
+    const parts = currentNote.split('/');
+    let html = '<div class="breadcrumb-path">';
+    
+    parts.forEach((part, index) => {
+        if (index > 0) {
+            html += '<span class="breadcrumb-sep">/</span>';
+        }
+        html += `<span>${part}</span>`;
+    });
+    
+    html += '</div><span class="save-status" id="save-status"></span>';
+    breadcrumbs.innerHTML = html;
+}
+
+// Clickable wikilinks in preview
+function makeWikilinksClickable() {
+    const preview = document.getElementById('preview');
+    const content = preview.innerHTML;
+    
+    // Replace [[note-name]] with clickable links
+    const withLinks = content.replace(/\[\[([^\]]+)\]\]/g, (match, noteName) => {
+        return `<a href="#" class="wikilink" data-note="${noteName}">${noteName}</a>`;
+    });
+    
+    preview.innerHTML = withLinks;
+    
+    // Add click handlers
+    preview.querySelectorAll('.wikilink').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const noteName = e.target.dataset.note;
+            // Try to find and load the note
+            searchAndLoadNote(noteName);
+        });
+    });
+}
+
+async function searchAndLoadNote(noteName) {
+    const response = await fetch(`/api/search?q=${encodeURIComponent(noteName)}`);
+    const results = await response.json();
+    
+    if (results.length > 0) {
+        loadNote(results[0].path);
+    } else {
+        showNotification(`Note "${noteName}" not found`);
+    }
+}
+
+// Theme toggle
+function toggleTheme() {
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('mdvault-theme', isLight ? 'light' : 'dark');
+    
+    const icon = document.querySelector('#theme-toggle i');
+    icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+function loadTheme() {
+    const theme = localStorage.getItem('mdvault-theme') || 'dark';
+    if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        document.querySelector('#theme-toggle i').className = 'fas fa-sun';
+    }
+}
+
+// Full-screen toggle
+function toggleFullscreen() {
+    document.body.classList.toggle('fullscreen');
+    const icon = document.querySelector('#fullscreen-toggle i');
+    const isFullscreen = document.body.classList.contains('fullscreen');
+    icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+}
+
+// Keyboard shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+S or Cmd+S - Save
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveNoteUpdated();
+        }
+        
+        // Ctrl+N or Cmd+N - New note
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            document.getElementById('new-note').click();
+        }
+        
+        // Ctrl+P or Cmd+P - Toggle preview
+        if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+            e.preventDefault();
+            if (!document.getElementById('preview-toggle').disabled) {
+                togglePreview();
+            }
+        }
+        
+        // Ctrl+K or Cmd+K - Focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('search-input').focus();
+        }
+        
+        // F2 - Rename
+        if (e.key === 'F2' && currentNote) {
+            e.preventDefault();
+            renameNote();
+        }
+        
+        // Delete - Delete note
+        if (e.key === 'Delete' && currentNote && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            deleteNote();
+        }
+        
+        // F11 - Full screen
+        if (e.key === 'F11') {
+            e.preventDefault();
+            toggleFullscreen();
+        }
+    });
+}
+
+// Update render preview to make wikilinks clickable
+const originalRenderPreview = renderPreview;
+renderPreview = function() {
+    originalRenderPreview();
+    makeWikilinksClickable();
+};
