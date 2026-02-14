@@ -247,9 +247,11 @@ body.fullscreen .main-content {
 
 /* Templates modal */
 .modal-large {
-    min-width: 800px;
-    max-width: 90vw;
-    max-height: 90vh;
+    min-width: 1000px;
+    width: 85vw;
+    max-width: 1400px;
+    height: 80vh;
+    max-height: 800px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -264,7 +266,7 @@ body.fullscreen .main-content {
 }
 
 .templates-list {
-    width: 250px;
+    width: 280px;
     border-right: 1px solid var(--border-color);
     padding-right: 16px;
     overflow-y: auto;
