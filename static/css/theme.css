@@ -371,12 +371,17 @@ body.fullscreen .main-content {
     overflow-y: auto;
     margin-bottom: 16px;
     max-height: calc(70vh - 150px);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .todos-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    padding: 0 8px;
+    box-sizing: border-box;
 }
 
 .todos-empty {
@@ -401,6 +406,8 @@ body.fullscreen .main-content {
     background: var(--bg-tertiary);
     border-radius: 4px;
     border-left: 3px solid transparent;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .todo-item:hover {
@@ -425,8 +432,9 @@ body.fullscreen .main-content {
 }
 
 .todo-content {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 200px;
+    max-width: 100%;
 }
 
 .todo-text {
@@ -434,7 +442,10 @@ body.fullscreen .main-content {
     color: var(--text-primary);
     margin-bottom: 6px;
     line-height: 1.4;
-    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    white-space: normal;
 }
 
 .todo-item.complete .todo-text {
@@ -462,14 +473,16 @@ body.fullscreen .main-content {
 
 /* Medium modal for todos */
 .modal-medium {
-    min-width: 600px;
-    width: 60vw;
-    max-width: 800px;
+    min-width: 700px;
+    width: 70vw;
+    max-width: 900px;
     height: 70vh;
     max-height: 600px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    padding: 24px;
+    box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
