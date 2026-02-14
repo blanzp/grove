@@ -876,7 +876,10 @@ async function createMeetingNote() {
     const dd = String(now.getDate()).padStart(2, '0');
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    const title = `Meeting ${yyyy}-${mm}-${dd} ${hh}${min}`;
+    const datestamp = `${yyyy}-${mm}-${dd} ${hh}${min}`;
+    const name = prompt('Meeting name:', '');
+    if (name === null) return; // cancelled
+    const title = name.trim() ? `${name.trim()} ${datestamp}` : `Meeting ${datestamp}`;
     const folder = 'meetings';
     const tags = [];
     const template = 'meeting';
