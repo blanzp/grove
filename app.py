@@ -77,6 +77,12 @@ def get_vault_structure(base_path=None):
                     'path': str(item.relative_to(VAULT_PATH)),
                     'type': 'file'
                 })
+            elif item.is_file():
+                structure.append({
+                    'name': item.name,
+                    'path': str(item.relative_to(VAULT_PATH)),
+                    'type': 'asset'
+                })
     except PermissionError:
         pass
     
@@ -619,39 +625,6 @@ def delete_template(template_name):
     template_path.unlink()
     
     return jsonify({'success': True})
-
-
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    """Handle file upload (drag and drop)."""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    folder = request.form.get('folder', '')
-    
-    if file.filename == '':
-        return jsonify({'error': 'Empty filename'}), 400
-    
-    # Sanitize filename
-    filename = re.sub(r'[^\w\s.-]', '', file.filename)
-    
-    # Ensure .md extension
-    if not filename.endswith('.md'):
-        filename += '.md'
-    
-    if folder:
-        file_path = VAULT_PATH / folder / filename
-    else:
-        file_path = VAULT_PATH / filename
-    
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    file.save(str(file_path))
-    
-    return jsonify({
-        'success': True,
-        'path': str(file_path.relative_to(VAULT_PATH))
-    })
 
 
 @app.route('/api/move', methods=['POST'])

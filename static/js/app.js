@@ -178,6 +178,23 @@ function renderTree(items, container, level = 0) {
             itemDiv.addEventListener('dragover', handleDragOver);
             itemDiv.addEventListener('dragleave', handleDragLeave);
             itemDiv.addEventListener('drop', handleDrop);
+        } else if (item.type === 'asset') {
+            const ext = (item.name.split('.').pop() || '').toLowerCase();
+            const iconMap = {png:'fa-image',jpg:'fa-image',jpeg:'fa-image',gif:'fa-image',webp:'fa-image',svg:'fa-image',pdf:'fa-file-pdf',mp3:'fa-file-audio',mp4:'fa-file-video',wav:'fa-file-audio'};
+            const icon = iconMap[ext] || 'fa-file';
+            itemDiv.innerHTML = `<i class="fas ${icon}"></i> ${item.name}`;
+            itemDiv.style.opacity = '0.8';
+            itemDiv.addEventListener('click', () => {
+                // Open asset in new tab or copy path
+                const url = `/api/file/${item.path}`;
+                if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
+                    // Copy markdown image ref
+                    const md = `![${item.name}](${url})`;
+                    navigator.clipboard.writeText(md).then(() => showNotification('Image markdown copied'));
+                } else {
+                    window.open(url, '_blank');
+                }
+            });
         } else {
             itemDiv.innerHTML = `<i class="fas fa-file-alt"></i> ${item.name}`;
             itemDiv.setAttribute('draggable', 'true');
