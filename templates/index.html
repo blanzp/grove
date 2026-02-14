@@ -19,6 +19,7 @@
                     <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
                     <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
                     <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
+                    <button id="todos-btn" title="Todo Dashboard"><i class="fas fa-tasks"></i></button>
                     <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
                     <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -106,6 +107,29 @@
             <div class="modal-actions">
                 <button class="btn-primary" id="create-folder-btn">Create</button>
                 <button class="btn-secondary" id="cancel-folder-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="todos-modal">
+        <div class="modal-content modal-large">
+            <h2>Todo Dashboard</h2>
+            <div class="todos-stats">
+                <span id="todos-count">0 tasks</span>
+                <span id="todos-incomplete">0 incomplete</span>
+                <span id="todos-complete">0 complete</span>
+            </div>
+            <div class="todos-container">
+                <div class="todos-list" id="todos-list">
+                    <div class="todos-empty">
+                        <i class="fas fa-check-circle" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
+                        <p>No todos found. Add checkboxes in your notes:</p>
+                        <code>- [ ] Task to do</code>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-todos-btn">Close</button>
             </div>
         </div>
     </div>

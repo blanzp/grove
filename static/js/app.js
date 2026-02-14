@@ -1071,3 +1071,126 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('template-editor-content').style.display = 'none';
     });
 });
+
+// Todo Dashboard
+let allTodos = [];
+
+async function loadTodos() {
+    const response = await fetch('/api/todos');
+    allTodos = await response.json();
+    renderTodos();
+}
+
+function renderTodos() {
+    const container = document.getElementById('todos-list');
+    
+    if (allTodos.length === 0) {
+        container.innerHTML = `
+            <div class="todos-empty">
+                <i class="fas fa-check-circle" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
+                <p>No todos found. Add checkboxes in your notes:</p>
+                <code>- [ ] Task to do</code>
+            </div>
+        `;
+        updateTodosStats();
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    // Group by note
+    const grouped = {};
+    allTodos.forEach(todo => {
+        if (!grouped[todo.note]) {
+            grouped[todo.note] = [];
+        }
+        grouped[todo.note].push(todo);
+    });
+    
+    // Render each group
+    Object.keys(grouped).forEach(noteName => {
+        const todos = grouped[noteName];
+        
+        todos.forEach(todo => {
+            const todoEl = document.createElement('div');
+            todoEl.className = `todo-item ${todo.completed ? 'complete' : 'incomplete'}`;
+            todoEl.innerHTML = `
+                <input type="checkbox" class="todo-checkbox" ${todo.completed ? 'checked' : ''} 
+                       data-path="${todo.path}" data-line="${todo.line}">
+                <div class="todo-content">
+                    <div class="todo-text">${escapeHtml(todo.text)}</div>
+                    <div class="todo-meta">
+                        <i class="fas fa-file-alt"></i>
+                        <a href="#" class="todo-note-link" data-path="${todo.path}">${escapeHtml(todo.note)}</a>
+                    </div>
+                </div>
+            `;
+            
+            // Add checkbox toggle handler
+            const checkbox = todoEl.querySelector('.todo-checkbox');
+            checkbox.addEventListener('change', async (e) => {
+                await toggleTodo(todo.path, todo.line);
+                await loadTodos();
+            });
+            
+            // Add note link handler
+            const noteLink = todoEl.querySelector('.todo-note-link');
+            noteLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                hideModal('todos-modal');
+                loadNote(todo.path);
+            });
+            
+            container.appendChild(todoEl);
+        });
+    });
+    
+    updateTodosStats();
+}
+
+function updateTodosStats() {
+    const incomplete = allTodos.filter(t => !t.completed).length;
+    const complete = allTodos.filter(t => t.completed).length;
+    const total = allTodos.length;
+    
+    document.getElementById('todos-count').textContent = `${total} ${total === 1 ? 'task' : 'tasks'}`;
+    document.getElementById('todos-incomplete').textContent = `${incomplete} incomplete`;
+    document.getElementById('todos-complete').textContent = `${complete} complete`;
+}
+
+async function toggleTodo(path, lineNum) {
+    const response = await fetch('/api/toggle-todo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, line: lineNum })
+    });
+    
+    if (response.ok) {
+        // If the note is currently open, reload it to show the change
+        if (currentNote === path) {
+            await loadNote(path);
+        }
+    } else {
+        const error = await response.json();
+        showNotification(`Error: ${error.error}`);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function openTodosModal() {
+    loadTodos();
+    showModal('todos-modal');
+}
+
+// Add event listeners for todos
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('todos-btn').addEventListener('click', openTodosModal);
+    document.getElementById('close-todos-btn').addEventListener('click', () => {
+        hideModal('todos-modal');
+    });
+});

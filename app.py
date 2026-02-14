@@ -536,5 +536,89 @@ def move_folder():
     })
 
 
+@app.route('/api/todos')
+def get_todos():
+    """Get all todos from all notes."""
+    todos = []
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        if md_file.name.startswith('.'):
+            continue
+        
+        content = md_file.read_text()
+        fm, body = extract_frontmatter(content)
+        
+        title = fm.get('title', md_file.stem)
+        path = str(md_file.relative_to(VAULT_PATH))
+        
+        # Find all checkbox items
+        lines = content.split('\n')
+        for line_num, line in enumerate(lines):
+            # Match unchecked: - [ ]
+            unchecked = re.search(r'^(\s*)-\s+\[\s\]\s+(.+)', line)
+            if unchecked:
+                todos.append({
+                    'note': title,
+                    'path': path,
+                    'line': line_num,
+                    'text': unchecked.group(2).strip(),
+                    'completed': False,
+                    'indent': len(unchecked.group(1))
+                })
+            
+            # Match checked: - [x] or - [X]
+            checked = re.search(r'^(\s*)-\s+\[[xX]\]\s+(.+)', line)
+            if checked:
+                todos.append({
+                    'note': title,
+                    'path': path,
+                    'line': line_num,
+                    'text': checked.group(2).strip(),
+                    'completed': True,
+                    'indent': len(checked.group(1))
+                })
+    
+    return jsonify(todos)
+
+
+@app.route('/api/toggle-todo', methods=['POST'])
+def toggle_todo():
+    """Toggle a todo checkbox."""
+    data = request.json
+    path = data.get('path')
+    line_num = data.get('line')
+    
+    if path is None or line_num is None:
+        return jsonify({'error': 'Path and line number required'}), 400
+    
+    file_path = VAULT_PATH / path
+    
+    if not file_path.exists():
+        return jsonify({'error': 'Note not found'}), 404
+    
+    content = file_path.read_text()
+    lines = content.split('\n')
+    
+    if line_num >= len(lines):
+        return jsonify({'error': 'Invalid line number'}), 400
+    
+    line = lines[line_num]
+    
+    # Toggle checkbox
+    if re.search(r'-\s+\[\s\]', line):
+        # Unchecked -> Checked
+        lines[line_num] = re.sub(r'-\s+\[\s\]', '- [x]', line)
+    elif re.search(r'-\s+\[[xX]\]', line):
+        # Checked -> Unchecked
+        lines[line_num] = re.sub(r'-\s+\[[xX]\]', '- [ ]', line)
+    else:
+        return jsonify({'error': 'Not a valid checkbox line'}), 400
+    
+    # Write back
+    file_path.write_text('\n'.join(lines))
+    
+    return jsonify({'success': True})
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -351,3 +351,107 @@ body.fullscreen .main-content {
         max-height: 200px;
     }
 }
+
+/* Todos Dashboard */
+.todos-stats {
+    display: flex;
+    gap: 24px;
+    padding: 12px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+}
+
+.todos-stats span {
+    color: var(--text-secondary);
+}
+
+.todos-container {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.todos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.todos-empty {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+}
+
+.todos-empty code {
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: var(--text-primary);
+}
+
+.todo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+}
+
+.todo-item:hover {
+    background: var(--hover-color);
+}
+
+.todo-item.incomplete {
+    border-left-color: var(--accent-color);
+}
+
+.todo-item.complete {
+    border-left-color: #4caf50;
+    opacity: 0.7;
+}
+
+.todo-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.todo-content {
+    flex: 1;
+}
+
+.todo-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.todo-item.complete .todo-text {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+.todo-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.todo-note-link {
+    color: var(--accent-color);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.todo-note-link:hover {
+    text-decoration: underline;
+}
