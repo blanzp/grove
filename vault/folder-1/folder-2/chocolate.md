@@ -14,3 +14,5 @@ type: note
 ![dog](/api/file/folder-1/folder-2/resources/dog.png)
 
 ![cat](/api/file/attachments/cat.jpg)
+
+[[vanila]]

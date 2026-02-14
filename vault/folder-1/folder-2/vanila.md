@@ -14,3 +14,5 @@ tags:
 # f
 ## 3![alt text](image-url) {#3alt-textimage-url}
 ### Heading 1 {#heading-1}
+
+[[chocolate]]

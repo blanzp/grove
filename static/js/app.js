@@ -1002,6 +1002,11 @@ function renderPreview() {
         const { body } = stripFrontmatter(content);
         content = body;
     }
+
+    // Convert wikilinks to HTML before markdown rendering
+    content = content.replace(/\[\[([^\]]+)\]\]/g, (match, noteName) => {
+        return `<a href="#" class="wikilink" data-note="${noteName}">${noteName}</a>`;
+    });
     
     try {
         // Handle both old and new marked.js API
@@ -1676,21 +1681,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // Clickable wikilinks in preview
 function makeWikilinksClickable() {
     const preview = document.getElementById('preview');
-    const content = preview.innerHTML;
     
-    // Replace [[note-name]] with clickable links
-    const withLinks = content.replace(/\[\[([^\]]+)\]\]/g, (match, noteName) => {
-        return `<a href="#" class="wikilink" data-note="${noteName}">${noteName}</a>`;
-    });
-    
-    preview.innerHTML = withLinks;
-    
-    // Add click handlers
+    // Add click handlers to wikilinks (already converted before markdown render)
     preview.querySelectorAll('.wikilink').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const noteName = e.target.dataset.note;
-            // Try to find and load the note
             searchAndLoadNote(noteName);
         });
     });
@@ -1700,8 +1696,17 @@ async function searchAndLoadNote(noteName) {
     const response = await fetch(`/api/search?q=${encodeURIComponent(noteName)}`);
     const results = await response.json();
     
-    if (results.length > 0) {
-        loadNote(results[0].path);
+    // Prefer exact title match
+    const exact = results.find(r => r.title.toLowerCase() === noteName.toLowerCase());
+    if (exact) {
+        loadNote(exact.path);
+    } else if (results.length > 0) {
+        // Try filename match (stem without extension)
+        const byFilename = results.find(r => {
+            const stem = r.path.split('/').pop().replace('.md', '');
+            return stem.toLowerCase() === noteName.toLowerCase().replace(/\s+/g, '-');
+        });
+        loadNote(byFilename ? byFilename.path : results[0].path);
     } else {
         showNotification(`Note "${noteName}" not found`);
     }
