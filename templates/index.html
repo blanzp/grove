@@ -59,11 +59,16 @@
                 <i class="fas fa-chevron-right"></i>
             </button>
             <div class="breadcrumbs" id="breadcrumbs">
-                <button id="mobile-menu-btn" class="mobile-menu-btn">
+                <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">
                     <i class="fas fa-bars"></i>
                 </button>
                 <span class="save-status" id="save-status"></span>
             </div>
+            
+            <!-- Floating mobile menu (iOS fallback) -->
+            <button id="mobile-menu-fab" class="mobile-menu-fab" aria-label="Menu" title="Menu">
+                <i class="fas fa-bars"></i>
+            </button>
             
             <div class="editor-header">
                 <div class="title-tags-section">

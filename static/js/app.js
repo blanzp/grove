@@ -8,6 +8,21 @@ let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    // Configure marked for proper fenced code handling
+    if (typeof marked !== 'undefined') {
+        try {
+            if (typeof marked.setOptions === 'function') {
+                marked.setOptions({
+                    gfm: true,
+                    breaks: false,
+                    headerIds: true,
+                    mangle: false,
+                    smartLists: true,
+                });
+            }
+        } catch (e) { /* ignore */ }
+    }
+
     loadTree();
     loadTags();
     loadTemplates();
@@ -510,6 +525,23 @@ function togglePreview() {
 }
 
 // Render markdown preview
+let lastEditorScrollRatio = 0;
+let suppressPreviewScroll = false;
+
+function handleEditorScrollSync() {
+    if (previewMode === 'split') {
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
+        lastEditorScrollRatio = editor.scrollTop / maxEditor;
+        const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
+        suppressPreviewScroll = true;
+        preview.scrollTop = lastEditorScrollRatio * maxPrev;
+        // small timeout to avoid feedback loops if we later add reverse sync
+        setTimeout(() => suppressPreviewScroll = false, 10);
+    }
+}
+
 function renderPreview() {
     let content = document.getElementById('editor').value;
     const preview = document.getElementById('preview');
@@ -531,6 +563,12 @@ function renderPreview() {
         } else {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly</div>';
         }
+        
+        // After rendering, if in split mode, preserve approximate scroll position
+        if (previewMode === 'split') {
+            const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
+            preview.scrollTop = lastEditorScrollRatio * maxPrev;
+        }
     } catch (error) {
         preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Error rendering markdown:<br>' + error.message + '</div>';
         console.error('Preview render error:', error);
@@ -543,11 +581,15 @@ function setupEventListeners() {
     document.getElementById('preview-toggle').addEventListener('click', togglePreview);
     
     // Update preview on editor change when in split/preview mode
-    document.getElementById('editor').addEventListener('input', () => {
+    const editorEl = document.getElementById('editor');
+    editorEl.addEventListener('input', () => {
         if (previewMode !== 'edit') {
             renderPreview();
         }
     });
+
+    // Sync preview scroll with editor scroll (split view)
+    editorEl.addEventListener('scroll', handleEditorScrollSync);
     
     // Delete button
     document.getElementById('delete-btn').addEventListener('click', deleteNote);
@@ -568,19 +610,36 @@ function setupEventListeners() {
     document.getElementById('sidebar-collapse').addEventListener('click', toggleSidebar);
     document.getElementById('sidebar-expand').addEventListener('click', toggleSidebar);
     
-    // Mobile menu
+    // Mobile menu (header + floating)
     document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
+    const fab = document.getElementById('mobile-menu-fab');
+    if (fab) fab.addEventListener('click', toggleMobileMenu);
+    
+    // Hide floating button when sidebar is open
+    const sidebar = document.querySelector('.sidebar');
+    const updateFab = () => {
+        if (!fab) return;
+        const isOpen = sidebar.classList.contains('mobile-open');
+        fab.style.display = (window.innerWidth <= 768 && !isOpen) ? 'inline-flex' : 'none';
+    };
+    updateFab();
+    
+    // Recompute on resize/focus/blur (iOS virtual keyboard changes viewport)
+    ['resize','focus','blur'].forEach(ev => window.addEventListener(ev, updateFab));
     
     // Close mobile menu when clicking outside sidebar
     document.addEventListener('click', (e) => {
         const sidebar = document.querySelector('.sidebar');
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const fabBtn = document.getElementById('mobile-menu-fab');
+        
+        const clickOnMenuBtn = (btn) => btn && (e.target === btn || btn.contains(e.target));
         
         if (window.innerWidth <= 768 && 
             sidebar.classList.contains('mobile-open') &&
             !sidebar.contains(e.target) && 
-            e.target !== mobileMenuBtn &&
-            !mobileMenuBtn.contains(e.target)) {
+            !clickOnMenuBtn(mobileMenuBtn) &&
+            !clickOnMenuBtn(fabBtn)) {
             closeMobileMenu();
         }
     });
@@ -1139,11 +1198,18 @@ function toggleSidebar() {
 function toggleMobileMenu() {
     const sidebar = document.querySelector('.sidebar');
     sidebar.classList.toggle('mobile-open');
+    // Update FAB visibility
+    const fab = document.getElementById('mobile-menu-fab');
+    if (fab && window.innerWidth <= 768) {
+        fab.style.display = sidebar.classList.contains('mobile-open') ? 'none' : 'inline-flex';
+    }
 }
 
 function closeMobileMenu() {
     const sidebar = document.querySelector('.sidebar');
     sidebar.classList.remove('mobile-open');
+    const fab = document.getElementById('mobile-menu-fab');
+    if (fab && window.innerWidth <= 768) fab.style.display = 'inline-flex';
 }
 
 // Keyboard shortcuts

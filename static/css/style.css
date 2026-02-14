@@ -153,6 +153,31 @@ body {
     background: var(--hover-color);
 }
 
+/* Floating mobile menu (iOS keyboard safe) */
+.mobile-menu-fab {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 12px);
+    left: calc(env(safe-area-inset-left) + 12px);
+    z-index: 1100;
+    padding: 10px 12px;
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    display: none; /* shown via media query */
+}
+
+.mobile-menu-fab:active {
+    transform: translateY(1px);
+}
+
+@media (max-width: 768px) {
+    .mobile-menu-fab { display: inline-flex; align-items: center; justify-content: center; }
+    /* Hide fab when sidebar is open */
+    .sidebar.mobile-open ~ .main-content .mobile-menu-fab { display: none; }
+}
+
 .search-bar {
     padding: 12px 16px;
     display: flex;
@@ -494,8 +519,8 @@ body {
 
 .preview-container h1 {
     font-size: 28px;
-    border: 1px solid var(--border-color);
-    padding-bottom: 8px;
+    border: none;
+    padding-bottom: 0;
 }
 
 .preview-container h2 {
@@ -509,6 +534,25 @@ body {
 .preview-container p {
     line-height: 1.6;
     margin-bottom: 12px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* Prevent horizontal overflow on mobile */
+.preview-container {
+    overflow-x: hidden;
+}
+
+.preview-container img,
+.preview-container table,
+.preview-container iframe {
+    max-width: 100%;
+}
+
+.preview-container pre {
+    overflow-x: auto;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .preview-container code {
@@ -517,6 +561,13 @@ body {
     border-radius: 3px;
     font-family: 'Courier New', monospace;
     color: var(--text-primary);
+    max-width: 100%;
+}
+
+/* Prevent accidental horizontal scroll of the whole app */
+html, body, .app-container, .main-content {
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .preview-container pre {
