@@ -269,6 +269,22 @@ Happy writing! 🌿
 """)
     return jsonify({'success': True})
 
+@app.route('/api/vaults/export')
+def export_vault():
+    """Export the active vault as a ZIP file."""
+    import zipfile
+    import io
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for f in VAULT_PATH.rglob('*'):
+            if f.is_file():
+                arcname = str(f.relative_to(VAULT_PATH))
+                zf.write(f, arcname)
+    buf.seek(0)
+    vault_name = 'vault' if VAULT_PATH == DEFAULT_VAULT_PATH else VAULT_PATH.name
+    return send_file(buf, mimetype='application/zip', as_attachment=True,
+                     download_name=f'grove-{vault_name}-{datetime.now().strftime("%Y%m%d")}.zip')
+
 @app.route('/api/vaults/delete', methods=['POST'])
 def delete_vault():
     import shutil

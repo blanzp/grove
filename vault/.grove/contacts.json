@@ -14,5 +14,13 @@
     "email": "ma.b@google.com",
     "company": "",
     "template": "[{{last_name}},{{first_name}}](http://phone.google.com/{{id}})"
+  },
+  {
+    "id": "o550033",
+    "first_name": "Charles",
+    "last_name": "Russ",
+    "email": "",
+    "company": "",
+    "template": "[{{last_name}},{{first_name}}](http://phone.google.com/{{id}})"
   }
 ]
