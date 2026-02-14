@@ -11,7 +11,55 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTemplates();
     setupEventListeners();
     setupDragAndDrop();
+    setupTreeDragAndDrop();
 });
+
+// Setup tree drag and drop for root level
+function setupTreeDragAndDrop() {
+    const fileTree = document.getElementById('file-tree');
+    
+    fileTree.addEventListener('dragover', (e) => {
+        // Only allow drop on root if target is the tree container itself
+        if (e.target === fileTree || e.target.classList.contains('tree-children')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+    });
+    
+    fileTree.addEventListener('drop', async (e) => {
+        if (e.target === fileTree || e.target.classList.contains('tree-children')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (draggedItem) {
+                const sourcePath = draggedItem.dataset.path;
+                
+                // Move to root
+                const response = await fetch('/api/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source: sourcePath,
+                        target: ''
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Moved to root');
+                    loadTree();
+                    
+                    if (currentNote === sourcePath) {
+                        currentNote = result.path;
+                    }
+                } else {
+                    showNotification(`Error: ${result.error}`);
+                }
+            }
+        }
+    });
+}
 
 // Load file tree
 async function loadTree() {
@@ -28,6 +76,8 @@ function renderTree(items, container, level = 0) {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'tree-item';
         itemDiv.style.paddingLeft = `${level * 16 + 8}px`;
+        itemDiv.dataset.path = item.path;
+        itemDiv.dataset.type = item.type;
         
         if (item.type === 'folder') {
             itemDiv.classList.add('tree-folder');
@@ -43,9 +93,19 @@ function renderTree(items, container, level = 0) {
                     itemDiv.after(childContainer);
                 }
             });
+            
+            // Make folders drop targets
+            itemDiv.addEventListener('dragover', handleDragOver);
+            itemDiv.addEventListener('dragleave', handleDragLeave);
+            itemDiv.addEventListener('drop', handleDrop);
         } else {
             itemDiv.innerHTML = `<i class="fas fa-file-alt"></i> ${item.name}`;
+            itemDiv.setAttribute('draggable', 'true');
             itemDiv.addEventListener('click', () => loadNote(item.path));
+            
+            // Make files draggable
+            itemDiv.addEventListener('dragstart', handleDragStart);
+            itemDiv.addEventListener('dragend', handleDragEnd);
         }
         
         container.appendChild(itemDiv);
@@ -364,6 +424,74 @@ function setupEventListeners() {
             loadTree();
         }
     });
+}
+
+// Tree drag and drop handlers
+let draggedItem = null;
+
+function handleDragStart(e) {
+    draggedItem = e.target;
+    e.target.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', e.target.dataset.path);
+}
+
+function handleDragEnd(e) {
+    e.target.style.opacity = '1';
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    e.target.closest('.tree-folder').classList.add('drag-over');
+    return false;
+}
+
+function handleDragLeave(e) {
+    e.target.closest('.tree-folder').classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    e.preventDefault();
+    
+    const targetFolder = e.target.closest('.tree-folder');
+    targetFolder.classList.remove('drag-over');
+    
+    if (draggedItem && draggedItem !== targetFolder) {
+        const sourcePath = draggedItem.dataset.path;
+        const targetPath = targetFolder.dataset.path;
+        
+        // Move the file
+        const response = await fetch('/api/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source: sourcePath,
+                target: targetPath
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(`Moved to ${targetPath || 'root'}`);
+            loadTree();
+            
+            // If the moved file was currently open, update the current path
+            if (currentNote === sourcePath) {
+                currentNote = result.path;
+            }
+        } else {
+            showNotification(`Error: ${result.error}`);
+        }
+    }
+    
+    return false;
 }
 
 // Setup drag and drop

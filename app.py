@@ -325,5 +325,47 @@ def upload_file():
     })
 
 
+@app.route('/api/move', methods=['POST'])
+def move_note():
+    """Move a note to a different folder."""
+    data = request.json
+    source_path = data.get('source')
+    target_folder = data.get('target', '')
+    
+    if not source_path:
+        return jsonify({'error': 'Source path required'}), 400
+    
+    source_file = VAULT_PATH / source_path
+    
+    if not source_file.exists():
+        return jsonify({'error': 'Source file not found'}), 404
+    
+    # Build target path
+    filename = source_file.name
+    if target_folder:
+        target_file = VAULT_PATH / target_folder / filename
+    else:
+        target_file = VAULT_PATH / filename
+    
+    # Don't move if source and target are the same
+    if source_file == target_file:
+        return jsonify({'success': True, 'path': str(target_file.relative_to(VAULT_PATH))})
+    
+    # Check if target already exists
+    if target_file.exists():
+        return jsonify({'error': 'File already exists in target folder'}), 400
+    
+    # Create target directory if needed
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Move the file
+    source_file.rename(target_file)
+    
+    return jsonify({
+        'success': True,
+        'path': str(target_file.relative_to(VAULT_PATH))
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

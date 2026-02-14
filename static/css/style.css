@@ -129,6 +129,15 @@ body {
     font-weight: 500;
 }
 
+.tree-folder.drag-over {
+    background: #007acc;
+    border-radius: 4px;
+}
+
+.tree-item[draggable="true"] {
+    cursor: move;
+}
+
 .tree-children {
     margin-left: 16px;
 }
