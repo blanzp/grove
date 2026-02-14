@@ -875,40 +875,94 @@ def toggle_todo():
     return jsonify({'success': True})
 
 # Contacts import/export for name consistency
-@app.route('/api/contacts', methods=['GET'])
-def get_contacts():
-    contacts_path = VAULT_PATH / '.grove' / 'contacts.yaml'
-    if not contacts_path.exists():
-        return jsonify([])
-    data = contacts_path.read_text()
-    return jsonify({'raw': data})
-
-@app.route('/api/contacts', methods=['POST'])
-def set_contacts():
-    """Replace contacts file. Accepts JSON {contacts:[{id,name,aliases[]}]} or raw text under 'raw'."""
-    payload = request.json or {}
+def _contacts_path():
     grove_dir = VAULT_PATH / '.grove'
     grove_dir.mkdir(exist_ok=True)
-    contacts_path = grove_dir / 'contacts.yaml'
-    if 'raw' in payload:
-        contacts_path.write_text(payload['raw'])
-    else:
-        contacts = payload.get('contacts', [])
-        # Serialize to a simple YAML-like format without dependencies
-        lines = []
-        lines.append('contacts:')
-        for c in contacts:
-            lines.append('  - id: ' + str(c.get('id','')))
-            if 'name' in c:
-                lines.append('    name: ' + c['name'])
-            aliases = c.get('aliases', []) or []
-            if aliases:
-                lines.append('    aliases:')
-                for a in aliases:
-                    lines.append('      - ' + a)
-        lines.append('')
-        contacts_path.write_text('\n'.join(lines))
+    return grove_dir / 'contacts.json'
+
+def _read_contacts():
+    p = _contacts_path()
+    if not p.exists():
+        return []
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return []
+
+def _write_contacts(contacts):
+    _contacts_path().write_text(json.dumps(contacts, indent=2))
+
+@app.route('/api/contacts', methods=['GET'])
+def get_contacts():
+    return jsonify(_read_contacts())
+
+@app.route('/api/contacts', methods=['POST'])
+def add_contact():
+    """Add a new contact."""
+    data = request.json or {}
+    contacts = _read_contacts()
+    # Auto-generate id if missing
+    cid = data.get('id') or str(len(contacts) + 1)
+    contact = {
+        'id': cid,
+        'first_name': data.get('first_name', ''),
+        'last_name': data.get('last_name', ''),
+        'email': data.get('email', ''),
+        'company': data.get('company', ''),
+        'template': data.get('template', '[{{first_name}} {{last_name}}](mailto:{{email}})')
+    }
+    contacts.append(contact)
+    _write_contacts(contacts)
+    return jsonify({'success': True, 'contact': contact})
+
+@app.route('/api/contacts/<contact_id>', methods=['PUT'])
+def update_contact(contact_id):
+    """Update an existing contact."""
+    data = request.json or {}
+    contacts = _read_contacts()
+    for c in contacts:
+        if str(c.get('id')) == str(contact_id):
+            for field in ['first_name', 'last_name', 'email', 'company', 'template']:
+                if field in data:
+                    c[field] = data[field]
+            _write_contacts(contacts)
+            return jsonify({'success': True, 'contact': c})
+    return jsonify({'error': 'Contact not found'}), 404
+
+@app.route('/api/contacts/<contact_id>', methods=['DELETE'])
+def delete_contact(contact_id):
+    """Delete a contact."""
+    contacts = _read_contacts()
+    new_contacts = [c for c in contacts if str(c.get('id')) != str(contact_id)]
+    if len(new_contacts) == len(contacts):
+        return jsonify({'error': 'Contact not found'}), 404
+    _write_contacts(new_contacts)
     return jsonify({'success': True})
+
+@app.route('/api/contacts/import', methods=['POST'])
+def import_contacts():
+    """Bulk import contacts (JSON array)."""
+    data = request.json or []
+    if not isinstance(data, list):
+        data = data.get('contacts', [])
+    contacts = _read_contacts()
+    existing_ids = {str(c.get('id')) for c in contacts}
+    added = 0
+    for item in data:
+        cid = item.get('id') or str(len(contacts) + added + 1)
+        if str(cid) not in existing_ids:
+            contacts.append({
+                'id': cid,
+                'first_name': item.get('first_name', ''),
+                'last_name': item.get('last_name', ''),
+                'email': item.get('email', ''),
+                'company': item.get('company', ''),
+                'template': item.get('template', '[{{first_name}} {{last_name}}](mailto:{{email}})')
+            })
+            existing_ids.add(str(cid))
+            added += 1
+    _write_contacts(contacts)
+    return jsonify({'success': True, 'added': added, 'total': len(contacts)})
 
 
 if __name__ == '__main__':

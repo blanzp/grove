@@ -5,6 +5,7 @@ let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
 let autoSaveTimeout = null;
 let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]');
+let allContacts = [];
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initVaultSelect();
+    loadContacts();
 
     loadTree();
     loadTags();
@@ -439,6 +441,232 @@ async function shareViaCopyHtml() {
     }
 }
 
+// ─── Contacts Management ───
+
+async function loadContacts() {
+    try {
+        const resp = await fetch('/api/contacts');
+        allContacts = await resp.json();
+        if (!Array.isArray(allContacts)) allContacts = [];
+    } catch (e) { allContacts = []; }
+}
+
+function openContactsModal() {
+    renderContactsList();
+    showModal('contacts-modal');
+}
+
+function renderContactsList() {
+    const container = document.getElementById('contacts-list');
+    if (allContacts.length === 0) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);">No contacts yet.</div>';
+        return;
+    }
+    container.innerHTML = '';
+    allContacts.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+        row.innerHTML = `
+            <div class="contact-info">
+                <div class="name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</div>
+                <div class="detail">${escapeHtml(c.email || '')}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
+            </div>
+            <div class="contact-actions">
+                <button class="btn-secondary" style="padding:4px 8px;" data-edit="${c.id}"><i class="fas fa-pen"></i></button>
+                <button class="btn-secondary" style="padding:4px 8px;" data-delete="${c.id}"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+        row.querySelector('[data-edit]').addEventListener('click', () => openContactEdit(c));
+        row.querySelector('[data-delete]').addEventListener('click', async () => {
+            if (!confirm(`Delete ${c.first_name} ${c.last_name}?`)) return;
+            await fetch(`/api/contacts/${c.id}`, {method:'DELETE'});
+            await loadContacts();
+            renderContactsList();
+        });
+        container.appendChild(row);
+    });
+}
+
+function openContactEdit(contact) {
+    document.getElementById('contact-edit-title').textContent = contact ? 'Edit Contact' : 'Add Contact';
+    document.getElementById('contact-edit-id').value = contact ? contact.id : '';
+    document.getElementById('contact-first-name').value = contact ? contact.first_name : '';
+    document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
+    document.getElementById('contact-email').value = contact ? contact.email : '';
+    document.getElementById('contact-company').value = contact ? contact.company : '';
+    document.getElementById('contact-template').value = contact ? contact.template : '[{{first_name}} {{last_name}}](mailto:{{email}})';
+    showModal('contact-edit-modal');
+    setTimeout(() => document.getElementById('contact-first-name').focus(), 0);
+}
+
+async function saveContactFromModal() {
+    const id = document.getElementById('contact-edit-id').value;
+    const data = {
+        first_name: document.getElementById('contact-first-name').value.trim(),
+        last_name: document.getElementById('contact-last-name').value.trim(),
+        email: document.getElementById('contact-email').value.trim(),
+        company: document.getElementById('contact-company').value.trim(),
+        template: document.getElementById('contact-template').value.trim() || '[{{first_name}} {{last_name}}](mailto:{{email}})'
+    };
+    if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
+    if (id) {
+        await fetch(`/api/contacts/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    } else {
+        await fetch('/api/contacts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    }
+    hideModal('contact-edit-modal');
+    await loadContacts();
+    renderContactsList();
+    showNotification(id ? 'Contact updated' : 'Contact added');
+}
+
+async function importContactsPrompt() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        try {
+            let data = JSON.parse(text);
+            if (!Array.isArray(data)) data = data.contacts || [];
+            const resp = await fetch('/api/contacts/import', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+            const result = await resp.json();
+            await loadContacts();
+            renderContactsList();
+            showNotification(`Imported ${result.added} contacts (${result.total} total)`);
+        } catch (err) {
+            showNotification('Invalid JSON file');
+        }
+    };
+    input.click();
+}
+
+// ─── @ Mention Autocomplete ───
+
+function setupMentionAutocomplete() {
+    const editor = document.getElementById('editor');
+    const dropdown = document.getElementById('mention-dropdown');
+    let mentionStart = -1;
+    let activeIndex = 0;
+    let filtered = [];
+
+    function closeMention() {
+        dropdown.style.display = 'none';
+        mentionStart = -1;
+        filtered = [];
+        activeIndex = 0;
+    }
+
+    function renderMentionDropdown() {
+        dropdown.innerHTML = '';
+        filtered.forEach((c, i) => {
+            const item = document.createElement('div');
+            item.className = 'mention-item' + (i === activeIndex ? ' active' : '');
+            item.innerHTML = `
+                <span class="mention-name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</span>
+                <span class="mention-detail">${escapeHtml(c.email || '')}${c.company ? ' · ' + escapeHtml(c.company) : ''}</span>
+            `;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                insertMention(c);
+            });
+            dropdown.appendChild(item);
+        });
+    }
+
+    function insertMention(contact) {
+        let tpl = contact.template || '[{{first_name}} {{last_name}}](mailto:{{email}})';
+        tpl = tpl.replace(/\{\{first_name\}\}/g, contact.first_name || '');
+        tpl = tpl.replace(/\{\{last_name\}\}/g, contact.last_name || '');
+        tpl = tpl.replace(/\{\{email\}\}/g, contact.email || '');
+        tpl = tpl.replace(/\{\{company\}\}/g, contact.company || '');
+        tpl = tpl.replace(/\{\{id\}\}/g, contact.id || '');
+
+        const text = editor.value;
+        const before = text.substring(0, mentionStart);
+        const after = text.substring(editor.selectionStart);
+        editor.value = before + tpl + after;
+        const newPos = before.length + tpl.length;
+        editor.selectionStart = editor.selectionEnd = newPos;
+        editor.focus();
+        closeMention();
+    }
+
+    function positionDropdown() {
+        // Approximate position near cursor
+        const rect = editor.getBoundingClientRect();
+        const lineHeight = 20;
+        const text = editor.value.substring(0, editor.selectionStart);
+        const lines = text.split('\n');
+        const currentLine = lines.length - 1;
+        const scrollTop = editor.scrollTop;
+        const top = rect.top + (currentLine * lineHeight) - scrollTop + lineHeight + 4;
+        const col = lines[lines.length - 1].length;
+        const left = rect.left + Math.min(col * 8, rect.width - 260);
+        dropdown.style.top = Math.min(top, rect.bottom - 40) + 'px';
+        dropdown.style.left = Math.max(left, rect.left) + 'px';
+    }
+
+    editor.addEventListener('input', () => {
+        const pos = editor.selectionStart;
+        const text = editor.value;
+
+        // Find @ trigger
+        let atPos = -1;
+        for (let i = pos - 1; i >= 0; i--) {
+            if (text[i] === '@') { atPos = i; break; }
+            if (text[i] === ' ' || text[i] === '\n') break;
+        }
+
+        if (atPos >= 0) {
+            const query = text.substring(atPos + 1, pos).toLowerCase();
+            filtered = allContacts.filter(c => {
+                const full = ((c.first_name || '') + ' ' + (c.last_name || '') + ' ' + (c.email || '') + ' ' + (c.company || '')).toLowerCase();
+                return full.includes(query);
+            }).slice(0, 8);
+
+            if (filtered.length > 0) {
+                mentionStart = atPos;
+                activeIndex = 0;
+                positionDropdown();
+                renderMentionDropdown();
+                dropdown.style.display = 'block';
+            } else {
+                closeMention();
+            }
+        } else {
+            closeMention();
+        }
+    });
+
+    editor.addEventListener('keydown', (e) => {
+        if (dropdown.style.display === 'none') return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % filtered.length;
+            renderMentionDropdown();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
+            renderMentionDropdown();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (filtered.length > 0) {
+                e.preventDefault();
+                insertMention(filtered[activeIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            closeMention();
+        }
+    });
+
+    editor.addEventListener('blur', () => {
+        setTimeout(closeMention, 200);
+    });
+}
+
 async function openFrontmatterPreview() {
     if (!currentNote) return;
     const resp = await fetch(`/api/note/${currentNote}`);
@@ -804,6 +1032,17 @@ function setupEventListeners() {
     document.getElementById('share-email').addEventListener('click', shareViaEmail);
     document.getElementById('share-copy').addEventListener('click', shareViaCopyMarkdown);
     document.getElementById('share-copy-html').addEventListener('click', shareViaCopyHtml);
+
+    // Contacts
+    document.getElementById('contacts-btn').addEventListener('click', openContactsModal);
+    document.getElementById('close-contacts-btn').addEventListener('click', () => hideModal('contacts-modal'));
+    document.getElementById('add-contact-btn').addEventListener('click', () => openContactEdit(null));
+    document.getElementById('import-contacts-btn').addEventListener('click', importContactsPrompt);
+    document.getElementById('save-contact-btn').addEventListener('click', saveContactFromModal);
+    document.getElementById('cancel-contact-btn').addEventListener('click', () => hideModal('contact-edit-modal'));
+
+    // @ mention autocomplete
+    setupMentionAutocomplete();
 
     // Frontmatter preview (read-only)
     document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);

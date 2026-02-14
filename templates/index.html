@@ -27,6 +27,7 @@
                     <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
                     <button id="meeting-note" title="New Meeting Note"><i class="fas fa-handshake"></i></button>
                     <button id="todos-btn" title="Todo Dashboard"><i class="fas fa-tasks"></i></button>
+                    <button id="contacts-btn" title="Manage Contacts"><i class="fas fa-address-book"></i></button>
                     <select id="vault-select" title="Current Vault" style="margin-left:auto; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px;">
                         <option>vault</option>
                     </select>
@@ -130,6 +131,9 @@
                 <button title="Wikilink" data-action="wikilink"><i class="fas fa-brackets-curly"></i>[[</button>
             </div>
             
+            <!-- @ mention autocomplete dropdown -->
+            <div id="mention-dropdown" class="mention-dropdown" style="display:none;"></div>
+
             <div class="editor-container" id="drop-zone">
                 <textarea id="editor" placeholder="Select or create a note to start editing..."></textarea>
                 <div class="preview-container" id="preview">
@@ -170,6 +174,41 @@
             <pre id="frontmatter-view" style="max-height: 50vh; overflow: auto; background: var(--bg-tertiary); color: var(--text-primary); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></pre>
             <div class="modal-actions">
                 <button class="btn-secondary" id="close-frontmatter-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contacts Modal -->
+    <div class="modal" id="contacts-modal">
+        <div class="modal-content modal-large">
+            <h2>Contacts</h2>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button class="btn-primary" id="add-contact-btn"><i class="fas fa-plus"></i> Add Contact</button>
+                <button class="btn-secondary" id="import-contacts-btn"><i class="fas fa-file-import"></i> Import JSON</button>
+            </div>
+            <div id="contacts-list" style="max-height: 50vh; overflow-y: auto;"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-contacts-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Edit Modal -->
+    <div class="modal" id="contact-edit-modal">
+        <div class="modal-content modal-small">
+            <h2 id="contact-edit-title">Add Contact</h2>
+            <input type="hidden" id="contact-edit-id">
+            <input type="text" id="contact-first-name" placeholder="First Name">
+            <input type="text" id="contact-last-name" placeholder="Last Name">
+            <input type="text" id="contact-email" placeholder="Email">
+            <input type="text" id="contact-company" placeholder="Company">
+            <input type="text" id="contact-template" placeholder="Template (e.g., [{{first_name}}](mailto:{{email}}))">
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                Placeholders: {{first_name}}, {{last_name}}, {{email}}, {{company}}, {{id}}
+            </p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="save-contact-btn">Save</button>
+                <button class="btn-secondary" id="cancel-contact-btn">Cancel</button>
             </div>
         </div>
     </div>
