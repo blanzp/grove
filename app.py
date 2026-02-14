@@ -875,6 +875,36 @@ def toggle_todo():
     return jsonify({'success': True})
 
 # Contacts import/export for name consistency
+def _grove_config():
+    """Read .grove/config.json for the active vault."""
+    cfg_path = VAULT_PATH / '.grove' / 'config.json'
+    if cfg_path.exists():
+        try:
+            return json.loads(cfg_path.read_text())
+        except Exception:
+            return {}
+    return {}
+
+def _save_grove_config(cfg):
+    grove_dir = VAULT_PATH / '.grove'
+    grove_dir.mkdir(exist_ok=True)
+    (grove_dir / 'config.json').write_text(json.dumps(cfg, indent=2))
+
+def _default_contact_template():
+    return _grove_config().get('default_contact_template', '[{{first_name}} {{last_name}}](mailto:{{email}})')
+
+@app.route('/api/config', methods=['GET'])
+def get_grove_config():
+    return jsonify(_grove_config())
+
+@app.route('/api/config', methods=['PUT'])
+def update_grove_config():
+    data = request.json or {}
+    cfg = _grove_config()
+    cfg.update(data)
+    _save_grove_config(cfg)
+    return jsonify({'success': True, 'config': cfg})
+
 def _contacts_path():
     grove_dir = VAULT_PATH / '.grove'
     grove_dir.mkdir(exist_ok=True)
@@ -909,7 +939,7 @@ def add_contact():
         'last_name': data.get('last_name', ''),
         'email': data.get('email', ''),
         'company': data.get('company', ''),
-        'template': data.get('template', '[{{first_name}} {{last_name}}](mailto:{{email}})')
+        'template': data.get('template', _default_contact_template())
     }
     contacts.append(contact)
     _write_contacts(contacts)
@@ -957,7 +987,7 @@ def import_contacts():
                 'last_name': item.get('last_name', ''),
                 'email': item.get('email', ''),
                 'company': item.get('company', ''),
-                'template': item.get('template', '[{{first_name}} {{last_name}}](mailto:{{email}})')
+                'template': item.get('template', _default_contact_template())
             })
             existing_ids.add(str(cid))
             added += 1

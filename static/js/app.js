@@ -6,6 +6,7 @@ let previewMode = 'edit'; // 'edit', 'split', 'preview'
 let autoSaveTimeout = null;
 let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]');
 let allContacts = [];
+let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -449,6 +450,11 @@ async function loadContacts() {
         allContacts = await resp.json();
         if (!Array.isArray(allContacts)) allContacts = [];
     } catch (e) { allContacts = []; }
+    // Load default contact template from config
+    try {
+        const cfg = await (await fetch('/api/config')).json();
+        if (cfg.default_contact_template) defaultContactTemplate = cfg.default_contact_template;
+    } catch (e) {}
 }
 
 function openContactsModal() {
@@ -494,7 +500,7 @@ function openContactEdit(contact) {
     document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
     document.getElementById('contact-email').value = contact ? contact.email : '';
     document.getElementById('contact-company').value = contact ? contact.company : '';
-    document.getElementById('contact-template').value = contact ? contact.template : '[{{first_name}} {{last_name}}](mailto:{{email}})';
+    document.getElementById('contact-template').value = contact ? contact.template : defaultContactTemplate;
     showModal('contact-edit-modal');
     setTimeout(() => document.getElementById('contact-first-name').focus(), 0);
 }
@@ -506,7 +512,7 @@ async function saveContactFromModal() {
         last_name: document.getElementById('contact-last-name').value.trim(),
         email: document.getElementById('contact-email').value.trim(),
         company: document.getElementById('contact-company').value.trim(),
-        template: document.getElementById('contact-template').value.trim() || '[{{first_name}} {{last_name}}](mailto:{{email}})'
+        template: document.getElementById('contact-template').value.trim() || defaultContactTemplate
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
     if (id) {
