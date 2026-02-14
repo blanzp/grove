@@ -1,6 +1,7 @@
 ---
 title: {{title}}
 created: {{date}}
+type: reflection
 tags:
   - reflection
 ---

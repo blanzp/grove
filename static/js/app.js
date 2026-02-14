@@ -1001,7 +1001,8 @@ async function deleteNote() {
     
     if (!confirm('Are you sure you want to delete this note?')) return;
     
-    const response = await fetch(`/api/note/${currentNote}`, {
+    const toRemove = currentNote; // capture before clearing
+    const response = await fetch(`/api/note/${toRemove}`, {
         method: 'DELETE'
     });
     
@@ -1015,12 +1016,14 @@ async function deleteNote() {
         document.getElementById('editor').value = '';
         document.getElementById('editor').disabled = true;
         document.getElementById('tags-btn').disabled = true;
-        document.getElementById('frontmatter-toggle').disabled = true;
+        const fmToggle = document.getElementById('frontmatter-toggle');
+        if (fmToggle) fmToggle.disabled = true;
         document.getElementById('preview-toggle').disabled = true;
         document.getElementById('delete-btn').disabled = true;
         document.getElementById('rename-btn').disabled = true;
         loadTree();
-        removeFromRecent(currentNote);
+        removeFromRecent(toRemove);
+        updateBreadcrumbs();
     }
 }
 
