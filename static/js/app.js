@@ -601,9 +601,21 @@ function renderPreview() {
         if (typeof marked === 'function') {
             const html = marked(content);
             preview.innerHTML = html;
+            preview.querySelectorAll('li').forEach(li => {
+                const el = li.firstElementChild;
+                if (el && el.tagName === 'INPUT' && el.type === 'checkbox') {
+                    li.style.listStyle = 'none';
+                }
+            });
         } else if (typeof marked === 'object' && typeof marked.parse === 'function') {
             const html = marked.parse(content);
             preview.innerHTML = html;
+            preview.querySelectorAll('li').forEach(li => {
+                const el = li.firstElementChild;
+                if (el && el.tagName === 'INPUT' && el.type === 'checkbox') {
+                    li.style.listStyle = 'none';
+                }
+            });
         } else {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly</div>';
         }
@@ -1370,8 +1382,8 @@ function applyMarkdownAction(action, editor) {
             insert = selected || 'list item';
             break;
         case 'checkbox':
-            // No leading dash in todo checkboxes
-            before = getLinePrefix(text, start) + '[ ] '; after = '';
+            // Insert with leading dash; preview will hide bullets for task items
+            before = getLinePrefix(text, start) + '- [ ] '; after = '';
             insert = selected || 'task';
             break;
         case 'link':
