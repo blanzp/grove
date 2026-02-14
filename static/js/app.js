@@ -1544,6 +1544,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sm) sm.addEventListener('click', () => document.getElementById('meeting-note').click());
     const std = document.getElementById('splash-todos');
     if (std) std.addEventListener('click', () => document.getElementById('todos-btn').click());
+    const sc = document.getElementById('splash-contacts');
+    if (sc) sc.addEventListener('click', () => document.getElementById('contacts-btn').click());
     if (!currentNote) showSplash(true);
 });
 
