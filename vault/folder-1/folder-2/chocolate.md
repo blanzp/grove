@@ -10,3 +10,5 @@ type: note
 1. 
 
 - [ ] choco task
+
+![dog](../resources/dog.png)

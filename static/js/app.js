@@ -442,6 +442,77 @@ async function shareViaCopyHtml() {
     }
 }
 
+// ─── Image Upload & Paste ───
+
+function uploadImageForEditor(editor) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.pdf';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'attachments');
+        try {
+            const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+            const result = await resp.json();
+            if (result.success) {
+                insertTextAtCursor(editor, result.markdown + '\n');
+                showNotification('Image uploaded');
+            } else {
+                showNotification(result.error || 'Upload failed');
+            }
+        } catch (err) {
+            showNotification('Upload failed');
+        }
+    };
+    input.click();
+}
+
+async function handleImagePaste(e) {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const b64 = reader.result;
+                const ext = blob.type.split('/')[1] || 'png';
+                const filename = `paste-${Date.now()}.${ext}`;
+                try {
+                    const resp = await fetch('/api/upload/paste', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: b64, filename, folder: 'attachments' })
+                    });
+                    const result = await resp.json();
+                    if (result.success) {
+                        insertTextAtCursor(e.target, result.markdown + '\n');
+                        showNotification('Image pasted');
+                    }
+                } catch (err) {
+                    showNotification('Paste upload failed');
+                }
+            };
+            reader.readAsDataURL(blob);
+            return;
+        }
+    }
+}
+
+function insertTextAtCursor(editor, text) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const val = editor.value;
+    editor.value = val.substring(0, start) + text + val.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + text.length;
+    editor.focus();
+}
+
 // ─── Contacts Management ───
 
 async function loadContacts() {
@@ -943,6 +1014,9 @@ function setupEventListeners() {
             renderPreview();
         }
     });
+
+    // Paste image from clipboard
+    editorEl.addEventListener('paste', handleImagePaste);
 
     // Sync preview scroll with editor scroll (split view)
     editorEl.addEventListener('scroll', handleEditorScrollSync);
@@ -1720,8 +1794,9 @@ function applyMarkdownAction(action, editor) {
             }
             break;
         case 'image':
-            insert = '![alt text](image-url)';
-            break;
+            // Trigger file upload dialog
+            uploadImageForEditor(editor);
+            return; // Don't insert placeholder
         case 'code':
             before = '`'; after = '`';
             insert = selected || 'code';

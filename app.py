@@ -1,10 +1,11 @@
 """MDVault Web - Markdown vault manager web application."""
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from pathlib import Path
 import os
 import json
 import re
+import uuid
 from datetime import datetime
 
 app = Flask(__name__)
@@ -993,6 +994,93 @@ def import_contacts():
             added += 1
     _write_contacts(contacts)
     return jsonify({'success': True, 'added': added, 'total': len(contacts)})
+
+
+# ─── File serving (images, attachments) ───
+
+ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.pdf', '.mp3', '.mp4', '.wav'}
+
+@app.route('/api/file/<path:file_path>')
+def serve_file(file_path):
+    """Serve any file from the vault (images, attachments, etc.)."""
+    full_path = VAULT_PATH / file_path
+    if not full_path.exists() or not full_path.is_file():
+        return jsonify({'error': 'File not found'}), 404
+    # Security: ensure path is within vault
+    try:
+        full_path.resolve().relative_to(VAULT_PATH.resolve())
+    except ValueError:
+        return jsonify({'error': 'Access denied'}), 403
+    return send_file(full_path)
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Upload a file to the vault. Supports multipart form or JSON base64."""
+    # Determine target folder
+    folder = request.form.get('folder', request.args.get('folder', 'attachments'))
+    target_dir = VAULT_PATH / folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    if 'file' in request.files:
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'No file selected'}), 400
+        ext = Path(f.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return jsonify({'error': f'File type {ext} not allowed'}), 400
+        # Sanitize filename, add uuid prefix to avoid collisions
+        safe_name = re.sub(r'[^\w\s.-]', '', f.filename).strip()
+        if not safe_name:
+            safe_name = str(uuid.uuid4())[:8] + ext
+        file_path = target_dir / safe_name
+        # Avoid overwrite
+        if file_path.exists():
+            stem = file_path.stem
+            file_path = target_dir / f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
+        f.save(str(file_path))
+    else:
+        return jsonify({'error': 'No file provided'}), 400
+
+    rel_path = str(file_path.relative_to(VAULT_PATH))
+    return jsonify({
+        'success': True,
+        'path': rel_path,
+        'url': f'/api/file/{rel_path}',
+        'markdown': f'![{file_path.stem}](/api/file/{rel_path})'
+    })
+
+@app.route('/api/upload/paste', methods=['POST'])
+def upload_paste():
+    """Upload an image from clipboard paste (base64 data)."""
+    import base64
+    data = request.json or {}
+    b64 = data.get('data', '')
+    filename = data.get('filename', f'paste-{uuid.uuid4().hex[:8]}.png')
+    folder = data.get('folder', 'attachments')
+
+    if not b64:
+        return jsonify({'error': 'No data'}), 400
+
+    # Strip data URL prefix if present
+    if ',' in b64:
+        b64 = b64.split(',', 1)[1]
+
+    target_dir = VAULT_PATH / folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+    file_path = target_dir / filename
+    if file_path.exists():
+        stem = file_path.stem
+        ext = file_path.suffix
+        file_path = target_dir / f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
+
+    file_path.write_bytes(base64.b64decode(b64))
+    rel_path = str(file_path.relative_to(VAULT_PATH))
+    return jsonify({
+        'success': True,
+        'path': rel_path,
+        'url': f'/api/file/{rel_path}',
+        'markdown': f'![{file_path.stem}](/api/file/{rel_path})'
+    })
 
 
 if __name__ == '__main__':

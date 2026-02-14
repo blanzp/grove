@@ -6,5 +6,13 @@
     "email": "",
     "company": "",
     "template": "http://phone.google.com/{{id}}"
+  },
+  {
+    "id": "11",
+    "first_name": "Mack",
+    "last_name": "Blanz",
+    "email": "ma.b@google.com",
+    "company": "",
+    "template": "[{{last_name}},{{first_name}}](http://phone.google.com/{{id}})"
   }
 ]
