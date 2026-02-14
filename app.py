@@ -78,11 +78,13 @@ def extract_frontmatter(content):
     return frontmatter, body
 
 
-def build_frontmatter(title, tags):
+def build_frontmatter(title, tags, doc_type=None):
     """Build YAML frontmatter."""
     fm = "---\n"
     fm += f"title: {title}\n"
     fm += f"created: {datetime.now().isoformat()}\n"
+    if doc_type:
+        fm += f"type: {doc_type}\n"
     if tags:
         fm += "tags:\n"
         for tag in tags:
@@ -283,6 +285,8 @@ def create_note():
     file_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Build content
+    allowed_types = {"decision","research","execution","reflection","meeting"}
+    doc_type = template if (template and template.lower() in allowed_types) else None
     if template:
         template_path = TEMPLATES_PATH / f"{template}.md"
         if template_path.exists():
@@ -290,10 +294,46 @@ def create_note():
             # Replace placeholders
             content = content.replace('{{title}}', title)
             content = content.replace('{{date}}', datetime.now().strftime('%Y-%m-%d'))
+            # Ensure frontmatter exists and inject metadata
+            fm_match = re.match(r'^---\n(.*?)\n---\n(.*)', content, re.DOTALL)
+            if fm_match:
+                fm_text, body = fm_match.group(1), fm_match.group(2)
+                fm_lines = fm_text.split('\n')
+                new_lines = []
+                skip = False
+                for i, line in enumerate(fm_lines):
+                    st = line.strip()
+                    if skip and st.startswith('-'):
+                        continue
+                    else:
+                        skip = False
+                    if st.startswith('tags:'):
+                        if i + 1 < len(fm_lines) and fm_lines[i + 1].strip().startswith('-'):
+                            skip = True
+                        continue
+                    if st.startswith('title:'):
+                        line = f'title: {title}'
+                    new_lines.append(line)
+                if not any(l.strip().startswith('created:') for l in new_lines):
+                    new_lines.append(f'created: {datetime.now().isoformat()}')
+                if not any(l.strip().startswith('title:') for l in new_lines):
+                    new_lines.insert(0, f'title: {title}')
+                if doc_type and not any(l.strip().startswith('type:') for l in new_lines):
+                    new_lines.append(f'type: {doc_type}')
+                if tags:
+                    new_lines.append('tags:')
+                    for t in tags:
+                        new_lines.append(f'  - {t}')
+                fm_built = '\n'.join(new_lines)
+                if not fm_built.endswith('\n'):
+                    fm_built += '\n'
+                content = f"---{fm_built}---\n{body}"
+            else:
+                content = build_frontmatter(title, tags, doc_type) + content
         else:
-            content = build_frontmatter(title, tags) + f"# {title}\n\n"
+            content = build_frontmatter(title, tags, doc_type) + f"# {title}\n\n"
     else:
-        content = build_frontmatter(title, tags) + f"# {title}\n\n"
+        content = build_frontmatter(title, tags, doc_type) + f"# {title}\n\n"
     
     file_path.write_text(content)
     
@@ -339,6 +379,7 @@ def create_daily():
         content = f"""---
 title: {today}
 created: {datetime.now().isoformat()}
+type: daily
 tags:
   - daily
 ---
@@ -349,7 +390,7 @@ tags:
 
 ## Tasks
 
-- [ ] 
+[ ] 
 
 ## Links
 
