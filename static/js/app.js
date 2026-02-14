@@ -1217,6 +1217,14 @@ function setupEventListeners() {
     document.getElementById('meeting-note').addEventListener('click', createMeetingNote);
     
     // Create note modal
+    // Enter key in new note modal triggers create
+    document.getElementById('modal-note-title').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('create-note-btn').click(); }
+    });
+    document.getElementById('modal-note-tags').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('create-note-btn').click(); }
+    });
+
     document.getElementById('create-note-btn').addEventListener('click', () => {
         const title = document.getElementById('modal-note-title').value;
         const tags = document.getElementById('modal-note-tags').value.split(',').map(t => t.trim()).filter(t => t);
