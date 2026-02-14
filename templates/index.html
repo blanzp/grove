@@ -18,6 +18,7 @@
                     <button id="new-note" title="New Note (Ctrl+N)"><i class="fas fa-file-alt"></i></button>
                     <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
                     <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
+                    <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
                     <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
                     <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -105,6 +106,44 @@
             <div class="modal-actions">
                 <button class="btn-primary" id="create-folder-btn">Create</button>
                 <button class="btn-secondary" id="cancel-folder-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="templates-modal">
+        <div class="modal-content modal-large">
+            <h2>Manage Templates</h2>
+            <div class="templates-container">
+                <div class="templates-list">
+                    <h3>Templates</h3>
+                    <button class="btn-primary" id="new-template-btn" style="width: 100%; margin-bottom: 12px;">
+                        <i class="fas fa-plus"></i> New Template
+                    </button>
+                    <div id="templates-list-items"></div>
+                </div>
+                <div class="template-editor">
+                    <div id="template-editor-empty" class="template-empty">
+                        <i class="fas fa-file-contract" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
+                        <p>Select a template to edit or create a new one</p>
+                    </div>
+                    <div id="template-editor-content" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 id="template-editor-title">Template Name</h3>
+                            <div>
+                                <button class="btn-primary" id="save-template-btn"><i class="fas fa-save"></i> Save</button>
+                                <button class="btn-secondary" id="delete-template-btn"><i class="fas fa-trash"></i> Delete</button>
+                            </div>
+                        </div>
+                        <textarea id="template-editor-textarea" placeholder="Enter template content...
+
+Use placeholders:
+- {{title}} for note title
+- {{date}} for current date"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-templates-btn">Close</button>
             </div>
         </div>
     </div>

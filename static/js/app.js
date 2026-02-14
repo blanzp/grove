@@ -916,3 +916,158 @@ renderPreview = function() {
     originalRenderPreview();
     makeWikilinksClickable();
 };
+
+// Template management
+let currentTemplate = null;
+let allTemplates = [];
+
+async function loadTemplatesModal() {
+    const response = await fetch('/api/templates');
+    allTemplates = await response.json();
+    
+    const container = document.getElementById('templates-list-items');
+    container.innerHTML = '';
+    
+    if (allTemplates.length === 0) {
+        container.innerHTML = '<div style="font-size: 12px; color: #888; padding: 8px;">No templates yet</div>';
+        return;
+    }
+    
+    allTemplates.forEach(template => {
+        const item = document.createElement('div');
+        item.className = 'template-list-item';
+        item.textContent = template.name;
+        item.addEventListener('click', () => loadTemplateForEdit(template.name));
+        container.appendChild(item);
+    });
+}
+
+async function loadTemplateForEdit(templateName) {
+    const response = await fetch(`/api/template/${templateName}`);
+    const template = await response.json();
+    
+    currentTemplate = templateName;
+    
+    // Show editor
+    document.getElementById('template-editor-empty').style.display = 'none';
+    document.getElementById('template-editor-content').style.display = 'flex';
+    
+    // Update UI
+    document.getElementById('template-editor-title').textContent = templateName;
+    document.getElementById('template-editor-textarea').value = template.content;
+    
+    // Highlight active template
+    document.querySelectorAll('.template-list-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.textContent === templateName) {
+            item.classList.add('active');
+        }
+    });
+}
+
+async function saveTemplate() {
+    if (!currentTemplate) return;
+    
+    const content = document.getElementById('template-editor-textarea').value;
+    
+    const response = await fetch(`/api/template/${currentTemplate}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+    
+    if (response.ok) {
+        showNotification('Template saved');
+    }
+}
+
+async function createNewTemplate() {
+    const name = prompt('Enter template name:');
+    if (!name) return;
+    
+    const response = await fetch('/api/template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: name,
+            content: `---
+title: {{title}}
+created: {{date}}
+tags:
+  - 
+---
+
+# {{title}}
+
+`
+        })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+        showNotification('Template created');
+        loadTemplatesModal();
+        loadTemplateForEdit(result.name);
+        loadTemplates(); // Reload template dropdown
+    } else {
+        alert(result.error);
+    }
+}
+
+async function deleteTemplate() {
+    if (!currentTemplate) return;
+    
+    if (!confirm(`Delete template "${currentTemplate}"?`)) return;
+    
+    const response = await fetch(`/api/template/${currentTemplate}`, {
+        method: 'DELETE'
+    });
+    
+    if (response.ok) {
+        showNotification('Template deleted');
+        currentTemplate = null;
+        document.getElementById('template-editor-empty').style.display = 'flex';
+        document.getElementById('template-editor-content').style.display = 'none';
+        loadTemplatesModal();
+        loadTemplates(); // Reload template dropdown
+    }
+}
+
+function openTemplatesModal() {
+    loadTemplatesModal();
+    showModal('templates-modal');
+}
+
+// Update loadTemplates to work with new API format
+async function loadTemplatesUpdated() {
+    const response = await fetch('/api/templates');
+    const templates = await response.json();
+    
+    const select = document.getElementById('modal-template');
+    select.innerHTML = '<option value="">None</option>';
+    
+    templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.name;
+        option.textContent = template.name;
+        select.appendChild(option);
+    });
+}
+
+// Override old loadTemplates
+loadTemplates = loadTemplatesUpdated;
+
+// Add event listeners for template management
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
+    document.getElementById('new-template-btn').addEventListener('click', createNewTemplate);
+    document.getElementById('save-template-btn').addEventListener('click', saveTemplate);
+    document.getElementById('delete-template-btn').addEventListener('click', deleteTemplate);
+    document.getElementById('close-templates-btn').addEventListener('click', () => {
+        hideModal('templates-modal');
+        currentTemplate = null;
+        document.getElementById('template-editor-empty').style.display = 'flex';
+        document.getElementById('template-editor-content').style.display = 'none';
+    });
+});

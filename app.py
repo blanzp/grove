@@ -288,8 +288,81 @@ def get_templates():
     """Get available templates."""
     templates = []
     for template_file in TEMPLATES_PATH.glob('*.md'):
-        templates.append(template_file.stem)
+        templates.append({
+            'name': template_file.stem,
+            'path': str(template_file.relative_to(VAULT_PATH))
+        })
     return jsonify(templates)
+
+
+@app.route('/api/template/<template_name>')
+def get_template(template_name):
+    """Get a template's content."""
+    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    
+    if not template_path.exists():
+        return jsonify({'error': 'Template not found'}), 404
+    
+    content = template_path.read_text()
+    
+    return jsonify({
+        'name': template_name,
+        'content': content
+    })
+
+
+@app.route('/api/template', methods=['POST'])
+def create_template():
+    """Create a new template."""
+    data = request.json
+    name = data.get('name')
+    content = data.get('content', '')
+    
+    if not name:
+        return jsonify({'error': 'Template name required'}), 400
+    
+    # Sanitize name
+    filename = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '-').lower()
+    template_path = TEMPLATES_PATH / f"{filename}.md"
+    
+    if template_path.exists():
+        return jsonify({'error': 'Template already exists'}), 400
+    
+    template_path.write_text(content)
+    
+    return jsonify({
+        'success': True,
+        'name': filename
+    })
+
+
+@app.route('/api/template/<template_name>', methods=['PUT'])
+def update_template(template_name):
+    """Update a template's content."""
+    data = request.json
+    content = data.get('content', '')
+    
+    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    
+    if not template_path.exists():
+        return jsonify({'error': 'Template not found'}), 404
+    
+    template_path.write_text(content)
+    
+    return jsonify({'success': True})
+
+
+@app.route('/api/template/<template_name>', methods=['DELETE'])
+def delete_template(template_name):
+    """Delete a template."""
+    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    
+    if not template_path.exists():
+        return jsonify({'error': 'Template not found'}), 404
+    
+    template_path.unlink()
+    
+    return jsonify({'success': True})
 
 
 @app.route('/api/upload', methods=['POST'])
