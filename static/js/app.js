@@ -514,8 +514,11 @@ function renderPreview() {
     let content = document.getElementById('editor').value;
     const preview = document.getElementById('preview');
     
-    // Strip frontmatter (YAML between --- markers)
-    content = content.replace(/^---\n.*?\n---\n/s, '');
+    // Strip frontmatter only if it's visible in the editor
+    if (showFrontmatter) {
+        const { body } = stripFrontmatter(content);
+        content = body;
+    }
     
     try {
         // Handle both old and new marked.js API
