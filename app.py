@@ -354,44 +354,6 @@ def save_note(note_path):
     data = request.json
     content = data.get('content', '')
 
-    # Ensure we have frontmatter + body
-    fm, body = extract_frontmatter(content)
-    fm_block = ''
-    if fm:
-        # Rebuild frontmatter from parsed fm to preserve order; minimally keep original block
-        m = re.match(r'^(---\n[\s\S]*?\n---)\n([\s\S]*)$', content)
-        if m:
-            fm_block = m.group(1)
-            body = m.group(2)
-    
-    # Auto-slug H2/H3 headings by appending {#slug} if missing
-    def slugify(t):
-        t = re.sub(r'\{#.*?\}\s*$', '', t)  # drop existing id
-        s = re.sub(r'[^a-zA-Z0-9\s-]', '', t).strip().lower()
-        s = re.sub(r'[\s_-]+', '-', s)
-        return s or 'section'
-    used = set()
-    new_lines = []
-    for line in body.split('\n'):
-        if re.match(r'^###\s+.+', line) or re.match(r'^##\s+.+', line):
-            if not re.search(r'\{#.+\}\s*$', line):
-                base = slugify(line.split(' ',1)[1])
-                slug = base
-                i = 2
-                while slug in used:
-                    slug = f"{base}-{i}"
-                    i += 1
-                used.add(slug)
-                line = f"{line} {{#{slug}}}"
-        new_lines.append(line)
-    body_out = '\n'.join(new_lines)
-
-    # Recombine
-    if fm_block:
-        content_out = fm_block + "\n\n" + body_out
-    else:
-        content_out = body_out
-    
     file_path = VAULT_PATH / note_path
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content_out)
