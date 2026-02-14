@@ -23,7 +23,8 @@ bob, fred, steve, [john](http://phone.gs.com)
 * discussed
 
 ## Notes
-
+ 
+dfadf afad fdf ad fadf adf adfa dfafa f sdf f. fa f adf f ff f faf f df f a ffa f adfa fa fadff d f d f d fafaf f afd fa f afa faf af d ff a faf a
 ## Action Items
 
 - [ ] fix inventory

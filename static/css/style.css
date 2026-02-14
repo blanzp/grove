@@ -258,22 +258,27 @@ body {
     display: flex;
     flex-direction: column;
     background: var(--bg-primary);
+    overflow: hidden;
+    min-width: 0;
 }
 
 .editor-header {
-    padding: 16px;
-    border: 1px solid var(--border-color);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+    flex-shrink: 0;
 }
 
 .title-tags-section {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow: hidden;
 }
 
 #note-title {
@@ -281,6 +286,9 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tags-display {
@@ -319,16 +327,19 @@ body {
 .editor-actions {
     display: flex;
     gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .editor-actions button {
-    padding: 8px 16px;
+    padding: 8px 12px;
     background: var(--accent-color);
     border: none;
     border-radius: 4px;
     color: white;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 .editor-actions button:disabled {
@@ -345,6 +356,7 @@ body {
     padding: 8px 16px;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-secondary);
+    flex-shrink: 0;
 }
 
 .markdown-toolbar button {

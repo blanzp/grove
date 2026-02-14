@@ -175,7 +175,7 @@ async function loadNote(path) {
     showFrontmatter = false;
     const editorContainer = document.getElementById('drop-zone');
     editorContainer.classList.remove('split-view', 'preview-only');
-    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-eye"></i> Preview';
+    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-columns"></i>';
     
     document.getElementById('note-title').textContent = note.title;
     renderTagsDisplay();
@@ -338,13 +338,13 @@ function toggleFrontmatter() {
         if (currentNoteFrontmatter) {
             editor.value = currentNoteFrontmatter + '\n\n' + body;
         }
-        btn.innerHTML = '<i class="fas fa-code"></i> Hide FM';
+        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
     } else {
         // Hide frontmatter - extract and save it
         const { fm, body } = stripFrontmatter(editor.value);
         if (fm) currentNoteFrontmatter = fm;
         editor.value = body;
-        btn.innerHTML = '<i class="fas fa-code"></i> Frontmatter';
+        btn.innerHTML = '<i class="fas fa-code"></i>';
     }
 }
 
@@ -483,20 +483,24 @@ function togglePreview() {
     const previewBtn = document.getElementById('preview-toggle');
     const editor = document.getElementById('editor');
     
-    // Cycle through modes: edit -> split -> preview -> edit
+    // Cycle: edit -> split -> preview -> edit
+    // Button shows the NEXT mode
     if (previewMode === 'edit') {
         previewMode = 'split';
         editorContainer.classList.add('split-view');
-        previewBtn.innerHTML = '<i class="fas fa-columns"></i> Split';
+        previewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+        previewBtn.title = 'Preview (Ctrl+P)';
     } else if (previewMode === 'split') {
         previewMode = 'preview';
         editorContainer.classList.remove('split-view');
         editorContainer.classList.add('preview-only');
-        previewBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+        previewBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        previewBtn.title = 'Edit Mode (Ctrl+P)';
     } else {
         previewMode = 'edit';
         editorContainer.classList.remove('preview-only');
-        previewBtn.innerHTML = '<i class="fas fa-eye"></i> Preview';
+        previewBtn.innerHTML = '<i class="fas fa-columns"></i>';
+        previewBtn.title = 'Split View (Ctrl+P)';
     }
     
     // Render markdown in preview

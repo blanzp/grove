@@ -215,24 +215,17 @@ body.fullscreen .main-content {
     }
     
     .editor-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-    
-    .title-tags-section {
-        order: 1;
-    }
-    
-    .editor-actions {
-        order: 2;
-        justify-content: flex-start;
-        flex-wrap: wrap;
+        gap: 8px;
     }
     
     .editor-actions button {
-        padding: 10px 14px;
-        font-size: 14px;
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    
+    /* Hide button text on mobile, show only icons */
+    .editor-actions button span.btn-text {
+        display: none;
     }
     
     #note-title {
