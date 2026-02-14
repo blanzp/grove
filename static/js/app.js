@@ -197,7 +197,8 @@ async function loadNote(path) {
     document.getElementById('editor').value = content;
     document.getElementById('editor').disabled = false;
     document.getElementById('tags-btn').disabled = false;
-    document.getElementById('frontmatter-toggle').disabled = false;
+    const fmToggle = document.getElementById('frontmatter-toggle');
+    if (fmToggle) fmToggle.disabled = true;
     document.getElementById('preview-toggle').disabled = false;
     document.getElementById('delete-btn').disabled = false;
     document.getElementById('rename-btn').disabled = false;
@@ -300,8 +301,8 @@ async function saveBodyOnly() {
     
     let content = document.getElementById('editor').value;
     
-    // Strip any frontmatter if visible in editor
-    if (showFrontmatter) {
+    // Frontmatter is managed by Grove; always strip any accidental inclusion
+    {
         const { body } = stripFrontmatter(content);
         content = body;
     }
@@ -328,12 +329,8 @@ async function reloadFrontmatter() {
     const { fm } = stripFrontmatter(note.content);
     currentNoteFrontmatter = fm;
     
-    // If frontmatter is visible, refresh the editor
-    if (showFrontmatter) {
-        const editor = document.getElementById('editor');
-        const { body } = stripFrontmatter(editor.value);
-        editor.value = currentNoteFrontmatter + '\n\n' + body;
-    }
+    // Editor never shows frontmatter; nothing to toggle
+    // Keep stored frontmatter fresh for saves
 }
 
 function stripFrontmatter(text) {
@@ -343,24 +340,8 @@ function stripFrontmatter(text) {
 }
 
 function toggleFrontmatter() {
-    showFrontmatter = !showFrontmatter;
-    const editor = document.getElementById('editor');
-    const btn = document.getElementById('frontmatter-toggle');
-    
-    if (showFrontmatter) {
-        // Show frontmatter - strip any existing, then prepend stored version
-        const { body } = stripFrontmatter(editor.value);
-        if (currentNoteFrontmatter) {
-            editor.value = currentNoteFrontmatter + '\n\n' + body;
-        }
-        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-    } else {
-        // Hide frontmatter - extract and save it
-        const { fm, body } = stripFrontmatter(editor.value);
-        if (fm) currentNoteFrontmatter = fm;
-        editor.value = body;
-        btn.innerHTML = '<i class="fas fa-code"></i>';
-    }
+    // Disabled: frontmatter is managed by backend and not editable in the editor
+    return;
 }
 
 async function saveTags() {
@@ -616,7 +597,11 @@ function setupEventListeners() {
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
     
     // Frontmatter toggle
-    document.getElementById('frontmatter-toggle').addEventListener('click', toggleFrontmatter);
+    const fmToggleBtn = document.getElementById('frontmatter-toggle');
+    if (fmToggleBtn) {
+        fmToggleBtn.style.display = 'none';
+        // Frontmatter editing disabled; no listener
+    }
     
     // Full-screen toggle
     document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);

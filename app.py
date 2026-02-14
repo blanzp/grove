@@ -127,13 +127,51 @@ def get_note(note_path):
 
 @app.route('/api/note/<path:note_path>', methods=['PUT'])
 def save_note(note_path):
-    """Save a note's content."""
+    """Save a note's content. Frontmatter is preserved/managed; auto-add slug ids to H2/H3."""
     data = request.json
     content = data.get('content', '')
+
+    # Ensure we have frontmatter + body
+    fm, body = extract_frontmatter(content)
+    fm_block = ''
+    if fm:
+        # Rebuild frontmatter from parsed fm to preserve order; minimally keep original block
+        m = re.match(r'^(---\n[\s\S]*?\n---)\n([\s\S]*)$', content)
+        if m:
+            fm_block = m.group(1)
+            body = m.group(2)
+    
+    # Auto-slug H2/H3 headings by appending {#slug} if missing
+    def slugify(t):
+        t = re.sub(r'\{#.*?\}\s*$', '', t)  # drop existing id
+        s = re.sub(r'[^a-zA-Z0-9\s-]', '', t).strip().lower()
+        s = re.sub(r'[\s_-]+', '-', s)
+        return s or 'section'
+    used = set()
+    new_lines = []
+    for line in body.split('\n'):
+        if re.match(r'^###\s+.+', line) or re.match(r'^##\s+.+', line):
+            if not re.search(r'\{#.+\}\s*$', line):
+                base = slugify(line.split(' ',1)[1])
+                slug = base
+                i = 2
+                while slug in used:
+                    slug = f"{base}-{i}"
+                    i += 1
+                used.add(slug)
+                line = f"{line} {{#{slug}}}"
+        new_lines.append(line)
+    body_out = '\n'.join(new_lines)
+
+    # Recombine
+    if fm_block:
+        content_out = fm_block + "\n\n" + body_out
+    else:
+        content_out = body_out
     
     file_path = VAULT_PATH / note_path
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(content)
+    file_path.write_text(content_out)
     
     return jsonify({'success': True, 'path': note_path})
 
@@ -790,6 +828,42 @@ def toggle_todo():
     # Write back
     file_path.write_text('\n'.join(lines))
     
+    return jsonify({'success': True})
+
+# Contacts import/export for name consistency
+@app.route('/api/contacts', methods=['GET'])
+def get_contacts():
+    contacts_path = VAULT_PATH / '.grove' / 'contacts.yaml'
+    if not contacts_path.exists():
+        return jsonify([])
+    data = contacts_path.read_text()
+    return jsonify({'raw': data})
+
+@app.route('/api/contacts', methods=['POST'])
+def set_contacts():
+    """Replace contacts file. Accepts JSON {contacts:[{id,name,aliases[]}]} or raw text under 'raw'."""
+    payload = request.json or {}
+    grove_dir = VAULT_PATH / '.grove'
+    grove_dir.mkdir(exist_ok=True)
+    contacts_path = grove_dir / 'contacts.yaml'
+    if 'raw' in payload:
+        contacts_path.write_text(payload['raw'])
+    else:
+        contacts = payload.get('contacts', [])
+        # Serialize to a simple YAML-like format without dependencies
+        lines = []
+        lines.append('contacts:')
+        for c in contacts:
+            lines.append('  - id: ' + str(c.get('id','')))
+            if 'name' in c:
+                lines.append('    name: ' + c['name'])
+            aliases = c.get('aliases', []) or []
+            if aliases:
+                lines.append('    aliases:')
+                for a in aliases:
+                    lines.append('      - ' + a)
+        lines.append('')
+        contacts_path.write_text('\n'.join(lines))
     return jsonify({'success': True})
 
 
