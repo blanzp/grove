@@ -45,8 +45,15 @@ def _seed_vault(path: Path):
         project_readme = (Path(__file__).parent / 'README.md').read_text()
     except Exception:
         project_readme = f"# Grove\n\nWelcome to your '{path.name}' vault."
-    # Prepend managed frontmatter so Grove shows proper title/type/tags
-    fm = build_frontmatter(f"Grove — {path.name} README", ['grove'], 'note')
+    # Prepend managed frontmatter so Grove shows proper title/type/tags (avoid dependency on build_frontmatter order)
+    from datetime import datetime as _dt
+    fm = (
+        "---\n"
+        f"title: Grove — {path.name} README\n"
+        f"created: {_dt.now().isoformat()}\n"
+        f"type: note\n"
+        "tags:\n  - grove\n---\n\n"
+    )
     rd.write_text(fm + project_readme)
 
 
