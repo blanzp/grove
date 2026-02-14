@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { /* ignore */ }
     }
 
+    initVaultSelect();
+
     loadTree();
     loadTags();
     loadTemplates();
@@ -34,6 +36,29 @@ document.addEventListener('DOMContentLoaded', () => {
     setupMarkdownToolbar();
     loadTheme();
 });
+
+function initVaultSelect() {
+    const sel = document.getElementById('vault-select');
+    if (!sel) return;
+    fetch('/api/vaults').then(r=>r.json()).then(data => {
+        sel.innerHTML = '';
+        data.vaults.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name; opt.textContent = name;
+            if (name === data.active) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    });
+    sel.addEventListener('change', async () => {
+        const name = sel.value;
+        const resp = await fetch('/api/vaults/switch', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+        if (resp.ok) {
+            localStorage.setItem('grove-recent', '[]');
+            location.reload();
+        }
+    });
+}
+
 
 // Setup tree drag and drop for root level
 function setupTreeDragAndDrop() {
@@ -655,6 +680,9 @@ function setupEventListeners() {
         }
     });
     
+    // Vault select
+    initVaultSelect();
+
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
     document.getElementById('new-template-btn').addEventListener('click', createNewTemplate);

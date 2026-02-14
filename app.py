@@ -8,11 +8,46 @@ import re
 from datetime import datetime
 
 app = Flask(__name__)
-VAULT_PATH = Path(__file__).parent / "vault"
-VAULT_PATH.mkdir(exist_ok=True)
 
+CONFIG_DIR = Path(__file__).parent / ".grove"
+CONFIG_DIR.mkdir(exist_ok=True)
+CONFIG_PATH = CONFIG_DIR / "config.json"
+
+# Vault resolution
+VAULTS_ROOT = Path(__file__).parent / "vaults"
+VAULTS_ROOT.mkdir(exist_ok=True)
+
+DEFAULT_VAULT_PATH = Path(__file__).parent / "vault"  # legacy single-vault path
+DEFAULT_VAULT_PATH.mkdir(exist_ok=True)
+
+
+def get_active_vault_path():
+    """Return the Path to the active vault directory."""
+    if CONFIG_PATH.exists():
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text() or '{}')
+            name = cfg.get('active_vault', 'vault')
+        except Exception:
+            name = 'vault'
+    else:
+        name = 'vault'
+    if name == 'vault':
+        return DEFAULT_VAULT_PATH
+    return VAULTS_ROOT / name
+
+# Initialize globals, refreshed on each request as well
+VAULT_PATH = get_active_vault_path()
+VAULT_PATH.mkdir(exist_ok=True)
 TEMPLATES_PATH = VAULT_PATH / ".templates"
 TEMPLATES_PATH.mkdir(exist_ok=True)
+
+@app.before_request
+def _refresh_active_vault():
+    global VAULT_PATH, TEMPLATES_PATH
+    VAULT_PATH = get_active_vault_path()
+    VAULT_PATH.mkdir(exist_ok=True)
+    TEMPLATES_PATH = VAULT_PATH / ".templates"
+    TEMPLATES_PATH.mkdir(exist_ok=True)
 
 
 def get_vault_structure(base_path=None):
@@ -103,6 +138,51 @@ def index():
 def get_tree():
     """Get the vault directory tree."""
     return jsonify(get_vault_structure())
+
+# Vault management APIs
+@app.route('/api/vaults', methods=['GET'])
+def list_vaults():
+    """List available vaults and the active one."""
+    active = str(VAULT_PATH)
+    # names include legacy 'vault' plus folders under vaults/
+    names = ['vault'] + [p.name for p in VAULTS_ROOT.iterdir() if p.is_dir()]
+    return jsonify({
+        'active': 'vault' if VAULT_PATH == DEFAULT_VAULT_PATH else (VAULT_PATH.name),
+        'vaults': sorted(list(set(names)))
+    })
+
+@app.route('/api/vaults/create', methods=['POST'])
+def create_vault():
+    data = request.json or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    if name == 'vault':
+        path = DEFAULT_VAULT_PATH
+    else:
+        path = VAULTS_ROOT / name
+    if path.exists():
+        return jsonify({'error': 'vault already exists'}), 400
+    path.mkdir(parents=True, exist_ok=True)
+    (path / '.templates').mkdir(exist_ok=True)
+    return jsonify({'success': True})
+
+@app.route('/api/vaults/switch', methods=['POST'])
+def switch_vault():
+    data = request.json or {}
+    name = data.get('name')
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    if name == 'vault':
+        path = DEFAULT_VAULT_PATH
+    else:
+        path = VAULTS_ROOT / name
+    if not path.exists():
+        return jsonify({'error': 'vault not found'}), 404
+    # write config
+    cfg = {'active_vault': name}
+    CONFIG_PATH.write_text(json.dumps(cfg))
+    return jsonify({'success': True})
 
 
 @app.route('/api/note/<path:note_path>')
