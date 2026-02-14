@@ -356,7 +356,7 @@ def save_note(note_path):
 
     file_path = VAULT_PATH / note_path
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(content_out)
+    file_path.write_text(content)
     
     return jsonify({'success': True, 'path': note_path})
 
