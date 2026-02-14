@@ -163,12 +163,10 @@ async function loadNote(path) {
     let content = note.content;
     currentNoteFrontmatter = '';
     
-    if (content.startsWith('---')) {
-        const parts = content.split('---');
-        if (parts.length >= 3) {
-            currentNoteFrontmatter = '---' + parts[1] + '---';
-            content = parts.slice(2).join('---').trim();
-        }
+    const fmMatch = content.match(/^(---\n[\s\S]*?\n---)\n*([\s\S]*)$/);
+    if (fmMatch) {
+        currentNoteFrontmatter = fmMatch[1];
+        content = fmMatch[2];
     }
     
     // Reset preview mode
@@ -260,88 +258,72 @@ async function addTagFromModal() {
     
     if (tag && !currentNoteTags.includes(tag)) {
         currentNoteTags.push(tag);
+        // Save body first (without frontmatter), then update tags via API
+        await saveBodyOnly();
         await saveTags();
+        await reloadFrontmatter();
         renderTagsModal();
         renderTagsDisplay();
         input.value = '';
-        
-        // Update frontmatter in memory and editor if visible
-        if (currentNoteFrontmatter) {
-            updateFrontmatterTags();
-            refreshEditorFrontmatter();
-        }
     }
 }
 
 async function removeTag(tag) {
     currentNoteTags = currentNoteTags.filter(t => t !== tag);
+    // Save body first (without frontmatter), then update tags via API
+    await saveBodyOnly();
     await saveTags();
+    await reloadFrontmatter();
     renderTagsModal();
     renderTagsDisplay();
+}
+
+// Save just the body content to the server (prepends stored frontmatter)
+async function saveBodyOnly() {
+    if (!currentNote) return;
     
-    // Update frontmatter in memory and editor if visible
+    let content = document.getElementById('editor').value;
+    
+    // Strip any frontmatter if visible in editor
+    if (showFrontmatter) {
+        const { body } = stripFrontmatter(content);
+        content = body;
+    }
+    
+    // Add stored frontmatter
     if (currentNoteFrontmatter) {
-        updateFrontmatterTags();
-        refreshEditorFrontmatter();
+        content = currentNoteFrontmatter + '\n\n' + content;
+    }
+    
+    await fetch(`/api/note/${currentNote}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+}
+
+// Reload frontmatter from server after tag changes
+async function reloadFrontmatter() {
+    if (!currentNote) return;
+    
+    const response = await fetch(`/api/note/${currentNote}`);
+    const note = await response.json();
+    
+    const { fm } = stripFrontmatter(note.content);
+    currentNoteFrontmatter = fm;
+    
+    // If frontmatter is visible, refresh the editor
+    if (showFrontmatter) {
+        const editor = document.getElementById('editor');
+        const { body } = stripFrontmatter(editor.value);
+        editor.value = currentNoteFrontmatter + '\n\n' + body;
     }
 }
 
-function updateFrontmatterTags() {
-    if (!currentNoteFrontmatter) return;
-    
-    let lines = currentNoteFrontmatter.split('\n');
-    let newLines = [];
-    let skipNext = false;
-    
-    // Remove old tags (handle both single-line and YAML array format)
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Skip lines that are part of tags array
-        if (skipNext && line.trim().startsWith('-')) {
-            continue;
-        } else {
-            skipNext = false;
-        }
-        
-        // Check if this is the tags: line
-        if (line.trim().startsWith('tags:')) {
-            // Check if it's array format (next line starts with -)
-            if (i + 1 < lines.length && lines[i + 1].trim().startsWith('-')) {
-                skipNext = true;
-            }
-            // Skip this line either way
-            continue;
-        }
-        
-        newLines.push(line);
-    }
-    
-    // Add new tags in YAML array format
-    if (currentNoteTags.length > 0) {
-        // Find the position after opening --- and before closing ---
-        let insertIdx = 1;
-        
-        // Find a good spot to insert (after title/created if they exist)
-        for (let i = 1; i < newLines.length - 1; i++) {
-            const line = newLines[i].trim();
-            if (line && !line.startsWith('title:') && !line.startsWith('created:')) {
-                insertIdx = i;
-                break;
-            }
-            if (line.startsWith('created:')) {
-                insertIdx = i + 1;
-            }
-        }
-        
-        // Insert tags
-        newLines.splice(insertIdx, 0, 'tags:');
-        for (let i = 0; i < currentNoteTags.length; i++) {
-            newLines.splice(insertIdx + 1 + i, 0, `  - ${currentNoteTags[i]}`);
-        }
-    }
-    
-    currentNoteFrontmatter = newLines.join('\n');
+function stripFrontmatter(text) {
+    const match = text.match(/^(---\n[\s\S]*?\n---)\n*([\s\S]*)$/);
+    if (match) return { fm: match[1], body: match[2] };
+    return { fm: '', body: text };
 }
 
 function toggleFrontmatter() {
@@ -350,51 +332,18 @@ function toggleFrontmatter() {
     const btn = document.getElementById('frontmatter-toggle');
     
     if (showFrontmatter) {
-        // Show frontmatter - first strip any existing frontmatter from editor
-        let content = editor.value;
-        if (content.startsWith('---')) {
-            const parts = content.split('---');
-            if (parts.length >= 3) {
-                content = parts.slice(2).join('---').trim();
-            }
-        }
-        
-        // Now add the current frontmatter
+        // Show frontmatter - strip any existing, then prepend stored version
+        const { body } = stripFrontmatter(editor.value);
         if (currentNoteFrontmatter) {
-            editor.value = currentNoteFrontmatter + '\n\n' + content;
+            editor.value = currentNoteFrontmatter + '\n\n' + body;
         }
         btn.innerHTML = '<i class="fas fa-code"></i> Hide FM';
     } else {
-        // Hide frontmatter - extract and save it first
-        let content = editor.value;
-        if (content.startsWith('---')) {
-            const parts = content.split('---');
-            if (parts.length >= 3) {
-                currentNoteFrontmatter = '---' + parts[1] + '---';
-                content = parts.slice(2).join('---').trim();
-            }
-        }
-        editor.value = content;
+        // Hide frontmatter - extract and save it
+        const { fm, body } = stripFrontmatter(editor.value);
+        if (fm) currentNoteFrontmatter = fm;
+        editor.value = body;
         btn.innerHTML = '<i class="fas fa-code"></i> Frontmatter';
-    }
-}
-
-function refreshEditorFrontmatter() {
-    // If frontmatter is visible, refresh it in the editor
-    if (showFrontmatter && currentNoteFrontmatter) {
-        const editor = document.getElementById('editor');
-        let content = editor.value;
-        
-        // Strip existing frontmatter
-        if (content.startsWith('---')) {
-            const parts = content.split('---');
-            if (parts.length >= 3) {
-                content = parts.slice(2).join('---').trim();
-            }
-        }
-        
-        // Add updated frontmatter
-        editor.value = currentNoteFrontmatter + '\n\n' + content;
     }
 }
 
@@ -409,7 +358,6 @@ async function saveTags() {
     
     if (response.ok) {
         loadTags();
-        updateFrontmatterTags();
         showNotification('Tags updated');
     }
 }
@@ -953,12 +901,10 @@ async function saveNoteUpdated(isAutoSave = false) {
     // If frontmatter is visible, it's already in the editor content
     if (!showFrontmatter && currentNoteFrontmatter) {
         content = currentNoteFrontmatter + '\n\n' + content;
-    } else if (showFrontmatter && content.startsWith('---')) {
+    } else if (showFrontmatter) {
         // If visible, update our stored frontmatter from what's in the editor
-        const parts = content.split('---');
-        if (parts.length >= 3) {
-            currentNoteFrontmatter = '---' + parts[1] + '---';
-        }
+        const { fm } = stripFrontmatter(content);
+        if (fm) currentNoteFrontmatter = fm;
     }
     
     if (!isAutoSave) {
