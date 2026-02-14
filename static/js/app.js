@@ -318,15 +318,10 @@ function togglePreview() {
     console.log('Editor container classes after:', editorContainer.className);
     console.log('Preview container display:', window.getComputedStyle(previewContainer).display);
     
-    // Add test content first to verify visibility
-    previewContainer.innerHTML = '<div style="background: red; padding: 50px; font-size: 24px; color: white;">TEST - If you see this, CSS is working</div>';
-    
     // Render markdown in preview
-    setTimeout(() => {
-        if (previewMode !== 'edit') {
-            renderPreview();
-        }
-    }, 100);
+    if (previewMode !== 'edit') {
+        renderPreview();
+    }
 }
 
 // Render markdown preview
