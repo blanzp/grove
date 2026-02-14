@@ -376,6 +376,24 @@ function setupEventListeners() {
     // Full-screen toggle
     document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
     
+    // Manage templates
+    document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
+    document.getElementById('new-template-btn').addEventListener('click', createNewTemplate);
+    document.getElementById('save-template-btn').addEventListener('click', saveTemplate);
+    document.getElementById('delete-template-btn').addEventListener('click', deleteTemplate);
+    document.getElementById('close-templates-btn').addEventListener('click', () => {
+        hideModal('templates-modal');
+        currentTemplate = null;
+        document.getElementById('template-editor-empty').style.display = 'flex';
+        document.getElementById('template-editor-content').style.display = 'none';
+    });
+    
+    // Todos dashboard
+    document.getElementById('todos-btn').addEventListener('click', openTodosModal);
+    document.getElementById('close-todos-btn').addEventListener('click', () => {
+        hideModal('todos-modal');
+    });
+    
     // Auto-save on Ctrl+S
     document.getElementById('editor').addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 's') {
@@ -1058,21 +1076,6 @@ async function loadTemplatesUpdated() {
 // Override old loadTemplates
 loadTemplates = loadTemplatesUpdated;
 
-// Add event listeners for template management
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
-    document.getElementById('new-template-btn').addEventListener('click', createNewTemplate);
-    document.getElementById('save-template-btn').addEventListener('click', saveTemplate);
-    document.getElementById('delete-template-btn').addEventListener('click', deleteTemplate);
-    document.getElementById('close-templates-btn').addEventListener('click', () => {
-        hideModal('templates-modal');
-        currentTemplate = null;
-        document.getElementById('template-editor-empty').style.display = 'flex';
-        document.getElementById('template-editor-content').style.display = 'none';
-    });
-});
-
-// Todo Dashboard
 let allTodos = [];
 
 async function loadTodos() {
@@ -1187,10 +1190,3 @@ function openTodosModal() {
     showModal('todos-modal');
 }
 
-// Add event listeners for todos
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('todos-btn').addEventListener('click', openTodosModal);
-    document.getElementById('close-todos-btn').addEventListener('click', () => {
-        hideModal('todos-modal');
-    });
-});

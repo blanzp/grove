@@ -20,4 +20,5 @@ bob, fred, steve, [john](http://phone.gs.com)
 
 ## Action Items
 
-- [ ] 
+- [ ] fix inventory
+- [ ] fix seal
