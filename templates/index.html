@@ -54,8 +54,10 @@
             </div>
             
             <div class="recent-files">
-                <h3>Recent Files</h3>
-                <div id="recent-list"></div>
+                <h3 class="collapsible-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <i class="fas fa-chevron-down collapse-icon"></i> Recent Files
+                </h3>
+                <div id="recent-list" class="collapsible-body"></div>
             </div>
             
             <div class="file-tree" id="file-tree">
@@ -94,8 +96,9 @@
                     <button class="btn-secondary" id="splash-templates"><i class="fas fa-file-contract"></i> Templates</button>
                     <button class="btn-secondary" id="splash-todos"><i class="fas fa-tasks"></i> Todo Dashboard</button>
                     <button class="btn-secondary" id="splash-contacts"><i class="fas fa-address-book"></i> Contacts</button>
+                    <button class="btn-secondary" id="splash-readme"><i class="fas fa-book-open"></i> Readme</button>
                 </div>
-                <p class="splash-hint">Tip: Ctrl+N new note · Ctrl+M new meeting · Ctrl+P preview · Ctrl+K search · F11 fullscreen · @ contacts</p>
+                <p class="splash-hint">Tip: Ctrl+N new note · Ctrl+D daily note · Ctrl+M new meeting · Ctrl+P preview · Ctrl+E edit · Ctrl+K search · F11 fullscreen · @ contacts</p>
             </div>
             
             <div class="editor-header">
@@ -140,6 +143,7 @@
             
             <!-- @ mention autocomplete dropdown -->
             <div id="mention-dropdown" class="mention-dropdown" style="display:none;"></div>
+            <div id="link-dropdown" class="mention-dropdown" style="display:none;"></div>
 
             <div class="editor-container" id="drop-zone">
                 <textarea id="editor" placeholder="Select or create a note to start editing..."></textarea>
@@ -268,13 +272,14 @@
                 <span id="todos-incomplete">0 incomplete</span>
                 <span id="todos-complete">0 complete</span>
             </div>
-            <div class="todos-container">
-                <div class="todos-list" id="todos-list">
-                    <div class="todos-empty">
-                        <i class="fas fa-check-circle" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
-                        <p>No todos found. Add checkboxes in your notes:</p>
-                        <code>- [ ] Task to do</code>
-                    </div>
+            <div class="todos-container todos-columns">
+                <div class="todos-column">
+                    <h3 class="todos-column-header"><i class="fas fa-circle"></i> Incomplete</h3>
+                    <div class="todos-list" id="todos-incomplete-list"></div>
+                </div>
+                <div class="todos-column">
+                    <h3 class="todos-column-header todos-done-header"><i class="fas fa-check-circle"></i> Complete</h3>
+                    <div class="todos-list" id="todos-complete-list"></div>
                 </div>
             </div>
             <div class="modal-actions">

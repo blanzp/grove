@@ -167,6 +167,25 @@
     color: #888;
     margin-bottom: 8px;
     font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
+.recent-files h3:hover {
+    color: var(--text-primary);
+}
+
+.collapse-icon {
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.recent-files.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.recent-files.collapsed .collapsible-body {
+    display: none;
 }
 
 .recent-item {
@@ -424,6 +443,42 @@ body.fullscreen .main-content {
     max-height: calc(70vh - 140px);
     width: 100%;
     box-sizing: border-box;
+}
+
+.todos-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.todos-column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    max-height: calc(70vh - 180px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.todos-column-header {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--accent-color);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.todos-done-header {
+    color: #888;
+}
+
+@media (max-width: 600px) {
+    .todos-columns {
+        grid-template-columns: 1fr;
+    }
 }
 
 .todos-list {

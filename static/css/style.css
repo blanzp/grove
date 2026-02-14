@@ -560,6 +560,33 @@ body.light-theme .sidebar-logo {
     max-width: 100%;
 }
 
+.preview-container table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 14px;
+}
+
+.preview-container th,
+.preview-container td {
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.preview-container th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+}
+
+.preview-container tr:nth-child(even) {
+    background: var(--bg-secondary);
+}
+
+.preview-container tr:hover {
+    background: var(--hover-color);
+}
+
 .preview-container pre {
     overflow-x: auto;
     max-width: 100%;

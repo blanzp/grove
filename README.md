@@ -11,7 +11,8 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 - **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks
 - **Auto-save** with 2-second debounce — never lose work
 - **Frontmatter preview** — read-only view of YAML frontmatter (managed by Grove)
-- **Wikilinks** — clickable `[[note]]` links to navigate between notes
+- **Wikilinks** — clickable `[[note]]` links to navigate between notes (type `[[` for typeahead)
+- **Footnotes** — standard `[^1]` refs with `[^1]: text` definitions, rendered with back-links
 - **Image paste** — paste images from clipboard directly into the editor
 - **Image upload** — upload via toolbar button or drag & drop
 
@@ -74,7 +75,9 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 |----------|--------|
 | `Ctrl+S` | Save note |
 | `Ctrl+N` | New note |
+| `Ctrl+D` | New daily note |
 | `Ctrl+P` | Toggle preview |
+| `Ctrl+E` | Switch to edit mode |
 | `Ctrl+K` | Focus search |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
@@ -131,7 +134,11 @@ Notes without a template get `type: note`. Notes created from a template get the
 Click the **📅 calendar icon** to create today's note in the `daily/` folder. Uses `vault/.templates/daily.md` if it exists, with `type: daily` in frontmatter.
 
 ### Meeting Notes
-Click the **🤝 handshake icon** for a quick meeting note with timestamp title (e.g., "Meeting 2026-02-14 1300") using the meeting template.
+Click the **🤝 handshake icon** to create a meeting note using the meeting template. You'll be prompted for a meeting name.
+
+- **Filename format:** `meeting-YYYY-MMDD HHMM-my-meeting-name.md` (e.g., `meeting-2026-0214 1430-q1-planning.md`)
+- **Title (frontmatter):** `My Meeting Name`
+
 
 ### Templates
 Manage templates from the **📋 template icon** in the sidebar toolbar.
@@ -208,7 +215,8 @@ Vaults are stored under `vaults/` (except the default `vault/` directory). Each 
 ### Todo Dashboard
 Click the **✅ tasks icon** to see all checkboxes across your vault. Toggle completion directly from the dashboard — changes sync back to the source note.
 
-Checkboxes use standard markdown format: `- [ ] Task` / `- [x] Done`
+- Two-column layout: Incomplete (left) and Complete (right)
+- Checkboxes use standard markdown format: `- [ ] Task` / `- [x] Done`
 
 ### Share
 Click the **📤 share icon** when viewing a note:
@@ -222,6 +230,19 @@ Click the **📤 share icon** when viewing a note:
 - Type and press Enter to search
 - Use the tag dropdown to filter by tag
 - Click the **✕** button to clear search
+
+### Footnotes
+Grove supports standard Markdown footnotes in preview:
+
+```
+This needs a citation[^1].
+
+[^1]: Source or explanation goes here.
+```
+
+- Inserts superscripted refs in the body with a footnotes section at the bottom
+- Includes ↩ back-links from each footnote to its reference
+- Currently supports single-line footnote bodies; ask if you want multi-paragraph support
 
 ## Configuration
 

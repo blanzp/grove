@@ -1,0 +1,3 @@
+{
+  "default_contact_template": "[{{last_name}},{{first_name}}](http://phone.mycontacts.com/{{id}})"
+}

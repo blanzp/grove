@@ -261,12 +261,14 @@ async function loadNote(path) {
         content = fmMatch[2];
     }
     
-    // Reset preview mode
-    previewMode = 'edit';
+    // Default to preview mode when opening a note
+    previewMode = 'preview';
     showFrontmatter = false;
     const editorContainer = document.getElementById('drop-zone');
-    editorContainer.classList.remove('split-view', 'preview-only');
-    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-columns"></i>';
+    editorContainer.classList.remove('split-view');
+    editorContainer.classList.add('preview-only');
+    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-edit"></i>';
+    document.getElementById('preview-toggle').title = 'Edit Mode (Ctrl+P)';
     
     document.getElementById('note-title').textContent = note.title;
     renderTagsDisplay();
@@ -280,6 +282,9 @@ async function loadNote(path) {
     document.getElementById('rename-btn').disabled = false;
     document.getElementById('share-btn').disabled = false;
     document.getElementById('frontmatter-preview').disabled = false;
+    
+    // Render preview (default mode)
+    renderPreview();
     
     // Add to recent files
     addToRecent(path, note.title);
@@ -784,6 +789,154 @@ function setupMentionAutocomplete() {
     });
 }
 
+// Wikilink autocomplete — triggered by [[
+function setupLinkAutocomplete() {
+    const editor = document.getElementById('editor');
+    const dropdown = document.getElementById('link-dropdown');
+    let linkStart = -1;
+    let activeIndex = 0;
+    let filtered = [];
+    let allNotes = [];
+
+    async function fetchNoteList() {
+        const resp = await fetch('/api/tree');
+        const tree = await resp.json();
+        allNotes = [];
+        function flatten(items, prefix) {
+            for (const item of items) {
+                if (item.type === 'file') {
+                    const path = item.path.replace(/\.md$/, '');
+                    const title = item.title || item.name.replace(/\.md$/, '');
+                    allNotes.push({ path, title, name: item.name });
+                } else if (item.type === 'folder' && item.children) {
+                    flatten(item.children, (prefix ? prefix + '/' : '') + item.name);
+                }
+            }
+        }
+        flatten(tree, '');
+    }
+
+    // Refresh note list periodically and on init
+    fetchNoteList();
+    setInterval(fetchNoteList, 30000);
+
+    function closeLink() {
+        dropdown.style.display = 'none';
+        linkStart = -1;
+        filtered = [];
+        activeIndex = 0;
+    }
+
+    function renderDropdown() {
+        dropdown.innerHTML = '';
+        filtered.forEach((n, i) => {
+            const item = document.createElement('div');
+            item.className = 'mention-item' + (i === activeIndex ? ' active' : '');
+            item.innerHTML = `
+                <span class="mention-name">${escapeHtml(n.title)}</span>
+                <span class="mention-detail">${escapeHtml(n.path)}</span>
+            `;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                insertLink(n);
+            });
+            dropdown.appendChild(item);
+        });
+    }
+
+    function insertLink(note) {
+        const text = editor.value;
+        const before = text.substring(0, linkStart);
+        const after = text.substring(editor.selectionStart);
+        const link = `[[${note.title}]]`;
+        editor.value = before + link + after;
+        const newPos = before.length + link.length;
+        editor.selectionStart = editor.selectionEnd = newPos;
+        editor.focus();
+        closeLink();
+    }
+
+    function positionDropdown() {
+        const rect = editor.getBoundingClientRect();
+        const lineHeight = 20;
+        const text = editor.value.substring(0, editor.selectionStart);
+        const lines = text.split('\n');
+        const currentLine = lines.length - 1;
+        const scrollTop = editor.scrollTop;
+        const top = rect.top + (currentLine * lineHeight) - scrollTop + lineHeight + 4;
+        const col = lines[lines.length - 1].length;
+        const left = rect.left + Math.min(col * 8, rect.width - 300);
+        dropdown.style.top = Math.min(top, rect.bottom - 40) + 'px';
+        dropdown.style.left = Math.max(left, rect.left) + 'px';
+    }
+
+    editor.addEventListener('input', () => {
+        if (dropdown.style.display === 'block') {
+            // Already tracking — update filter
+        }
+        const pos = editor.selectionStart;
+        const text = editor.value;
+
+        // Look back for [[ trigger
+        let bracketPos = -1;
+        for (let i = pos - 1; i >= 1; i--) {
+            if (text[i] === '\n') break;
+            if (text[i - 1] === '[' && text[i] === '[') {
+                bracketPos = i - 1;
+                break;
+            }
+            // If we hit ]], abort
+            if (text[i] === ']' && i + 1 < text.length && text[i + 1] === ']') break;
+        }
+
+        if (bracketPos >= 0) {
+            const query = text.substring(bracketPos + 2, pos).toLowerCase();
+            filtered = allNotes.filter(n => {
+                return n.title.toLowerCase().includes(query) || n.path.toLowerCase().includes(query);
+            }).slice(0, 8);
+
+            if (filtered.length > 0) {
+                linkStart = bracketPos;
+                activeIndex = 0;
+                positionDropdown();
+                renderDropdown();
+                dropdown.style.display = 'block';
+            } else {
+                closeLink();
+            }
+        } else {
+            closeLink();
+        }
+    });
+
+    editor.addEventListener('keydown', (e) => {
+        if (dropdown.style.display === 'none') return;
+        // Don't intercept if mention dropdown is active
+        if (document.getElementById('mention-dropdown').style.display !== 'none') return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % filtered.length;
+            renderDropdown();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
+            renderDropdown();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (filtered.length > 0) {
+                e.preventDefault();
+                insertLink(filtered[activeIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            closeLink();
+        }
+    });
+
+    editor.addEventListener('blur', () => {
+        setTimeout(closeLink, 200);
+    });
+}
+
 async function openFrontmatterPreview() {
     if (!currentNote) return;
     const resp = await fetch(`/api/note/${currentNote}`);
@@ -820,11 +973,13 @@ async function saveNote(isAutoSave = false) {
 }
 
 // Create new note
-async function createNote(title, tags, folder, template) {
+async function createNote(title, tags, folder, template, customFilename) {
+    const payload = { title, tags, folder, template };
+    if (customFilename) payload.filename = customFilename;
     const response = await fetch('/api/note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, tags, folder, template })
+        body: JSON.stringify(payload)
     });
     
     const result = await response.json();
@@ -876,14 +1031,19 @@ async function createMeetingNote() {
     const dd = String(now.getDate()).padStart(2, '0');
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    const datestamp = `${yyyy}-${mm}-${dd} ${hh}${min}`;
+    const datestamp = `${yyyy}-${mm}${dd} ${hh}${min}`;
     const name = prompt('Meeting name:', '');
     if (name === null) return; // cancelled
-    const title = name.trim() ? `${name.trim()} ${datestamp}` : `Meeting ${datestamp}`;
+    const meetingName = name.trim();
+    // Title in frontmatter is just the meeting name (or "Meeting" if blank)
+    const title = meetingName || 'Meeting';
+    // Filename: meeting-YYYY-MMDD HHMM-slugified-name
+    const nameSlug = meetingName ? '-' + meetingName.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s]+/g, '-') : '';
+    const customFilename = `meeting-${datestamp}${nameSlug}`;
     const folder = 'meetings';
     const tags = [];
     const template = 'meeting';
-    await createNote(title, tags, folder, template);
+    await createNote(title, tags, folder, template, customFilename);
 }
 
 // Search notes
@@ -1010,6 +1170,28 @@ function renderPreview() {
     content = content.replace(/\[\[([^\]]+)\]\]/g, (match, noteName) => {
         return `<a href="#" class="wikilink" data-note="${noteName}">${noteName}</a>`;
     });
+
+    // Process footnotes
+    const footnotes = {};
+    // Extract footnote definitions: [^id]: text
+    content = content.replace(/^\[\^(\w+)\]:\s*(.+)$/gm, (match, id, text) => {
+        footnotes[id] = text;
+        return ''; // remove definition from body
+    });
+    // Replace footnote references: [^id] → superscript link
+    content = content.replace(/\[\^(\w+)\]/g, (match, id) => {
+        return `<sup class="footnote-ref"><a href="#fn-${id}" id="fnref-${id}">${id}</a></sup>`;
+    });
+    // Build footnotes section if any exist
+    let footnotesHtml = '';
+    const fnKeys = Object.keys(footnotes);
+    if (fnKeys.length > 0) {
+        footnotesHtml = '<hr class="footnotes-sep"><section class="footnotes"><ol class="footnotes-list">';
+        fnKeys.forEach(id => {
+            footnotesHtml += `<li id="fn-${id}" class="footnote-item"><p>${footnotes[id]} <a href="#fnref-${id}" class="footnote-backref">↩</a></p></li>`;
+        });
+        footnotesHtml += '</ol></section>';
+    }
     
     try {
         // Handle both old and new marked.js API
@@ -1175,6 +1357,7 @@ function setupEventListeners() {
 
     // @ mention autocomplete
     setupMentionAutocomplete();
+    setupLinkAutocomplete();
 
     // Frontmatter preview (read-only)
     document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
@@ -1543,6 +1726,17 @@ async function deleteNote() {
         loadTree();
         removeFromRecent(toRemove);
         updateBreadcrumbs();
+        // Clear preview and show splash to avoid leftover content rendering
+        const preview = document.getElementById('preview');
+        if (preview) preview.innerHTML = '';
+        showSplash(true);
+        // Reset preview state for next open
+        previewMode = 'preview';
+        const editorContainer = document.getElementById('drop-zone');
+        if (editorContainer) {
+            editorContainer.classList.remove('split-view');
+            editorContainer.classList.add('preview-only');
+        }
     }
 }
 
@@ -1677,6 +1871,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (std) std.addEventListener('click', () => document.getElementById('todos-btn').click());
     const sc = document.getElementById('splash-contacts');
     if (sc) sc.addEventListener('click', () => document.getElementById('contacts-btn').click());
+    const sr = document.getElementById('splash-readme');
+    if (sr) sr.addEventListener('click', () => loadNote('README.md'));
     if (!currentNote) showSplash(true);
 });
 
@@ -1930,6 +2126,21 @@ function setupKeyboardShortcuts() {
                 togglePreview();
             }
         }
+
+        // Ctrl+E or Cmd+E - Switch to Edit mode immediately
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            const editorContainer = document.getElementById('drop-zone');
+            const previewBtn = document.getElementById('preview-toggle');
+            previewMode = 'edit';
+            editorContainer.classList.remove('split-view', 'preview-only');
+            if (previewBtn) {
+                previewBtn.innerHTML = '<i class="fas fa-columns"></i>';
+                previewBtn.title = 'Split View (Ctrl+P)';
+            }
+            const editor = document.getElementById('editor');
+            if (editor && !editor.disabled) editor.focus();
+        }
         
         // Ctrl+K or Cmd+K - Focus search
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -1941,6 +2152,12 @@ function setupKeyboardShortcuts() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
             e.preventDefault();
             createMeetingNote();
+        }
+        
+        // Ctrl+D - New daily note
+        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+            e.preventDefault();
+            createDailyNote();
         }
         
         // F2 - Rename
@@ -2118,68 +2335,64 @@ async function loadTodos() {
 }
 
 function renderTodos() {
-    const container = document.getElementById('todos-list');
+    const incompleteContainer = document.getElementById('todos-incomplete-list');
+    const completeContainer = document.getElementById('todos-complete-list');
+    
+    incompleteContainer.innerHTML = '';
+    completeContainer.innerHTML = '';
     
     if (allTodos.length === 0) {
-        container.innerHTML = `
+        incompleteContainer.innerHTML = `
             <div class="todos-empty">
-                <i class="fas fa-check-circle" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
-                <p>No todos found. Add checkboxes in your notes:</p>
-                <code>[ ] Task to do</code>
+                <p>No tasks yet</p>
+                <code>- [ ] Task to do</code>
             </div>
         `;
         updateTodosStats();
         return;
     }
     
-    container.innerHTML = '';
+    const incomplete = allTodos.filter(t => !t.completed);
+    const complete = allTodos.filter(t => t.completed);
     
-    // Group by note
-    const grouped = {};
-    allTodos.forEach(todo => {
-        if (!grouped[todo.note]) {
-            grouped[todo.note] = [];
-        }
-        grouped[todo.note].push(todo);
-    });
-    
-    // Render each group
-    Object.keys(grouped).forEach(noteName => {
-        const todos = grouped[noteName];
-        
-        todos.forEach(todo => {
-            const todoEl = document.createElement('div');
-            todoEl.className = `todo-item ${todo.completed ? 'complete' : 'incomplete'}`;
-            todoEl.innerHTML = `
-                <input type="checkbox" class="todo-checkbox" ${todo.completed ? 'checked' : ''} 
-                       data-path="${todo.path}" data-line="${todo.line}">
-                <div class="todo-content">
-                    <div class="todo-text">${escapeHtml(todo.text)}</div>
-                    <div class="todo-meta">
-                        <i class="fas fa-file-alt"></i>
-                        <a href="#" class="todo-note-link" data-path="${todo.path}">${escapeHtml(todo.note)}</a>
-                    </div>
+    function buildTodoEl(todo) {
+        const todoEl = document.createElement('div');
+        todoEl.className = `todo-item ${todo.completed ? 'complete' : 'incomplete'}`;
+        todoEl.innerHTML = `
+            <input type="checkbox" class="todo-checkbox" ${todo.completed ? 'checked' : ''} 
+                   data-path="${todo.path}" data-line="${todo.line}">
+            <div class="todo-content">
+                <div class="todo-text">${escapeHtml(todo.text)}</div>
+                <div class="todo-meta">
+                    <i class="fas fa-file-alt"></i>
+                    <a href="#" class="todo-note-link" data-path="${todo.path}">${escapeHtml(todo.note)}</a>
                 </div>
-            `;
-            
-            // Add checkbox toggle handler
-            const checkbox = todoEl.querySelector('.todo-checkbox');
-            checkbox.addEventListener('change', async (e) => {
-                await toggleTodo(todo.path, todo.line);
-                await loadTodos();
-            });
-            
-            // Add note link handler
-            const noteLink = todoEl.querySelector('.todo-note-link');
-            noteLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                hideModal('todos-modal');
-                loadNote(todo.path);
-            });
-            
-            container.appendChild(todoEl);
+            </div>
+        `;
+        
+        todoEl.querySelector('.todo-checkbox').addEventListener('change', async () => {
+            await toggleTodo(todo.path, todo.line);
+            await loadTodos();
         });
-    });
+        
+        todoEl.querySelector('.todo-note-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            hideModal('todos-modal');
+            loadNote(todo.path);
+        });
+        
+        return todoEl;
+    }
+    
+    incomplete.forEach(t => incompleteContainer.appendChild(buildTodoEl(t)));
+    complete.forEach(t => completeContainer.appendChild(buildTodoEl(t)));
+    
+    if (incomplete.length === 0) {
+        incompleteContainer.innerHTML = '<div class="todos-empty"><p>All done! 🎉</p></div>';
+    }
+    if (complete.length === 0) {
+        completeContainer.innerHTML = '<div class="todos-empty"><p>Nothing completed yet</p></div>';
+    }
     
     updateTodosStats();
 }

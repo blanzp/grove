@@ -10,31 +10,36 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-CONFIG_DIR = Path(__file__).parent / ".grove"
-CONFIG_DIR.mkdir(exist_ok=True)
+# Global config under user's home directory
+GROVE_HOME = Path.home() / ".grove"
+GROVE_HOME.mkdir(exist_ok=True)
+CONFIG_DIR = GROVE_HOME
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
-# Vault resolution
-VAULTS_ROOT = Path(__file__).parent / "vaults"
-VAULTS_ROOT.mkdir(exist_ok=True)
+# Vaults live under ~/.grove/vaults
+VAULTS_ROOT = GROVE_HOME / "vaults"
+VAULTS_ROOT.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_VAULT_PATH = Path(__file__).parent / "vault"  # legacy single-vault path
+# Project-level default vault acts as a template seed for new vaults
+DEFAULT_VAULT_PATH = Path(__file__).parent / "vault"  # used only for seeding templates/README
 DEFAULT_VAULT_PATH.mkdir(exist_ok=True)
 
 
 def get_active_vault_path():
-    """Return the Path to the active vault directory."""
+    """Return the Path to the active vault directory under ~/.grove/vaults."""
+    # Default to a 'default' vault name
+    name = 'default'
     if CONFIG_PATH.exists():
         try:
             cfg = json.loads(CONFIG_PATH.read_text() or '{}')
-            name = cfg.get('active_vault', 'vault')
+            name = cfg.get('active_vault', 'default')
         except Exception:
-            name = 'vault'
-    else:
-        name = 'vault'
-    if name == 'vault':
-        return DEFAULT_VAULT_PATH
-    return VAULTS_ROOT / name
+            name = 'default'
+    path = VAULTS_ROOT / name
+    path.mkdir(parents=True, exist_ok=True)
+    # Ensure templates dir exists
+    (path / '.templates').mkdir(exist_ok=True)
+    return path
 
 # Initialize globals, refreshed on each request as well
 VAULT_PATH = get_active_vault_path()
@@ -149,12 +154,15 @@ def get_tree():
 # Vault management APIs
 @app.route('/api/vaults', methods=['GET'])
 def list_vaults():
-    """List available vaults and the active one."""
-    active = str(VAULT_PATH)
-    # names include legacy 'vault' plus folders under vaults/
-    names = ['vault'] + [p.name for p in VAULTS_ROOT.iterdir() if p.is_dir()]
+    """List available vaults under ~/.grove/vaults and the active one."""
+    names = [p.name for p in VAULTS_ROOT.iterdir() if p.is_dir()]
+    if not names:
+        # Ensure a default vault exists
+        (VAULTS_ROOT / 'default').mkdir(parents=True, exist_ok=True)
+        names = ['default']
+    active = VAULT_PATH.name
     return jsonify({
-        'active': 'vault' if VAULT_PATH == DEFAULT_VAULT_PATH else (VAULT_PATH.name),
+        'active': active,
         'vaults': sorted(list(set(names)))
     })
 
@@ -164,16 +172,13 @@ def create_vault():
     name = data.get('name', '').strip()
     if not name:
         return jsonify({'error': 'name required'}), 400
-    if name == 'vault':
-        path = DEFAULT_VAULT_PATH
-    else:
-        path = VAULTS_ROOT / name
+    path = VAULTS_ROOT / name
     if path.exists():
         return jsonify({'error': 'vault already exists'}), 400
     path.mkdir(parents=True, exist_ok=True)
     tpl_dir = path / '.templates'
     tpl_dir.mkdir(exist_ok=True)
-    # Copy standard templates from default vault
+    # Copy standard templates from project default vault seed
     src_tpl = DEFAULT_VAULT_PATH / '.templates'
     if src_tpl.exists():
         for tpl_file in src_tpl.iterdir():
@@ -282,7 +287,7 @@ def export_vault():
                 arcname = str(f.relative_to(VAULT_PATH))
                 zf.write(f, arcname)
     buf.seek(0)
-    vault_name = 'vault' if VAULT_PATH == DEFAULT_VAULT_PATH else VAULT_PATH.name
+    vault_name = VAULT_PATH.name
     return send_file(buf, mimetype='application/zip', as_attachment=True,
                      download_name=f'grove-{vault_name}-{datetime.now().strftime("%Y%m%d")}.zip')
 
@@ -293,13 +298,11 @@ def delete_vault():
     name = data.get('name')
     if not name:
         return jsonify({'error': 'name required'}), 400
-    if name == 'vault':
-        return jsonify({'error': 'Cannot delete default vault'}), 400
     path = VAULTS_ROOT / name
     if not path.exists():
         return jsonify({'error': 'Vault not found'}), 404
     shutil.rmtree(path)
-    # If we just deleted the active vault, switch back to default
+    # If we just deleted the active vault, switch back to 'default'
     cfg = {}
     if CONFIG_PATH.exists():
         try:
@@ -307,7 +310,7 @@ def delete_vault():
         except Exception:
             pass
     if cfg.get('active_vault') == name:
-        cfg['active_vault'] = 'vault'
+        cfg['active_vault'] = 'default'
         CONFIG_PATH.write_text(json.dumps(cfg))
     return jsonify({'success': True})
 
@@ -317,10 +320,7 @@ def switch_vault():
     name = data.get('name')
     if not name:
         return jsonify({'error': 'name required'}), 400
-    if name == 'vault':
-        path = DEFAULT_VAULT_PATH
-    else:
-        path = VAULTS_ROOT / name
+    path = VAULTS_ROOT / name
     if not path.exists():
         return jsonify({'error': 'vault not found'}), 404
     # write config
@@ -495,10 +495,15 @@ def create_note():
     folder = data.get('folder', '')
     tags = data.get('tags', [])
     template = data.get('template', None)
+    custom_filename = data.get('filename', None)
     
-    # Sanitize filename
-    filename = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '-').lower()
-    filename = re.sub(r'[-\s]+', '-', filename)
+    # Use custom filename if provided, otherwise slugify the title
+    if custom_filename:
+        filename = re.sub(r'[^\w\s-]', '', custom_filename).strip()
+        filename = re.sub(r'[\s]+', '-', filename)
+    else:
+        filename = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '-').lower()
+        filename = re.sub(r'[-\s]+', '-', filename)
     
     # Determine path
     if folder:
