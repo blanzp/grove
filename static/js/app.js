@@ -249,7 +249,15 @@ function togglePreview() {
 function renderPreview() {
     const content = document.getElementById('editor').value;
     const preview = document.getElementById('preview');
-    preview.innerHTML = marked.parse(content);
+    
+    // Handle both old and new marked.js API
+    if (typeof marked.parse === 'function') {
+        preview.innerHTML = marked.parse(content);
+    } else if (typeof marked === 'function') {
+        preview.innerHTML = marked(content);
+    } else {
+        preview.innerHTML = '<p style="color: red;">Markdown library not loaded</p>';
+    }
 }
 
 // Setup event listeners
