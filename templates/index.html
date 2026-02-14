@@ -69,6 +69,20 @@
             <button id="mobile-menu-fab" class="mobile-menu-fab" aria-label="Menu" title="Menu">
                 <i class="fas fa-bars"></i>
             </button>
+
+            <!-- Splash screen (shown when no note selected) -->
+            <div id="splash" class="splash" style="display: none;">
+                <img src="/static/grove-logo.png" alt="Grove" class="splash-logo">
+                <h2>Welcome to Grove</h2>
+                <p class="splash-tagline">Your markdown grove — clean, fast, and fully keyboard-driven.</p>
+                <div class="splash-actions">
+                    <button class="btn-primary" id="splash-new-note"><i class="fas fa-file-alt"></i> New Note</button>
+                    <button class="btn-secondary" id="splash-daily-note"><i class="fas fa-calendar-day"></i> Daily Note</button>
+                    <button class="btn-secondary" id="splash-templates"><i class="fas fa-file-contract"></i> Templates</button>
+                    <button class="btn-secondary" id="splash-todos"><i class="fas fa-tasks"></i> Todo Dashboard</button>
+                </div>
+                <p class="splash-hint">Tip: Press Ctrl+N to create a note, Ctrl+P to preview, F11 for fullscreen.</p>
+            </div>
             
             <div class="editor-header">
                 <div class="title-tags-section">

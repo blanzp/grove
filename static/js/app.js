@@ -1107,6 +1107,7 @@ function updateBreadcrumbs() {
     const breadcrumbs = document.getElementById('breadcrumbs');
     if (!currentNote) {
         breadcrumbs.innerHTML = '<span class="save-status" id="save-status"></span>';
+        showSplash(true);
         return;
     }
     
@@ -1122,7 +1123,33 @@ function updateBreadcrumbs() {
     
     html += '</div><span class="save-status" id="save-status"></span>';
     breadcrumbs.innerHTML = html;
+    showSplash(false);
 }
+
+// Splash visibility toggle
+function showSplash(show) {
+    const splash = document.getElementById('splash');
+    const editorHeader = document.querySelector('.editor-header');
+    const toolbar = document.getElementById('markdown-toolbar');
+    const editorContainer = document.querySelector('.editor-container');
+    if (!splash || !editorHeader || !toolbar || !editorContainer) return;
+    splash.style.display = show ? 'flex' : 'none';
+    editorHeader.style.display = show ? 'none' : 'flex';
+    toolbar.style.display = show ? 'none' : 'flex';
+    editorContainer.style.display = show ? 'none' : 'block';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sn = document.getElementById('splash-new-note');
+    if (sn) sn.addEventListener('click', () => document.getElementById('new-note').click());
+    const sd = document.getElementById('splash-daily-note');
+    if (sd) sd.addEventListener('click', () => document.getElementById('daily-note').click());
+    const st = document.getElementById('splash-templates');
+    if (st) st.addEventListener('click', () => document.getElementById('manage-templates').click());
+    const std = document.getElementById('splash-todos');
+    if (std) std.addEventListener('click', () => document.getElementById('todos-btn').click());
+    if (!currentNote) showSplash(true);
+});
 
 // Clickable wikilinks in preview
 function makeWikilinksClickable() {
