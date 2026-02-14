@@ -1596,16 +1596,8 @@ async function createNewTemplate() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             name: name,
-            content: `---
-title: {{title}}
-created: {{date}}
-tags:
-  - 
----
-
-# {{title}}
-
-`
+            // Templates are body-only; Grove manages frontmatter
+            content: `# {{title}}\n\n`
         })
     });
     

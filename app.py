@@ -459,7 +459,7 @@ def create_folder():
 
 @app.route('/api/daily', methods=['POST'])
 def create_daily():
-    """Create today's daily note."""
+    """Create today's daily note using 'daily' template if present."""
     today = datetime.now().strftime('%Y-%m-%d')
     daily_folder = VAULT_PATH / 'daily'
     daily_folder.mkdir(exist_ok=True)
@@ -467,26 +467,17 @@ def create_daily():
     file_path = daily_folder / f"{today}.md"
     
     if not file_path.exists():
-        content = f"""---
-title: {today}
-created: {datetime.now().isoformat()}
-type: daily
-tags:
-  - daily
----
-
-# {today}
-
-## Notes
-
-## Tasks
-
-[ ] 
-
-## Links
-
-"""
-        file_path.write_text(content)
+        # Prefer a body-only template at .templates/daily.md
+        body = None
+        tpl = TEMPLATES_PATH / 'daily.md'
+        if tpl.exists():
+            body = tpl.read_text()
+            # Replace placeholders
+            body = body.replace('{{title}}', today).replace('{{date}}', today)
+        if body is None:
+            body = f"# {today}\n\n## Notes\n\n## Tasks\n\n- [ ] \n\n## Links\n\n"
+        fm = build_frontmatter(today, ['daily'], 'daily')
+        file_path.write_text(fm + body)
     
     return jsonify({
         'success': True,
