@@ -369,14 +369,18 @@ body.fullscreen .main-content {
 .todos-container {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     margin-bottom: 16px;
     max-height: calc(70vh - 150px);
+    width: 100%;
 }
 
 .todos-list {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    width: 100%;
+    max-width: 100%;
 }
 
 .todos-empty {
@@ -401,6 +405,9 @@ body.fullscreen .main-content {
     background: var(--bg-tertiary);
     border-radius: 4px;
     border-left: 3px solid transparent;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .todo-item:hover {
@@ -426,12 +433,17 @@ body.fullscreen .main-content {
 
 .todo-content {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .todo-text {
     font-size: 14px;
     color: var(--text-primary);
     margin-bottom: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .todo-item.complete .todo-text {
@@ -445,6 +457,8 @@ body.fullscreen .main-content {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
+    overflow: hidden;
 }
 
 .todo-note-link {
