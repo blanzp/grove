@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     setupTreeDragAndDrop();
     setupKeyboardShortcuts();
+    setupMarkdownToolbar();
     loadTheme();
 });
 
@@ -1139,12 +1140,150 @@ function closeMobileMenu() {
 }
 
 // Keyboard shortcuts
+// Markdown toolbar
+function setupMarkdownToolbar() {
+    document.getElementById('markdown-toolbar').addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        
+        const action = btn.dataset.action;
+        if (!action) return;
+        
+        const editor = document.getElementById('editor');
+        if (editor.disabled) return;
+        
+        applyMarkdownAction(action, editor);
+    });
+}
+
+function applyMarkdownAction(action, editor) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+    const selected = text.substring(start, end);
+    
+    let before = '', after = '', insert = '';
+    let cursorOffset = 0;
+    
+    switch (action) {
+        case 'bold':
+            before = '**'; after = '**';
+            insert = selected || 'bold text';
+            break;
+        case 'italic':
+            before = '_'; after = '_';
+            insert = selected || 'italic text';
+            break;
+        case 'strike':
+            before = '~~'; after = '~~';
+            insert = selected || 'strikethrough';
+            break;
+        case 'h1':
+            before = getLinePrefix(text, start) + '# '; after = '';
+            insert = selected || 'Heading 1';
+            break;
+        case 'h2':
+            before = getLinePrefix(text, start) + '## '; after = '';
+            insert = selected || 'Heading 2';
+            break;
+        case 'h3':
+            before = getLinePrefix(text, start) + '### '; after = '';
+            insert = selected || 'Heading 3';
+            break;
+        case 'ul':
+            before = getLinePrefix(text, start) + '- '; after = '';
+            insert = selected || 'list item';
+            break;
+        case 'ol':
+            before = getLinePrefix(text, start) + '1. '; after = '';
+            insert = selected || 'list item';
+            break;
+        case 'checkbox':
+            before = getLinePrefix(text, start) + '- [ ] '; after = '';
+            insert = selected || 'task';
+            break;
+        case 'link':
+            if (selected) {
+                before = '['; after = '](url)';
+                insert = selected;
+            } else {
+                insert = '[link text](url)';
+            }
+            break;
+        case 'image':
+            insert = '![alt text](image-url)';
+            break;
+        case 'code':
+            before = '`'; after = '`';
+            insert = selected || 'code';
+            break;
+        case 'codeblock':
+            before = getLinePrefix(text, start) + '```\n'; after = '\n```';
+            insert = selected || 'code';
+            break;
+        case 'quote':
+            before = getLinePrefix(text, start) + '> '; after = '';
+            insert = selected || 'quote';
+            break;
+        case 'hr':
+            before = getLinePrefix(text, start); after = '';
+            insert = '---';
+            break;
+        case 'wikilink':
+            before = '[['; after = ']]';
+            insert = selected || 'note name';
+            break;
+    }
+    
+    const replacement = before + insert + after;
+    editor.value = text.substring(0, start) + replacement + text.substring(end);
+    
+    // Position cursor
+    const newCursorPos = start + before.length + insert.length;
+    editor.selectionStart = start + before.length;
+    editor.selectionEnd = newCursorPos;
+    editor.focus();
+    
+    // Trigger auto-save
+    editor.dispatchEvent(new Event('input'));
+}
+
+// Get prefix needed to start at beginning of current line
+function getLinePrefix(text, pos) {
+    const lineStart = text.lastIndexOf('\n', pos - 1);
+    const currentPos = pos;
+    
+    // If we're at the start of a line already, just return empty
+    if (lineStart === pos - 1 || pos === 0) return '';
+    
+    // Otherwise add a newline to start fresh
+    return '\n';
+}
+
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         // Ctrl+S or Cmd+S - Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             saveNoteUpdated();
+        }
+        
+        // Ctrl+B - Bold
+        if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+            e.preventDefault();
+            applyMarkdownAction('bold', document.getElementById('editor'));
+        }
+        
+        // Ctrl+I - Italic
+        if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+            e.preventDefault();
+            applyMarkdownAction('italic', document.getElementById('editor'));
+        }
+        
+        // Ctrl+L - Link
+        if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+            e.preventDefault();
+            applyMarkdownAction('link', document.getElementById('editor'));
         }
         
         // Ctrl+N or Cmd+N - New note
