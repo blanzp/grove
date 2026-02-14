@@ -77,6 +77,11 @@ body {
     width: 28px;
     height: 28px;
     border-radius: 4px;
+    filter: brightness(0) invert(85%) sepia(15%) saturate(400%) hue-rotate(70deg);
+}
+
+body.light-theme .sidebar-logo {
+    filter: none;
 }
 
 .toolbar {
