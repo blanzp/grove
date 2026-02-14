@@ -1031,7 +1031,7 @@ async function createMeetingNote() {
     const dd = String(now.getDate()).padStart(2, '0');
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    const datestamp = `${yyyy}-${mm}${dd} ${hh}${min}`;
+    const datestamp = `${yyyy}-${mm}-${dd}-${hh}${min}`;
     const name = prompt('Meeting name:', '');
     if (name === null) return; // cancelled
     const meetingName = name.trim();

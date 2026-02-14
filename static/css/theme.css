@@ -214,9 +214,13 @@ body.fullscreen .main-content {
     .sidebar {
         position: fixed;
         left: -300px;
+        top: 0;
+        bottom: 0;
+        width: 280px;
         transition: left 0.3s;
         z-index: 1000;
         height: 100vh;
+        height: 100dvh;
         box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     }
     
@@ -227,6 +231,8 @@ body.fullscreen .main-content {
     .main-content {
         width: 100%;
         margin-left: 0 !important;
+        padding-left: 0 !important;
+        position: relative;
     }
     
     /* Use floating FAB for menu on mobile; hide header hamburger to avoid overlap */
@@ -235,17 +241,29 @@ body.fullscreen .main-content {
     }
     
     .editor-header {
-        gap: 8px;
-        padding-left: calc(env(safe-area-inset-left) + 56px); /* space for floating FAB */
+        gap: 6px;
+        padding: 8px 12px 8px 52px; /* space for floating FAB */
+        flex-wrap: nowrap;
+        min-height: 44px;
     }
     
     .breadcrumbs {
-        padding-left: calc(env(safe-area-inset-left) + 56px); /* avoid overlap with FAB */
+        padding: 4px 12px 4px 52px; /* avoid overlap with FAB */
+        font-size: 12px;
+    }
+    
+    .editor-actions {
+        flex-wrap: nowrap;
+        gap: 4px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-shrink: 0;
     }
     
     .editor-actions button {
         padding: 6px 8px;
         font-size: 12px;
+        flex-shrink: 0;
     }
     
     /* Hide button text on mobile, show only icons */
@@ -254,11 +272,42 @@ body.fullscreen .main-content {
     }
     
     #note-title {
-        font-size: 18px;
+        font-size: 16px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .tags-display {
+        gap: 4px;
+        min-height: 20px;
+    }
+    
+    .tag-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    
+    /* Markdown toolbar: scrollable instead of wrapping */
+    .markdown-toolbar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px 12px;
+        gap: 2px;
+    }
+    
+    .markdown-toolbar button {
+        padding: 6px 8px;
+        font-size: 12px;
+        min-width: 28px;
+        flex-shrink: 0;
     }
     
     .editor-container {
-        height: calc(100vh - 180px) !important;
+        flex: 1;
+        min-height: 0;
+        height: auto !important;
     }
     
     .editor-container.split-view {
@@ -269,6 +318,11 @@ body.fullscreen .main-content {
     .editor-container.split-view .preview-container {
         width: 100%;
         height: 50%;
+    }
+    
+    .preview-container {
+        min-width: 0 !important;
+        width: 100% !important;
     }
     
     .toolbar {
@@ -287,18 +341,71 @@ body.fullscreen .main-content {
     #editor {
         font-size: 16px;
         -webkit-text-size-adjust: 100%;
+        padding: 12px;
+    }
+    
+    /* Splash adjustments */
+    .splash {
+        padding: 24px 16px;
+        gap: 8px;
+    }
+    
+    .splash-logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .splash-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 6px;
+    }
+    
+    .splash-actions button {
+        width: 100%;
+    }
+    
+    .splash-hint {
+        font-size: 11px;
+        line-height: 1.5;
     }
     
     /* Modal adjustments */
     .modal-content {
-        margin: 20px;
-        max-height: calc(100vh - 40px);
+        margin: 10px;
+        max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px);
         overflow-y: auto;
+        min-width: 0 !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        padding: 16px;
     }
     
     /* Hide sidebar collapse button on mobile */
     #sidebar-collapse {
         display: none;
+    }
+    
+    /* Table scrolling on mobile */
+    .preview-container table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        font-size: 13px;
+    }
+    
+    .preview-container th,
+    .preview-container td {
+        padding: 6px 8px;
+        white-space: nowrap;
+    }
+    
+    /* Toast position */
+    .toast-notification {
+        left: 16px;
+        right: 16px;
+        bottom: calc(env(safe-area-inset-bottom) + 16px);
     }
 }
 
