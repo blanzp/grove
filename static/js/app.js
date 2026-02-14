@@ -62,6 +62,25 @@ function initVaultSelect() {
     });
 }
 
+async function deleteCurrentVault() {
+    const sel = document.getElementById('vault-select');
+    const name = sel.value;
+    if (name === 'vault') {
+        showNotification('Cannot delete the default vault');
+        return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete the "${name}" vault and ALL its notes?`)) return;
+    if (!confirm(`This cannot be undone. Type-to-confirm: delete "${name}"?`)) return;
+    const resp = await fetch('/api/vaults/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+    if (resp.ok) {
+        localStorage.setItem('grove-recent', '[]');
+        location.reload();
+    } else {
+        const err = await resp.json();
+        showNotification(err.error || 'Delete failed');
+    }
+}
+
 async function createVaultFromModal() {
     const input = document.getElementById('modal-vault-name');
     const name = (input.value || '').trim();
@@ -1104,6 +1123,7 @@ function setupEventListeners() {
     });
     document.getElementById('create-vault-btn').addEventListener('click', createVaultFromModal);
     document.getElementById('cancel-vault-btn').addEventListener('click', () => hideModal('new-vault-modal'));
+    document.getElementById('delete-vault').addEventListener('click', deleteCurrentVault);
 
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);

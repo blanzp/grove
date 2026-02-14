@@ -269,6 +269,31 @@ Happy writing! 🌿
 """)
     return jsonify({'success': True})
 
+@app.route('/api/vaults/delete', methods=['POST'])
+def delete_vault():
+    import shutil
+    data = request.json or {}
+    name = data.get('name')
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    if name == 'vault':
+        return jsonify({'error': 'Cannot delete default vault'}), 400
+    path = VAULTS_ROOT / name
+    if not path.exists():
+        return jsonify({'error': 'Vault not found'}), 404
+    shutil.rmtree(path)
+    # If we just deleted the active vault, switch back to default
+    cfg = {}
+    if CONFIG_PATH.exists():
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text() or '{}')
+        except Exception:
+            pass
+    if cfg.get('active_vault') == name:
+        cfg['active_vault'] = 'vault'
+        CONFIG_PATH.write_text(json.dumps(cfg))
+    return jsonify({'success': True})
+
 @app.route('/api/vaults/switch', methods=['POST'])
 def switch_vault():
     data = request.json or {}
