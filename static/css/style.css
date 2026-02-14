@@ -195,6 +195,20 @@ body {
     flex: 1;
     position: relative;
     overflow: hidden;
+    display: flex;
+}
+
+.editor-container.split-view {
+    display: flex;
+}
+
+.editor-container.preview-only #editor {
+    display: none;
+}
+
+.editor-container.split-view #editor {
+    width: 50%;
+    border-right: 1px solid #3e3e42;
 }
 
 #editor {
@@ -242,6 +256,84 @@ body {
     display: none;
     padding: 16px;
     overflow-y: auto;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    flex: 1;
+}
+
+.editor-container.split-view .preview-container,
+.editor-container.preview-only .preview-container {
+    display: block;
+}
+
+.preview-container h1,
+.preview-container h2,
+.preview-container h3 {
+    color: #cccccc;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.preview-container h1 {
+    font-size: 28px;
+    border-bottom: 1px solid #3e3e42;
+    padding-bottom: 8px;
+}
+
+.preview-container h2 {
+    font-size: 22px;
+}
+
+.preview-container h3 {
+    font-size: 18px;
+}
+
+.preview-container p {
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.preview-container code {
+    background: #2d2d30;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: #ce9178;
+}
+
+.preview-container pre {
+    background: #2d2d30;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+}
+
+.preview-container pre code {
+    background: none;
+    padding: 0;
+}
+
+.preview-container ul,
+.preview-container ol {
+    margin-left: 24px;
+    margin-bottom: 12px;
+}
+
+.preview-container a {
+    color: #4fc3f7;
+    text-decoration: none;
+}
+
+.preview-container a:hover {
+    text-decoration: underline;
+}
+
+.preview-container blockquote {
+    border-left: 4px solid #3e3e42;
+    padding-left: 16px;
+    margin-left: 0;
+    color: #999;
 }
 
 /* Modals */

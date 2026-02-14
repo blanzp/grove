@@ -2,6 +2,7 @@
 
 let currentNote = null;
 let currentFolder = '';
+let previewMode = 'edit'; // 'edit', 'split', 'preview'
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -66,6 +67,12 @@ async function loadNote(path) {
     
     currentNote = path;
     
+    // Reset preview mode
+    previewMode = 'edit';
+    const editorContainer = document.getElementById('drop-zone');
+    editorContainer.classList.remove('split-view', 'preview-only');
+    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-eye"></i> Preview';
+    
     document.getElementById('note-title').value = note.title;
     document.getElementById('note-title').disabled = false;
     document.getElementById('tags-input').value = note.tags.join(', ');
@@ -73,6 +80,7 @@ async function loadNote(path) {
     document.getElementById('editor').value = note.content;
     document.getElementById('editor').disabled = false;
     document.getElementById('save-btn').disabled = false;
+    document.getElementById('preview-toggle').disabled = false;
     
     // Highlight active note
     document.querySelectorAll('.tree-item').forEach(item => {
@@ -208,8 +216,54 @@ async function loadTemplates() {
     });
 }
 
+// Toggle preview mode
+function togglePreview() {
+    const editorContainer = document.getElementById('drop-zone');
+    const previewContainer = document.getElementById('preview');
+    const previewBtn = document.getElementById('preview-toggle');
+    const editor = document.getElementById('editor');
+    
+    // Cycle through modes: edit -> split -> preview -> edit
+    if (previewMode === 'edit') {
+        previewMode = 'split';
+        editorContainer.classList.add('split-view');
+        previewBtn.innerHTML = '<i class="fas fa-columns"></i> Split';
+    } else if (previewMode === 'split') {
+        previewMode = 'preview';
+        editorContainer.classList.remove('split-view');
+        editorContainer.classList.add('preview-only');
+        previewBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+    } else {
+        previewMode = 'edit';
+        editorContainer.classList.remove('preview-only');
+        previewBtn.innerHTML = '<i class="fas fa-eye"></i> Preview';
+    }
+    
+    // Render markdown in preview
+    if (previewMode !== 'edit') {
+        renderPreview();
+    }
+}
+
+// Render markdown preview
+function renderPreview() {
+    const content = document.getElementById('editor').value;
+    const preview = document.getElementById('preview');
+    preview.innerHTML = marked.parse(content);
+}
+
 // Setup event listeners
 function setupEventListeners() {
+    // Preview toggle button
+    document.getElementById('preview-toggle').addEventListener('click', togglePreview);
+    
+    // Update preview on editor change when in split/preview mode
+    document.getElementById('editor').addEventListener('input', () => {
+        if (previewMode !== 'edit') {
+            renderPreview();
+        }
+    });
+    
     // Save button
     document.getElementById('save-btn').addEventListener('click', saveNote);
     
