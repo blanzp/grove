@@ -59,6 +59,18 @@ function initVaultSelect() {
     });
 }
 
+async function createVaultFromModal() {
+    const input = document.getElementById('modal-vault-name');
+    const name = (input.value || '').trim();
+    if (!name) return;
+    const resp = await fetch('/api/vaults/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+    if (!resp.ok) { showNotification('Vault already exists or invalid'); return; }
+    await fetch('/api/vaults/switch', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+    hideModal('new-vault-modal');
+    localStorage.setItem('grove-recent', '[]');
+    location.reload();
+}
+
 
 // Setup tree drag and drop for root level
 function setupTreeDragAndDrop() {
@@ -680,8 +692,15 @@ function setupEventListeners() {
         }
     });
     
-    // Vault select
+    // Vault select/create
     initVaultSelect();
+    document.getElementById('create-vault').addEventListener('click', () => {
+        document.getElementById('modal-vault-name').value = '';
+        showModal('new-vault-modal');
+        setTimeout(()=>document.getElementById('modal-vault-name').focus(),0);
+    });
+    document.getElementById('create-vault-btn').addEventListener('click', createVaultFromModal);
+    document.getElementById('cancel-vault-btn').addEventListener('click', () => hideModal('new-vault-modal'));
 
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);

@@ -30,6 +30,7 @@
                     <select id="vault-select" title="Current Vault" style="margin-left:auto; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px;">
                         <option>vault</option>
                     </select>
+                    <button id="create-vault" title="Create New Vault"><i class="fas fa-folder-plus"></i></button>
                     <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
                     <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -168,6 +169,18 @@
             <pre id="frontmatter-view" style="max-height: 50vh; overflow: auto; background: var(--bg-tertiary); color: var(--text-primary); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></pre>
             <div class="modal-actions">
                 <button class="btn-secondary" id="close-frontmatter-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Vault Modal -->
+    <div class="modal" id="new-vault-modal">
+        <div class="modal-content modal-small">
+            <h2>Create Vault</h2>
+            <input type="text" id="modal-vault-name" placeholder="Vault name (e.g., personal, work)">
+            <div class="modal-actions">
+                <button class="btn-primary" id="create-vault-btn">Create</button>
+                <button class="btn-secondary" id="cancel-vault-btn">Cancel</button>
             </div>
         </div>
     </div>
