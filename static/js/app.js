@@ -1,10 +1,10 @@
-// MDVault Web - Frontend JavaScript
+// Grove - Markdown Notes App
 
 let currentNote = null;
 let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
 let autoSaveTimeout = null;
-let recentFiles = JSON.parse(localStorage.getItem('mdvault-recent') || '[]');
+let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -995,13 +995,13 @@ function addToRecent(path, title) {
     // Keep only last 10
     recentFiles = recentFiles.slice(0, 10);
     
-    localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+    localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
     loadRecentFiles();
 }
 
 function removeFromRecent(path) {
     recentFiles = recentFiles.filter(f => f.path !== path);
-    localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+    localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
     loadRecentFiles();
 }
 
@@ -1009,7 +1009,7 @@ function updateRecentFile(path, title) {
     const file = recentFiles.find(f => f.path === path);
     if (file) {
         file.title = title;
-        localStorage.setItem('mdvault-recent', JSON.stringify(recentFiles));
+        localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
         loadRecentFiles();
     }
 }
@@ -1095,14 +1095,14 @@ async function searchAndLoadNote(noteName) {
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('mdvault-theme', isLight ? 'light' : 'dark');
+    localStorage.setItem('grove-theme', isLight ? 'light' : 'dark');
     
     const icon = document.querySelector('#theme-toggle i');
     icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
 }
 
 function loadTheme() {
-    const theme = localStorage.getItem('mdvault-theme') || 'dark';
+    const theme = localStorage.getItem('grove-theme') || 'dark';
     if (theme === 'light') {
         document.body.classList.add('light-theme');
         document.querySelector('#theme-toggle i').className = 'fas fa-sun';

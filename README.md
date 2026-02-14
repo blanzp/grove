@@ -1,4 +1,4 @@
-# MDVault Web
+# Grove
 
 A web-based markdown vault manager with a clean VS Code-inspired interface.
 
@@ -90,7 +90,7 @@ tags:
 ## File Structure
 
 ```
-mdvault-web/
+grove-web/
 ├── app.py              # Flask backend
 ├── requirements.txt    # Python dependencies
 ├── vault/              # Your markdown notes

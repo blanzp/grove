@@ -214,10 +214,6 @@ body.fullscreen .main-content {
         display: block;
     }
     
-    .breadcrumbs {
-        padding-left: 50px;
-    }
-    
     .editor-header {
         flex-direction: column;
         align-items: stretch;

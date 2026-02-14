@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MDVault Web</title>
+    <title>Grove</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -14,7 +17,7 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h1><i class="fas fa-book"></i> MDVault</h1>
+                    <h1><img src="/static/grove-logo.png" alt="Grove" class="sidebar-logo"> Grove</h1>
                     <button id="sidebar-collapse" title="Toggle Sidebar"><i class="fas fa-chevron-left"></i></button>
                 </div>
                 <div class="toolbar">
@@ -55,10 +58,10 @@
             <button id="sidebar-expand" class="sidebar-expand-btn" style="display: none;" title="Show Sidebar">
                 <i class="fas fa-chevron-right"></i>
             </button>
-            <button id="mobile-menu-btn" class="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
             <div class="breadcrumbs" id="breadcrumbs">
+                <button id="mobile-menu-btn" class="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <span class="save-status" id="save-status"></span>
             </div>
             
