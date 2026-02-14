@@ -1,0 +1,18 @@
+---
+title: meeting with Joe
+created: 2026-02-13
+tags:
+  - meeting
+---
+
+# meeting with Joe
+
+## Attendees
+
+## Agenda
+
+## Notes
+
+## Action Items
+
+- [ ] 

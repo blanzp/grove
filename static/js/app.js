@@ -85,12 +85,22 @@ function renderTree(items, container, level = 0) {
             itemDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentFolder = item.path;
-                // Show children
-                if (item.children && item.children.length > 0) {
+                
+                // Toggle folder expansion
+                const existingChildren = itemDiv.nextElementSibling;
+                if (existingChildren && existingChildren.classList.contains('tree-children')) {
+                    // Folder is already expanded, collapse it
+                    existingChildren.remove();
+                    itemDiv.querySelector('i').classList.remove('fa-folder-open');
+                    itemDiv.querySelector('i').classList.add('fa-folder');
+                } else if (item.children && item.children.length > 0) {
+                    // Expand folder
                     const childContainer = document.createElement('div');
                     childContainer.className = 'tree-children';
                     renderTree(item.children, childContainer, level + 1);
                     itemDiv.after(childContainer);
+                    itemDiv.querySelector('i').classList.remove('fa-folder');
+                    itemDiv.querySelector('i').classList.add('fa-folder-open');
                 }
             });
             
