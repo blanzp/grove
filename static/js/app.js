@@ -294,6 +294,7 @@ function togglePreview() {
     const editor = document.getElementById('editor');
     
     console.log('Toggle preview from mode:', previewMode);
+    console.log('Editor container classes before:', editorContainer.className);
     
     // Cycle through modes: edit -> split -> preview -> edit
     if (previewMode === 'edit') {
@@ -314,10 +315,18 @@ function togglePreview() {
         console.log('Switched to edit mode');
     }
     
+    console.log('Editor container classes after:', editorContainer.className);
+    console.log('Preview container display:', window.getComputedStyle(previewContainer).display);
+    
+    // Add test content first to verify visibility
+    previewContainer.innerHTML = '<div style="background: red; padding: 50px; font-size: 24px; color: white;">TEST - If you see this, CSS is working</div>';
+    
     // Render markdown in preview
-    if (previewMode !== 'edit') {
-        renderPreview();
-    }
+    setTimeout(() => {
+        if (previewMode !== 'edit') {
+            renderPreview();
+        }
+    }, 100);
 }
 
 // Render markdown preview
@@ -327,19 +336,32 @@ function renderPreview() {
     
     console.log('Rendering preview, content length:', content.length);
     console.log('Marked type:', typeof marked);
+    console.log('Preview element:', preview);
+    console.log('Preview computed style display:', window.getComputedStyle(preview).display);
+    console.log('Preview dimensions:', preview.offsetWidth, 'x', preview.offsetHeight);
     
     try {
         // Handle both old and new marked.js API
         if (typeof marked === 'function') {
-            preview.innerHTML = marked(content);
-            console.log('Preview rendered with marked()');
+            const html = marked(content);
+            preview.innerHTML = html;
+            console.log('Preview rendered with marked(), HTML length:', html.length);
+            console.log('First 100 chars of HTML:', html.substring(0, 100));
         } else if (typeof marked === 'object' && typeof marked.parse === 'function') {
-            preview.innerHTML = marked.parse(content);
-            console.log('Preview rendered with marked.parse()');
+            const html = marked.parse(content);
+            preview.innerHTML = html;
+            console.log('Preview rendered with marked.parse(), HTML length:', html.length);
         } else {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly<br><br>Type of marked: ' + (typeof marked) + '</div>';
             console.error('Marked not available');
         }
+        
+        // Force visibility check
+        setTimeout(() => {
+            console.log('After render - Preview innerHTML length:', preview.innerHTML.length);
+            console.log('After render - Preview display:', window.getComputedStyle(preview).display);
+            console.log('After render - Preview visibility:', window.getComputedStyle(preview).visibility);
+        }, 100);
     } catch (error) {
         preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Error rendering markdown:<br>' + error.message + '</div>';
         console.error('Preview render error:', error);
