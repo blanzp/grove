@@ -1,9 +1,14 @@
 ---
-title: meeting with Joe
+title: meeting with Joess
 created: 2026-02-13
-tags:
   - meeting
----
+  - food
+  - wine
+  - chocolate
+  - fart
+  - boob
+
+tags: flop, ffff---
 
 # meeting with Joe
 

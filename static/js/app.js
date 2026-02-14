@@ -125,7 +125,10 @@ function renderTree(items, container, level = 0) {
         } else {
             itemDiv.innerHTML = `<i class="fas fa-file-alt"></i> ${item.name}`;
             itemDiv.setAttribute('draggable', 'true');
-            itemDiv.addEventListener('click', () => loadNote(item.path));
+            itemDiv.addEventListener('click', () => {
+                loadNote(item.path);
+                closeMobileMenu();
+            });
             
             // Make files draggable
             itemDiv.addEventListener('dragstart', handleDragStart);
@@ -145,24 +148,42 @@ function renderTree(items, container, level = 0) {
 }
 
 // Load a note
+let currentNoteTags = [];
+let currentNoteFrontmatter = '';
+let showFrontmatter = false;
+
 async function loadNote(path) {
     const response = await fetch(`/api/note/${path}`);
     const note = await response.json();
     
     currentNote = path;
+    currentNoteTags = note.tags || [];
+    
+    // Strip frontmatter from content
+    let content = note.content;
+    currentNoteFrontmatter = '';
+    
+    if (content.startsWith('---')) {
+        const parts = content.split('---');
+        if (parts.length >= 3) {
+            currentNoteFrontmatter = '---' + parts[1] + '---';
+            content = parts.slice(2).join('---').trim();
+        }
+    }
     
     // Reset preview mode
     previewMode = 'edit';
+    showFrontmatter = false;
     const editorContainer = document.getElementById('drop-zone');
     editorContainer.classList.remove('split-view', 'preview-only');
     document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-eye"></i> Preview';
     
-    document.getElementById('note-title').value = note.title;
-    document.getElementById('note-title').disabled = false;
-    document.getElementById('tags-input').value = note.tags.join(', ');
-    document.getElementById('tags-input').disabled = false;
-    document.getElementById('editor').value = note.content;
+    document.getElementById('note-title').textContent = note.title;
+    renderTagsDisplay();
+    document.getElementById('editor').value = content;
     document.getElementById('editor').disabled = false;
+    document.getElementById('tags-btn').disabled = false;
+    document.getElementById('frontmatter-toggle').disabled = false;
     document.getElementById('preview-toggle').disabled = false;
     document.getElementById('delete-btn').disabled = false;
     document.getElementById('rename-btn').disabled = false;
@@ -183,6 +204,214 @@ async function loadNote(path) {
             item.classList.add('active');
         }
     });
+}
+
+function renderTagsDisplay() {
+    const container = document.getElementById('tags-display');
+    container.innerHTML = '';
+    
+    if (currentNoteTags.length === 0) {
+        container.innerHTML = '<span style="color: #888; font-size: 12px;">No tags</span>';
+        return;
+    }
+    
+    currentNoteTags.forEach(tag => {
+        const badge = document.createElement('span');
+        badge.className = 'tag-badge';
+        badge.textContent = tag;
+        container.appendChild(badge);
+    });
+}
+
+function openTagsModal() {
+    renderTagsModal();
+    showModal('tags-modal');
+    document.getElementById('tags-modal-input').focus();
+}
+
+function renderTagsModal() {
+    const container = document.getElementById('tags-modal-display');
+    container.innerHTML = '';
+    
+    if (currentNoteTags.length === 0) {
+        container.innerHTML = '<p style="color: #888; text-align: center; margin: 20px 0;">No tags yet. Add one below!</p>';
+        return;
+    }
+    
+    currentNoteTags.forEach(tag => {
+        const badge = document.createElement('span');
+        badge.className = 'tag-badge';
+        badge.innerHTML = `
+            ${escapeHtml(tag)}
+            <span class="remove-tag" data-tag="${escapeHtml(tag)}">&times;</span>
+        `;
+        
+        badge.querySelector('.remove-tag').addEventListener('click', () => {
+            removeTag(tag);
+        });
+        
+        container.appendChild(badge);
+    });
+}
+
+async function addTagFromModal() {
+    const input = document.getElementById('tags-modal-input');
+    const tag = input.value.trim();
+    
+    if (tag && !currentNoteTags.includes(tag)) {
+        currentNoteTags.push(tag);
+        await saveTags();
+        renderTagsModal();
+        renderTagsDisplay();
+        input.value = '';
+        
+        // Update frontmatter in memory and editor if visible
+        if (currentNoteFrontmatter) {
+            updateFrontmatterTags();
+            refreshEditorFrontmatter();
+        }
+    }
+}
+
+async function removeTag(tag) {
+    currentNoteTags = currentNoteTags.filter(t => t !== tag);
+    await saveTags();
+    renderTagsModal();
+    renderTagsDisplay();
+    
+    // Update frontmatter in memory and editor if visible
+    if (currentNoteFrontmatter) {
+        updateFrontmatterTags();
+        refreshEditorFrontmatter();
+    }
+}
+
+function updateFrontmatterTags() {
+    if (!currentNoteFrontmatter) return;
+    
+    let lines = currentNoteFrontmatter.split('\n');
+    let newLines = [];
+    let skipNext = false;
+    
+    // Remove old tags (handle both single-line and YAML array format)
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Skip lines that are part of tags array
+        if (skipNext && line.trim().startsWith('-')) {
+            continue;
+        } else {
+            skipNext = false;
+        }
+        
+        // Check if this is the tags: line
+        if (line.trim().startsWith('tags:')) {
+            // Check if it's array format (next line starts with -)
+            if (i + 1 < lines.length && lines[i + 1].trim().startsWith('-')) {
+                skipNext = true;
+            }
+            // Skip this line either way
+            continue;
+        }
+        
+        newLines.push(line);
+    }
+    
+    // Add new tags in YAML array format
+    if (currentNoteTags.length > 0) {
+        // Find the position after opening --- and before closing ---
+        let insertIdx = 1;
+        
+        // Find a good spot to insert (after title/created if they exist)
+        for (let i = 1; i < newLines.length - 1; i++) {
+            const line = newLines[i].trim();
+            if (line && !line.startsWith('title:') && !line.startsWith('created:')) {
+                insertIdx = i;
+                break;
+            }
+            if (line.startsWith('created:')) {
+                insertIdx = i + 1;
+            }
+        }
+        
+        // Insert tags
+        newLines.splice(insertIdx, 0, 'tags:');
+        for (let i = 0; i < currentNoteTags.length; i++) {
+            newLines.splice(insertIdx + 1 + i, 0, `  - ${currentNoteTags[i]}`);
+        }
+    }
+    
+    currentNoteFrontmatter = newLines.join('\n');
+}
+
+function toggleFrontmatter() {
+    showFrontmatter = !showFrontmatter;
+    const editor = document.getElementById('editor');
+    const btn = document.getElementById('frontmatter-toggle');
+    
+    if (showFrontmatter) {
+        // Show frontmatter - first strip any existing frontmatter from editor
+        let content = editor.value;
+        if (content.startsWith('---')) {
+            const parts = content.split('---');
+            if (parts.length >= 3) {
+                content = parts.slice(2).join('---').trim();
+            }
+        }
+        
+        // Now add the current frontmatter
+        if (currentNoteFrontmatter) {
+            editor.value = currentNoteFrontmatter + '\n\n' + content;
+        }
+        btn.innerHTML = '<i class="fas fa-code"></i> Hide FM';
+    } else {
+        // Hide frontmatter - extract and save it first
+        let content = editor.value;
+        if (content.startsWith('---')) {
+            const parts = content.split('---');
+            if (parts.length >= 3) {
+                currentNoteFrontmatter = '---' + parts[1] + '---';
+                content = parts.slice(2).join('---').trim();
+            }
+        }
+        editor.value = content;
+        btn.innerHTML = '<i class="fas fa-code"></i> Frontmatter';
+    }
+}
+
+function refreshEditorFrontmatter() {
+    // If frontmatter is visible, refresh it in the editor
+    if (showFrontmatter && currentNoteFrontmatter) {
+        const editor = document.getElementById('editor');
+        let content = editor.value;
+        
+        // Strip existing frontmatter
+        if (content.startsWith('---')) {
+            const parts = content.split('---');
+            if (parts.length >= 3) {
+                content = parts.slice(2).join('---').trim();
+            }
+        }
+        
+        // Add updated frontmatter
+        editor.value = currentNoteFrontmatter + '\n\n' + content;
+    }
+}
+
+async function saveTags() {
+    if (!currentNote) return;
+    
+    const response = await fetch(`/api/note/${currentNote}/tags`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: currentNoteTags })
+    });
+    
+    if (response.ok) {
+        loadTags();
+        updateFrontmatterTags();
+        showNotification('Tags updated');
+    }
 }
 
 // Save current note (keep for compatibility, redirect to new function)
@@ -373,8 +602,32 @@ function setupEventListeners() {
     // Theme toggle
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
     
+    // Frontmatter toggle
+    document.getElementById('frontmatter-toggle').addEventListener('click', toggleFrontmatter);
+    
     // Full-screen toggle
     document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
+    
+    // Sidebar collapse toggle
+    document.getElementById('sidebar-collapse').addEventListener('click', toggleSidebar);
+    document.getElementById('sidebar-expand').addEventListener('click', toggleSidebar);
+    
+    // Mobile menu
+    document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
+    
+    // Close mobile menu when clicking outside sidebar
+    document.addEventListener('click', (e) => {
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        
+        if (window.innerWidth <= 768 && 
+            sidebar.classList.contains('mobile-open') &&
+            !sidebar.contains(e.target) && 
+            e.target !== mobileMenuBtn &&
+            !mobileMenuBtn.contains(e.target)) {
+            closeMobileMenu();
+        }
+    });
     
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
@@ -392,6 +645,19 @@ function setupEventListeners() {
     document.getElementById('todos-btn').addEventListener('click', openTodosModal);
     document.getElementById('close-todos-btn').addEventListener('click', () => {
         hideModal('todos-modal');
+    });
+    
+    // Tags management
+    document.getElementById('tags-btn').addEventListener('click', openTagsModal);
+    document.getElementById('close-tags-btn').addEventListener('click', () => {
+        hideModal('tags-modal');
+    });
+    document.getElementById('add-tag-modal-btn').addEventListener('click', addTagFromModal);
+    document.getElementById('tags-modal-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTagFromModal();
+        }
     });
     
     // Auto-save on Ctrl+S
@@ -631,11 +897,21 @@ function hideModal(id) {
     document.getElementById(id).classList.remove('show');
 }
 
-// Notification helper
+// Notification helper - toast notification
 function showNotification(message) {
-    // Simple console notification for now
-    console.log(message);
-    // Could add a toast notification system here
+    const existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
 }
 
 // Auto-save functionality
@@ -671,7 +947,19 @@ function setSaveStatus(status) {
 async function saveNoteUpdated(isAutoSave = false) {
     if (!currentNote) return;
     
-    const content = document.getElementById('editor').value;
+    let content = document.getElementById('editor').value;
+    
+    // If frontmatter is hidden, re-add it before saving
+    // If frontmatter is visible, it's already in the editor content
+    if (!showFrontmatter && currentNoteFrontmatter) {
+        content = currentNoteFrontmatter + '\n\n' + content;
+    } else if (showFrontmatter && content.startsWith('---')) {
+        // If visible, update our stored frontmatter from what's in the editor
+        const parts = content.split('---');
+        if (parts.length >= 3) {
+            currentNoteFrontmatter = '---' + parts[1] + '---';
+        }
+    }
     
     if (!isAutoSave) {
         setSaveStatus('saving');
@@ -704,13 +992,14 @@ async function deleteNote() {
     if (response.ok) {
         showNotification('Note deleted');
         currentNote = null;
-        document.getElementById('note-title').value = '';
-        document.getElementById('note-title').disabled = true;
-        document.getElementById('tags-input').value = '';
-        document.getElementById('tags-input').disabled = true;
+        currentNoteTags = [];
+        currentNoteFrontmatter = '';
+        document.getElementById('note-title').textContent = 'Select a note...';
+        document.getElementById('tags-display').innerHTML = '';
         document.getElementById('editor').value = '';
         document.getElementById('editor').disabled = true;
-        document.getElementById('save-btn').disabled = true;
+        document.getElementById('tags-btn').disabled = true;
+        document.getElementById('frontmatter-toggle').disabled = true;
         document.getElementById('preview-toggle').disabled = true;
         document.getElementById('delete-btn').disabled = true;
         document.getElementById('rename-btn').disabled = true;
@@ -723,7 +1012,7 @@ async function deleteNote() {
 async function renameNote() {
     if (!currentNote) return;
     
-    const newName = prompt('Enter new note name:', document.getElementById('note-title').value);
+    const newName = prompt('Enter new note name:', document.getElementById('note-title').textContent);
     if (!newName) return;
     
     const response = await fetch('/api/rename', {
@@ -740,7 +1029,7 @@ async function renameNote() {
     if (result.success) {
         showNotification('Note renamed');
         currentNote = result.path;
-        document.getElementById('note-title').value = newName;
+        document.getElementById('note-title').textContent = newName;
         loadTree();
         updateBreadcrumbs();
         updateRecentFile(result.path, newName);
@@ -792,7 +1081,10 @@ function loadRecentFiles() {
         const item = document.createElement('div');
         item.className = 'recent-item';
         item.textContent = file.title;
-        item.addEventListener('click', () => loadNote(file.path));
+        item.addEventListener('click', () => {
+            loadNote(file.path);
+            closeMobileMenu();
+        });
         container.appendChild(item);
     });
 }
@@ -879,6 +1171,27 @@ function toggleFullscreen() {
     icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
 }
 
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const collapseIcon = document.querySelector('#sidebar-collapse i');
+    const expandBtn = document.getElementById('sidebar-expand');
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    if (collapseIcon) {
+        collapseIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+    }
+    expandBtn.style.display = isCollapsed ? 'flex' : 'none';
+}
+
+function toggleMobileMenu() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('mobile-open');
+}
+
+function closeMobileMenu() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.remove('mobile-open');
+}
+
 // Keyboard shortcuts
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
@@ -922,6 +1235,12 @@ function setupKeyboardShortcuts() {
         
         // F11 - Full screen
         if (e.key === 'F11') {
+            e.preventDefault();
+            toggleFullscreen();
+        }
+        
+        // Escape - Exit fullscreen
+        if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) {
             e.preventDefault();
             toggleFullscreen();
         }

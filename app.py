@@ -62,11 +62,18 @@ def extract_frontmatter(content):
     if title_match:
         frontmatter['title'] = title_match.group(1).strip()
     
+    # Try YAML array format first (tags:\n  - tag1\n  - tag2)
     tags_match = re.search(r'tags:\s*\n((?:\s*-\s*.+\n?)+)', fm_text)
     if tags_match:
         frontmatter['tags'] = [t.strip('- ').strip() for t in tags_match.group(1).split('\n') if t.strip()]
     else:
-        frontmatter['tags'] = []
+        # Try comma-separated format (tags: tag1, tag2)
+        tags_match = re.search(r'tags:\s*([^\n]+)', fm_text)
+        if tags_match:
+            tags_str = tags_match.group(1).strip()
+            frontmatter['tags'] = [t.strip() for t in tags_str.split(',') if t.strip()]
+        else:
+            frontmatter['tags'] = []
     
     return frontmatter, body
 
@@ -127,6 +134,131 @@ def save_note(note_path):
     file_path.write_text(content)
     
     return jsonify({'success': True, 'path': note_path})
+
+
+@app.route('/api/note/<path:note_path>/tags', methods=['PUT'])
+def update_note_tags(note_path):
+    """Update a note's tags."""
+    data = request.json
+    tags = data.get('tags', [])
+    
+    file_path = VAULT_PATH / note_path
+    if not file_path.exists():
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+    
+    content = file_path.read_text()
+    
+    # Update or add frontmatter
+    if content.startswith('---'):
+        # Parse existing frontmatter
+        parts = content.split('---', 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            body = parts[2]
+            
+            # Remove old tags (both single-line and YAML array format)
+            lines = frontmatter.split('\n')
+            new_lines = []
+            skip_next = False
+            
+            for i, line in enumerate(lines):
+                # Skip lines that are part of tags array
+                if skip_next and line.strip().startswith('-'):
+                    continue
+                else:
+                    skip_next = False
+                
+                # Check if this is the tags: line
+                if line.strip().startswith('tags:'):
+                    # Check if it's array format (next line starts with -)
+                    if i + 1 < len(lines) and lines[i + 1].strip().startswith('-'):
+                        skip_next = True
+                    # Skip this line either way
+                    continue
+                
+                new_lines.append(line)
+            
+            # Add new tags in YAML array format
+            if tags:
+                # Find where to insert (after title/created, skip empty lines)
+                insert_idx = 1  # Start after first newline
+                for i in range(1, len(new_lines)):
+                    line = new_lines[i].strip()
+                    if line.startswith('created:'):
+                        insert_idx = i + 1
+                        break
+                    elif line.startswith('title:'):
+                        insert_idx = i + 1
+                
+                new_lines.insert(insert_idx, 'tags:')
+                for j, tag in enumerate(tags):
+                    new_lines.insert(insert_idx + 1 + j, f'  - {tag}')
+            
+            # Ensure frontmatter ends with newline
+            frontmatter_content = '\n'.join(new_lines)
+            if not frontmatter_content.endswith('\n'):
+                frontmatter_content += '\n'
+            
+            content = f"---{frontmatter_content}---{body}"
+    else:
+        # Add frontmatter
+        if tags:
+            frontmatter = "---\ntags:\n"
+            for tag in tags:
+                frontmatter += f"  - {tag}\n"
+            frontmatter += "---\n"
+            content = frontmatter + content
+    
+    file_path.write_text(content)
+    return jsonify({'success': True})
+
+
+@app.route('/api/note/<path:note_path>/rename', methods=['PUT'])
+def rename_note_title(note_path):
+    """Rename a note (change title in frontmatter and filename)."""
+    data = request.json
+    new_name = data.get('name', '').strip()
+    
+    if not new_name:
+        return jsonify({'success': False, 'error': 'Name required'}), 400
+    
+    file_path = VAULT_PATH / note_path
+    if not file_path.exists():
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+    
+    # Sanitize new filename
+    new_filename = re.sub(r'[^\w\s-]', '', new_name).strip().replace(' ', '-').lower()
+    new_filename = re.sub(r'[-\s]+', '-', new_filename) + '.md'
+    
+    new_path = file_path.parent / new_filename
+    
+    # Update content title in frontmatter if exists
+    content = file_path.read_text()
+    if content.startswith('---'):
+        parts = content.split('---', 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            body = parts[2]
+            
+            lines = frontmatter.split('\n')
+            lines = [line if not line.strip().startswith('title:') else f"title: {new_name}" for line in lines]
+            
+            # Add title if not exists
+            if not any(line.strip().startswith('title:') for line in lines):
+                lines.insert(0, f"title: {new_name}")
+            
+            frontmatter = '\n'.join(lines)
+            content = f"---{frontmatter}---{body}"
+    
+    # Rename file
+    if new_path != file_path:
+        if new_path.exists():
+            return jsonify({'success': False, 'error': 'File already exists'}), 400
+        file_path.rename(new_path)
+    else:
+        file_path.write_text(content)
+    
+    return jsonify({'success': True, 'path': str(new_path.relative_to(VAULT_PATH))})
 
 
 @app.route('/api/note', methods=['POST'])

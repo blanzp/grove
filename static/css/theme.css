@@ -52,16 +52,8 @@
     background: var(--bg-primary);
 }
 
-.editor-header,
-.editor-tags {
+.editor-header {
     border-bottom: 1px solid var(--border-color);
-}
-
-.editor-header input,
-.editor-tags input {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
 }
 
 .editor-actions button {
@@ -206,6 +198,7 @@ body.fullscreen .main-content {
         transition: left 0.3s;
         z-index: 1000;
         height: 100vh;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     }
     
     .sidebar.mobile-open {
@@ -214,6 +207,44 @@ body.fullscreen .main-content {
     
     .main-content {
         width: 100%;
+        margin-left: 0 !important;
+    }
+    
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .breadcrumbs {
+        padding-left: 50px;
+    }
+    
+    .editor-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .title-tags-section {
+        order: 1;
+    }
+    
+    .editor-actions {
+        order: 2;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    .editor-actions button {
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+    
+    #note-title {
+        font-size: 18px;
+    }
+    
+    .editor-container {
+        height: calc(100vh - 180px) !important;
     }
     
     .editor-container.split-view {
@@ -226,9 +257,34 @@ body.fullscreen .main-content {
         height: 50%;
     }
     
+    .toolbar {
+        gap: 4px;
+    }
+    
     .toolbar button {
-        padding: 6px 10px;
-        font-size: 12px;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+    
+    .sidebar-header h1 {
+        font-size: 16px;
+    }
+    
+    #editor {
+        font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+    }
+    
+    /* Modal adjustments */
+    .modal-content {
+        margin: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+    
+    /* Hide sidebar collapse button on mobile */
+    #sidebar-collapse {
+        display: none;
     }
 }
 
@@ -355,9 +411,9 @@ body.fullscreen .main-content {
 /* Todos Dashboard */
 .todos-stats {
     display: flex;
-    gap: 24px;
-    padding: 12px 0;
-    margin-bottom: 16px;
+    gap: 20px;
+    padding: 8px 0;
+    margin-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
     font-size: 14px;
 }
@@ -369,8 +425,8 @@ body.fullscreen .main-content {
 .todos-container {
     flex: 1;
     overflow-y: auto;
-    margin-bottom: 16px;
-    max-height: calc(70vh - 150px);
+    margin-bottom: 12px;
+    max-height: calc(70vh - 140px);
     width: 100%;
     box-sizing: border-box;
 }
@@ -378,10 +434,8 @@ body.fullscreen .main-content {
 .todos-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    width: 100%;
-    padding: 0 8px;
-    box-sizing: border-box;
+    gap: 6px;
+    padding: 4px;
 }
 
 .todos-empty {
@@ -399,14 +453,14 @@ body.fullscreen .main-content {
 }
 
 .todo-item {
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 20px 1fr;
     gap: 10px;
-    padding: 10px 12px;
+    align-items: start;
+    padding: 8px 10px;
     background: var(--bg-tertiary);
     border-radius: 4px;
     border-left: 3px solid transparent;
-    width: 100%;
     box-sizing: border-box;
 }
 
@@ -424,28 +478,26 @@ body.fullscreen .main-content {
 }
 
 .todo-checkbox {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
-    flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 1px;
+    accent-color: var(--accent-color);
 }
 
 .todo-content {
-    flex: 1 1 auto;
-    min-width: 200px;
-    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
 }
 
 .todo-text {
     font-size: 14px;
     color: var(--text-primary);
-    margin-bottom: 6px;
-    line-height: 1.4;
-    word-break: break-word;
+    line-height: 1.5;
+    word-wrap: break-word;
     overflow-wrap: break-word;
-    hyphens: auto;
-    white-space: normal;
 }
 
 .todo-item.complete .todo-text {
@@ -454,10 +506,10 @@ body.fullscreen .main-content {
 }
 
 .todo-meta {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     display: flex;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
 }
 
@@ -471,6 +523,53 @@ body.fullscreen .main-content {
     text-decoration: underline;
 }
 
+/* Small modal for tags */
+.modal-small {
+    min-width: 500px;
+    width: 50vw;
+    max-width: 600px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.tags-manager {
+    margin-bottom: 20px;
+}
+
+.tags-display-large {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    min-height: 80px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.tag-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.tag-input-group input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.tag-input-group button {
+    padding: 8px 16px;
+}
+
 /* Medium modal for todos */
 .modal-medium {
     min-width: 700px;
@@ -481,13 +580,44 @@ body.fullscreen .main-content {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 24px;
+    padding: 20px;
     box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
+    .modal-small {
+        min-width: 90vw;
+        max-width: 90vw;
+        padding: 20px;
+    }
+    
     .modal-medium {
-        min-width: 95vw;
+        min-width: 90vw;
+        max-width: 90vw;
+        height: 80vh;
+        padding: 16px;
+    }
+    
+    .modal-large {
+        min-width: 90vw;
+        max-width: 90vw;
         height: 85vh;
+    }
+    
+    .templates-container {
+        flex-direction: column;
+    }
+    
+    .templates-list {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 12px;
+        max-height: 150px;
+    }
+    
+    .tag-badge {
+        font-size: 13px;
+        padding: 6px 12px;
     }
 }

@@ -49,6 +49,15 @@ body {
     border-right: 1px solid #3e3e42;
     display: flex;
     flex-direction: column;
+    transition: width 0.3s ease, min-width 0.3s ease;
+    min-width: 300px;
+    overflow: hidden;
+}
+
+.sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    border-right: none;
 }
 
 .sidebar-header {
@@ -64,10 +73,45 @@ body {
 
 .toolbar {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .toolbar button {
+    padding: 6px 10px;
+    background: #3e3e42;
+    border: none;
+    border-radius: 4px;
+    color: #cccccc;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+}
+
+.toolbar button:hover {
+    background: #505050;
+}
+
+#sidebar-collapse {
+    padding: 6px 10px;
+    background: #3e3e42;
+    border: none;
+    border-radius: 4px;
+    color: #cccccc;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+}
+
+#sidebar-collapse:hover {
+    background: #505050;
+}
+
+.sidebar-expand-btn {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
     padding: 8px 12px;
     background: #3e3e42;
     border: none;
@@ -75,10 +119,34 @@ body {
     color: #cccccc;
     cursor: pointer;
     transition: background 0.2s;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
 }
 
-.toolbar button:hover {
+.sidebar-expand-btn:hover {
     background: #505050;
+}
+
+.mobile-menu-btn {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 999;
+    padding: 10px 14px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: none;
+}
+
+.mobile-menu-btn:active {
+    background: #005a9e;
 }
 
 .search-bar {
@@ -194,17 +262,59 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
 }
 
-.editor-header input {
+.title-tags-section {
     flex: 1;
-    padding: 8px;
-    background: #3e3e42;
-    border: 1px solid #555;
-    border-radius: 4px;
-    color: #d4d4d4;
-    font-size: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#note-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.tags-display {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    min-height: 24px;
+}
+
+/* Tag badge styles */
+.tag-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
     font-weight: 500;
+}
+
+/* Tag badge with remove button (in modal) */
+.tag-badge .remove-tag {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 16px;
+    margin-left: 4px;
+}
+
+.tag-badge .remove-tag:hover {
+    opacity: 1;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 8px;
 }
 
 .editor-actions button {
@@ -223,20 +333,7 @@ body {
     cursor: not-allowed;
 }
 
-.editor-tags {
-    padding: 8px 16px;
-    border-bottom: 1px solid #3e3e42;
-}
-
-.editor-tags input {
-    width: 100%;
-    padding: 8px;
-    background: #2d2d30;
-    border: 1px solid #3e3e42;
-    border-radius: 4px;
-    color: #d4d4d4;
-    font-size: 14px;
-}
+/* Editor container */
 
 .editor-container {
     flex: 1;
@@ -497,4 +594,26 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #505050;
+}
+
+/* Toast notifications */
+.toast-notification {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.toast-notification.show {
+    opacity: 1;
+    transform: translateY(0);
 }
