@@ -38,9 +38,13 @@ function setupTreeDragAndDrop() {
             
             if (draggedItem) {
                 const sourcePath = draggedItem.dataset.path;
+                const sourceType = draggedItem.dataset.type;
+                
+                // Choose API endpoint based on source type
+                const endpoint = sourceType === 'folder' ? '/api/move-folder' : '/api/move';
                 
                 // Move to root
-                const response = await fetch('/api/move', {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -55,7 +59,7 @@ function setupTreeDragAndDrop() {
                     showNotification('Moved to root');
                     loadTree();
                     
-                    if (currentNote === sourcePath) {
+                    if (sourceType === 'file' && currentNote === sourcePath) {
                         currentNote = result.path;
                     }
                 } else {
@@ -87,6 +91,7 @@ function renderTree(items, container, level = 0) {
         if (item.type === 'folder') {
             itemDiv.classList.add('tree-folder');
             itemDiv.innerHTML = `<i class="fas fa-folder"></i> ${item.name}`;
+            itemDiv.setAttribute('draggable', 'true');
             itemDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentFolder = item.path;
@@ -108,6 +113,10 @@ function renderTree(items, container, level = 0) {
                     itemDiv.querySelector('i').classList.add('fa-folder-open');
                 }
             });
+            
+            // Make folders draggable
+            itemDiv.addEventListener('dragstart', handleDragStart);
+            itemDiv.addEventListener('dragend', handleDragEnd);
             
             // Make folders drop targets
             itemDiv.addEventListener('dragover', handleDragOver);
@@ -496,10 +505,19 @@ async function handleDrop(e) {
     
     if (draggedItem && draggedItem !== targetFolder) {
         const sourcePath = draggedItem.dataset.path;
+        const sourceType = draggedItem.dataset.type;
         const targetPath = targetFolder.dataset.path;
         
-        // Move the file
-        const response = await fetch('/api/move', {
+        // Check if dropping folder into itself
+        if (sourceType === 'folder' && targetPath.startsWith(sourcePath + '/')) {
+            showNotification('Cannot move folder into itself');
+            return false;
+        }
+        
+        // Choose API endpoint based on source type
+        const endpoint = sourceType === 'folder' ? '/api/move-folder' : '/api/move';
+        
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -515,7 +533,7 @@ async function handleDrop(e) {
             loadTree();
             
             // If the moved file was currently open, update the current path
-            if (currentNote === sourcePath) {
+            if (sourceType === 'file' && currentNote === sourcePath) {
                 currentNote = result.path;
             }
         } else {

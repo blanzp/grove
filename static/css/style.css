@@ -163,6 +163,10 @@ body {
     cursor: move;
 }
 
+.tree-folder[draggable="true"] {
+    cursor: move;
+}
+
 .tree-children {
     margin-left: 16px;
 }

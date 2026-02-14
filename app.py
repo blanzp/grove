@@ -421,5 +421,47 @@ def rename_note():
     })
 
 
+@app.route('/api/move-folder', methods=['POST'])
+def move_folder():
+    """Move a folder to another location."""
+    data = request.json
+    source_path = data.get('source')
+    target_path = data.get('target', '')
+    
+    if not source_path:
+        return jsonify({'error': 'Source path required'}), 400
+    
+    source_folder = VAULT_PATH / source_path
+    
+    if not source_folder.exists() or not source_folder.is_dir():
+        return jsonify({'error': 'Source folder not found'}), 404
+    
+    # Prevent moving into itself or its children
+    if target_path.startswith(source_path + '/') or target_path == source_path:
+        return jsonify({'error': 'Cannot move folder into itself'}), 400
+    
+    # Build target path
+    folder_name = source_folder.name
+    if target_path:
+        target_folder = VAULT_PATH / target_path / folder_name
+    else:
+        target_folder = VAULT_PATH / folder_name
+    
+    # Check if target already exists
+    if target_folder.exists():
+        return jsonify({'error': 'Folder already exists in target location'}), 400
+    
+    # Create parent directory if needed
+    target_folder.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Move the folder
+    source_folder.rename(target_folder)
+    
+    return jsonify({
+        'success': True,
+        'path': str(target_folder.relative_to(VAULT_PATH))
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

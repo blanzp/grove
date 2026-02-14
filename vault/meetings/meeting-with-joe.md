@@ -9,7 +9,7 @@ tags:
 
 ## Attendees
 
-bob, fred, steve
+bob, fred, steve, [john](http://phone.gs.com)
 
 ## Agenda
 
