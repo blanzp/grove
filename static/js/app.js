@@ -4,7 +4,7 @@ let currentNote = null;
 let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
 let autoSaveTimeout = null;
-let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]');
+let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]').slice(0, 5);
 let allContacts = [];
 let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
 

@@ -7,7 +7,6 @@ tags:
   - tag2
 ---
 
-
 # vanila
 
 [Blanz,Mack](mailto:mackenzie.blanz@google.com)
@@ -16,3 +15,8 @@ tags:
 ### Heading 1 {#heading-1}
 
 [[chocolate]]
+
+```
+code
+```
+> quote
