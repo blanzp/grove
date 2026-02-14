@@ -1,0 +1,3 @@
+{
+  "default_contact_template": "http://phone.google.com/{{id}}"
+}

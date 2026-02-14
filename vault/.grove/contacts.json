@@ -1,18 +1,10 @@
 [
   {
-    "id": "1",
-    "first_name": "john",
-    "last_name": "jones",
-    "email": "john@google.com",
+    "id": "3",
+    "first_name": "lisa",
+    "last_name": "Blanz",
+    "email": "",
     "company": "",
-    "template": "[{{first_name}} {{last_name}}](mailto:{{email}})"
-  },
-  {
-    "id": "2",
-    "first_name": "paul",
-    "last_name": "blanz",
-    "email": "Paul.blanz@gmail.com",
-    "company": "",
-    "template": "[{{first_name}} {{last_name}}](mailto:{{email}})"
+    "template": "http://phone.google.com/{{id}}"
   }
 ]

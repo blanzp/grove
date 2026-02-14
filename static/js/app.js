@@ -475,7 +475,7 @@ function renderContactsList() {
         row.innerHTML = `
             <div class="contact-info">
                 <div class="name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</div>
-                <div class="detail">${escapeHtml(c.email || '')}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
+                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
             </div>
             <div class="contact-actions">
                 <button class="btn-secondary" style="padding:4px 8px;" data-edit="${c.id}"><i class="fas fa-pen"></i></button>
@@ -495,7 +495,9 @@ function renderContactsList() {
 
 function openContactEdit(contact) {
     document.getElementById('contact-edit-title').textContent = contact ? 'Edit Contact' : 'Add Contact';
-    document.getElementById('contact-edit-id').value = contact ? contact.id : '';
+    const idField = document.getElementById('contact-edit-id');
+    idField.value = contact ? contact.id : '';
+    idField.dataset.existing = contact ? contact.id : '';
     document.getElementById('contact-first-name').value = contact ? contact.first_name : '';
     document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
     document.getElementById('contact-email').value = contact ? contact.email : '';
@@ -506,8 +508,10 @@ function openContactEdit(contact) {
 }
 
 async function saveContactFromModal() {
-    const id = document.getElementById('contact-edit-id').value;
+    const existingId = document.getElementById('contact-edit-id').dataset.existing;
+    const newId = document.getElementById('contact-edit-id').value.trim();
     const data = {
+        id: newId || undefined,
         first_name: document.getElementById('contact-first-name').value.trim(),
         last_name: document.getElementById('contact-last-name').value.trim(),
         email: document.getElementById('contact-email').value.trim(),
@@ -515,8 +519,8 @@ async function saveContactFromModal() {
         template: document.getElementById('contact-template').value.trim() || defaultContactTemplate
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
-    if (id) {
-        await fetch(`/api/contacts/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    if (existingId) {
+        await fetch(`/api/contacts/${existingId}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
     } else {
         await fetch('/api/contacts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
     }

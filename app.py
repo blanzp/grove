@@ -952,8 +952,8 @@ def update_contact(contact_id):
     contacts = _read_contacts()
     for c in contacts:
         if str(c.get('id')) == str(contact_id):
-            for field in ['first_name', 'last_name', 'email', 'company', 'template']:
-                if field in data:
+            for field in ['id', 'first_name', 'last_name', 'email', 'company', 'template']:
+                if field in data and data[field] is not None:
                     c[field] = data[field]
             _write_contacts(contacts)
             return jsonify({'success': True, 'contact': c})
