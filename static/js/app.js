@@ -1582,7 +1582,7 @@ function addToRecent(path, title) {
     recentFiles.unshift({ path, title });
     
     // Keep only last 10
-    recentFiles = recentFiles.slice(0, 10);
+    recentFiles = recentFiles.slice(0, 5);
     
     localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
     loadRecentFiles();
