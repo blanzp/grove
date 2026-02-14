@@ -15,8 +15,8 @@ body.light-theme {
     --bg-secondary: #f3f3f3;
     --bg-tertiary: #e8e8e8;
     --border-color: #d0d0d0;
-    --text-primary: #333333;
-    --text-secondary: #555555;
+    --text-primary: #1a1a1a;
+    --text-secondary: #333333;
     --accent-color: #0078d4;
     --hover-color: #e8e8e8;
     --active-color: #d0d0d0;
@@ -335,9 +335,10 @@ body {
 .preview-container h1,
 .preview-container h2,
 .preview-container h3 {
-    color: #cccccc;
+    color: var(--text-primary);
     margin-top: 16px;
     margin-bottom: 8px;
+    font-weight: 600;
 }
 
 .preview-container h1 {
@@ -360,19 +361,20 @@ body {
 }
 
 .preview-container code {
-    background: #2d2d30;
+    background: var(--bg-tertiary);
     padding: 2px 6px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
-    color: #ce9178;
+    color: var(--text-primary);
 }
 
 .preview-container pre {
-    background: #2d2d30;
+    background: var(--bg-tertiary);
     padding: 12px;
     border-radius: 4px;
     overflow-x: auto;
     margin-bottom: 12px;
+    border: 1px solid var(--border-color);
 }
 
 .preview-container pre code {
@@ -396,10 +398,11 @@ body {
 }
 
 .preview-container blockquote {
-    border-left: 4px solid #3e3e42;
+    border-left: 4px solid var(--border-color);
     padding-left: 16px;
     margin-left: 0;
-    color: #999;
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 /* Modals */
