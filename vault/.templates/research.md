@@ -1,11 +1,3 @@
----
-title: {{title}}
-created: {{date}}
-type: research
-tags:
-  - research
----
-
 # {{title}}
 
 ## Question / Hypothesis

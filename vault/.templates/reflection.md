@@ -1,11 +1,3 @@
----
-title: {{title}}
-created: {{date}}
-type: reflection
-tags:
-  - reflection
----
-
 # {{title}}
 
 ## What happened?

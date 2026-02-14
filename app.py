@@ -324,50 +324,23 @@ def create_note():
     
     # Build content
     allowed_types = {"decision","research","execution","reflection","meeting"}
-    doc_type = template if (template and template.lower() in allowed_types) else None
+    # Default type is 'note' only when no template is selected
+    doc_type = None
+    if not template:
+        doc_type = 'note'
+    elif template.lower() in allowed_types:
+        doc_type = template.lower()
+
     if template:
         template_path = TEMPLATES_PATH / f"{template}.md"
         if template_path.exists():
-            content = template_path.read_text()
-            # Replace placeholders
-            content = content.replace('{{title}}', title)
-            content = content.replace('{{date}}', datetime.now().strftime('%Y-%m-%d'))
-            # Ensure frontmatter exists and inject metadata
-            fm_match = re.match(r'^---\n(.*?)\n---\n(.*)', content, re.DOTALL)
-            if fm_match:
-                fm_text, body = fm_match.group(1), fm_match.group(2)
-                fm_lines = fm_text.split('\n')
-                new_lines = []
-                skip = False
-                for i, line in enumerate(fm_lines):
-                    st = line.strip()
-                    if skip and st.startswith('-'):
-                        continue
-                    else:
-                        skip = False
-                    if st.startswith('tags:'):
-                        if i + 1 < len(fm_lines) and fm_lines[i + 1].strip().startswith('-'):
-                            skip = True
-                        continue
-                    if st.startswith('title:'):
-                        line = f'title: {title}'
-                    new_lines.append(line)
-                if not any(l.strip().startswith('created:') for l in new_lines):
-                    new_lines.append(f'created: {datetime.now().isoformat()}')
-                if not any(l.strip().startswith('title:') for l in new_lines):
-                    new_lines.insert(0, f'title: {title}')
-                if doc_type and not any(l.strip().startswith('type:') for l in new_lines):
-                    new_lines.append(f'type: {doc_type}')
-                if tags:
-                    new_lines.append('tags:')
-                    for t in tags:
-                        new_lines.append(f'  - {t}')
-                fm_built = '\n'.join(new_lines)
-                if not fm_built.endswith('\n'):
-                    fm_built += '\n'
-                content = f"---{fm_built}---\n{body}"
-            else:
-                content = build_frontmatter(title, tags, doc_type) + content
+            tpl = template_path.read_text()
+            # Replace placeholders, then strip any frontmatter the template might have
+            tpl = tpl.replace('{{title}}', title)
+            tpl = tpl.replace('{{date}}', datetime.now().strftime('%Y-%m-%d'))
+            m = re.match(r'^---\n[\s\S]*?\n---\n([\s\S]*)$', tpl)
+            body_from_tpl = m.group(1) if m else tpl
+            content = build_frontmatter(title, tags, doc_type) + body_from_tpl
         else:
             content = build_frontmatter(title, tags, doc_type) + f"# {title}\n\n"
     else:

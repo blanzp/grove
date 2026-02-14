@@ -1,11 +1,3 @@
----
-title: {{title}}
-created: {{date}}
-type: meeting
-tags:
-  - meeting
----
-
 # {{title}}
 
 ## Attendees
@@ -16,4 +8,4 @@ tags:
 
 ## Action Items
 
-[ ] 
+[ ]
