@@ -39,16 +39,15 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text())
-        # README
-        seed_readme = seed / 'README.md'
-        if seed_readme.exists():
-            target_readme = path / 'README.md'
-            if not target_readme.exists():
-                target_readme.write_text(seed_readme.read_text())
-    # If no README from seed, write a minimal one
+    # Always initialize README from project README with Grove docs
     rd = path / 'README.md'
-    if not rd.exists():
-        rd.write_text(f"# {path.name} Vault\n\nWelcome to your Grove vault. Create notes, daily logs, and meetings.\n")
+    try:
+        project_readme = (Path(__file__).parent / 'README.md').read_text()
+    except Exception:
+        project_readme = f"# Grove\n\nWelcome to your '{path.name}' vault."
+    # Prepend managed frontmatter so Grove shows proper title/type/tags
+    fm = build_frontmatter(f"Grove — {path.name} README", ['grove'], 'note')
+    rd.write_text(fm + project_readme)
 
 
 def get_active_vault_path():
