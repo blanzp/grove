@@ -202,6 +202,7 @@ async function loadNote(path) {
     document.getElementById('preview-toggle').disabled = false;
     document.getElementById('delete-btn').disabled = false;
     document.getElementById('rename-btn').disabled = false;
+    document.getElementById('frontmatter-preview').disabled = false;
     
     // Add to recent files
     addToRecent(path, note.title);
@@ -337,6 +338,16 @@ function stripFrontmatter(text) {
     const match = text.match(/^(---\n[\s\S]*?\n---)\n*([\s\S]*)$/);
     if (match) return { fm: match[1], body: match[2] };
     return { fm: '', body: text };
+}
+
+async function openFrontmatterPreview() {
+    if (!currentNote) return;
+    const resp = await fetch(`/api/note/${currentNote}`);
+    const note = await resp.json();
+    const { fm } = stripFrontmatter(note.content || '');
+    const pre = document.getElementById('frontmatter-view');
+    pre.textContent = fm ? fm : '---\n# No frontmatter\n---';
+    showModal('frontmatter-modal');
 }
 
 function toggleFrontmatter() {
@@ -661,6 +672,10 @@ function setupEventListeners() {
     document.getElementById('close-todos-btn').addEventListener('click', () => {
         hideModal('todos-modal');
     });
+
+    // Frontmatter preview (read-only)
+    document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
+    document.getElementById('close-frontmatter-btn').addEventListener('click', () => hideModal('frontmatter-modal'));
     
     // Tags management
     document.getElementById('tags-btn').addEventListener('click', openTagsModal);
@@ -1021,6 +1036,7 @@ async function deleteNote() {
         document.getElementById('preview-toggle').disabled = true;
         document.getElementById('delete-btn').disabled = true;
         document.getElementById('rename-btn').disabled = true;
+        document.getElementById('frontmatter-preview').disabled = true;
         loadTree();
         removeFromRecent(toRemove);
         updateBreadcrumbs();
