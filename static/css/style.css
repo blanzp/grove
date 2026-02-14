@@ -107,6 +107,15 @@ body {
     cursor: pointer;
 }
 
+#clear-search-btn {
+    background: #555;
+    padding: 8px 10px;
+}
+
+#clear-search-btn:hover {
+    background: #666;
+}
+
 .tags-bar {
     padding: 8px 16px;
     border-bottom: 1px solid #3e3e42;

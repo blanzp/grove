@@ -439,20 +439,37 @@ function setupEventListeners() {
     // Search
     document.getElementById('search-btn').addEventListener('click', () => {
         const query = document.getElementById('search-input').value;
-        searchNotes(query, '');
+        if (query) {
+            searchNotes(query, '');
+            document.getElementById('clear-search-btn').style.display = 'block';
+        }
     });
     
     document.getElementById('search-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             const query = document.getElementById('search-input').value;
-            searchNotes(query, '');
+            if (query) {
+                searchNotes(query, '');
+                document.getElementById('clear-search-btn').style.display = 'block';
+            }
         }
     });
     
-    // Clear search and reload tree
+    // Clear search button
+    document.getElementById('clear-search-btn').addEventListener('click', () => {
+        document.getElementById('search-input').value = '';
+        document.getElementById('clear-search-btn').style.display = 'none';
+        document.getElementById('tag-filter').value = '';
+        loadTree();
+    });
+    
+    // Show clear button as user types
     document.getElementById('search-input').addEventListener('input', (e) => {
         if (e.target.value === '') {
+            document.getElementById('clear-search-btn').style.display = 'none';
             loadTree();
+        } else {
+            document.getElementById('clear-search-btn').style.display = 'block';
         }
     });
     
@@ -461,7 +478,9 @@ function setupEventListeners() {
         const tag = e.target.value;
         if (tag) {
             searchNotes('', tag);
+            document.getElementById('clear-search-btn').style.display = 'block';
         } else {
+            document.getElementById('clear-search-btn').style.display = 'none';
             loadTree();
         }
     });
