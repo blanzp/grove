@@ -1448,8 +1448,12 @@ function showNotification(message) {
 }
 
 // Auto-save functionality
+let autoSaveListenerAttached = false;
 function setupAutoSave() {
+    if (autoSaveListenerAttached) return;
+    autoSaveListenerAttached = true;
     document.getElementById('editor').addEventListener('input', () => {
+        if (!currentNote) return;
         setSaveStatus('saving');
         
         if (autoSaveTimeout) {
@@ -1482,14 +1486,14 @@ async function saveNoteUpdated(isAutoSave = false) {
     
     let content = document.getElementById('editor').value;
     
-    // If frontmatter is hidden, re-add it before saving
-    // If frontmatter is visible, it's already in the editor content
-    if (!showFrontmatter && currentNoteFrontmatter) {
+    // Editor never shows frontmatter; always prepend stored frontmatter
+    // First strip any accidental frontmatter in editor content
+    {
+        const { body } = stripFrontmatter(content);
+        content = body;
+    }
+    if (currentNoteFrontmatter) {
         content = currentNoteFrontmatter + '\n\n' + content;
-    } else if (showFrontmatter) {
-        // If visible, update our stored frontmatter from what's in the editor
-        const { fm } = stripFrontmatter(content);
-        if (fm) currentNoteFrontmatter = fm;
     }
     
     if (!isAutoSave) {
