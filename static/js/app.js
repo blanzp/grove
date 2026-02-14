@@ -1934,6 +1934,12 @@ function setupKeyboardShortcuts() {
             document.getElementById('search-input').focus();
         }
         
+        // Ctrl+M - New meeting note
+        if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+            e.preventDefault();
+            createMeetingNote();
+        }
+        
         // F2 - Rename
         if (e.key === 'F2' && currentNote) {
             e.preventDefault();
