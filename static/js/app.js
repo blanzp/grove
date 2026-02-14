@@ -1454,7 +1454,6 @@ function setupAutoSave() {
     autoSaveListenerAttached = true;
     document.getElementById('editor').addEventListener('input', () => {
         if (!currentNote) return;
-        setSaveStatus('saving');
         
         if (autoSaveTimeout) {
             clearTimeout(autoSaveTimeout);
@@ -1467,17 +1466,7 @@ function setupAutoSave() {
 }
 
 function setSaveStatus(status) {
-    const statusEl = document.getElementById('save-status');
-    if (status === 'saving') {
-        statusEl.textContent = 'Saving...';
-        statusEl.className = 'save-status saving';
-    } else if (status === 'saved') {
-        statusEl.textContent = 'Saved';
-        statusEl.className = 'save-status saved';
-        setTimeout(() => {
-            statusEl.textContent = '';
-        }, 2000);
-    }
+    // Legacy — now using toast notifications
 }
 
 // Update save function to support auto-save
@@ -1486,31 +1475,29 @@ async function saveNoteUpdated(isAutoSave = false) {
     
     let content = document.getElementById('editor').value;
     
-    // Editor never shows frontmatter; always prepend stored frontmatter
-    // First strip any accidental frontmatter in editor content
-    {
-        const { body } = stripFrontmatter(content);
-        content = body;
-    }
+    // Prepend stored frontmatter (editor never contains it)
     if (currentNoteFrontmatter) {
         content = currentNoteFrontmatter + '\n\n' + content;
     }
     
-    if (!isAutoSave) {
-        setSaveStatus('saving');
-    }
-    
-    const response = await fetch(`/api/note/${currentNote}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-    });
-    
-    if (response.ok) {
-        setSaveStatus('saved');
-        if (!isAutoSave) {
-            showNotification('Note saved');
+    try {
+        const response = await fetch(`/api/note/${currentNote}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+        
+        if (response.ok) {
+            if (isAutoSave) {
+                showNotification('Auto-saved');
+            } else {
+                showNotification('Note saved');
+            }
+        } else {
+            showNotification('Save failed');
         }
+    } catch (e) {
+        showNotification('Save failed: ' + e.message);
     }
 }
 
