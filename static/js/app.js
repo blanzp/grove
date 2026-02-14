@@ -877,7 +877,7 @@ async function createMeetingNote() {
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
     const title = `Meeting ${yyyy}-${mm}-${dd} ${hh}${min}`;
-    const folder = currentFolder || '';
+    const folder = 'meetings';
     const tags = [];
     const template = 'meeting';
     await createNote(title, tags, folder, template);
