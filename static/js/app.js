@@ -432,6 +432,21 @@ async function createDailyNote() {
     }
 }
 
+// Create meeting note using 'meeting' template
+async function createMeetingNote() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const title = `Meeting ${yyyy}-${mm}-${dd} ${hh}${min}`;
+    const folder = currentFolder || '';
+    const tags = [];
+    const template = 'meeting';
+    await createNote(title, tags, folder, template);
+}
+
 // Search notes
 async function searchNotes(query, tag) {
     const params = new URLSearchParams();
@@ -697,6 +712,9 @@ function setupEventListeners() {
     
     // Daily note button
     document.getElementById('daily-note').addEventListener('click', createDailyNote);
+
+    // Meeting note button
+    document.getElementById('meeting-note').addEventListener('click', createMeetingNote);
     
     // Create note modal
     document.getElementById('create-note-btn').addEventListener('click', () => {
@@ -1146,6 +1164,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sd) sd.addEventListener('click', () => document.getElementById('daily-note').click());
     const st = document.getElementById('splash-templates');
     if (st) st.addEventListener('click', () => document.getElementById('manage-templates').click());
+    const sm = document.getElementById('splash-meeting');
+    if (sm) sm.addEventListener('click', () => document.getElementById('meeting-note').click());
     const std = document.getElementById('splash-todos');
     if (std) std.addEventListener('click', () => document.getElementById('todos-btn').click());
     if (!currentNote) showSplash(true);
