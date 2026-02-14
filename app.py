@@ -686,8 +686,8 @@ def get_todos():
         # Find all checkbox items
         lines = content.split('\n')
         for line_num, line in enumerate(lines):
-            # Match unchecked: - [ ]
-            unchecked = re.search(r'^(\s*)-\s+\[\s\]\s+(.+)', line)
+            # Match unchecked: allow optional leading dash for backward compatibility
+            unchecked = re.search(r'^(\s*)(?:-\s+)?\[\s\]\s+(.+)', line)
             if unchecked:
                 todos.append({
                     'note': title,
@@ -698,8 +698,8 @@ def get_todos():
                     'indent': len(unchecked.group(1))
                 })
             
-            # Match checked: - [x] or - [X]
-            checked = re.search(r'^(\s*)-\s+\[[xX]\]\s+(.+)', line)
+            # Match checked: allow optional leading dash for backward compatibility
+            checked = re.search(r'^(\s*)(?:-\s+)?\[[xX]\]\s+(.+)', line)
             if checked:
                 todos.append({
                     'note': title,
@@ -736,13 +736,13 @@ def toggle_todo():
     
     line = lines[line_num]
     
-    # Toggle checkbox
-    if re.search(r'-\s+\[\s\]', line):
+    # Toggle checkbox (supports with or without leading dash)
+    if re.search(r'\[\s\]', line):
         # Unchecked -> Checked
-        lines[line_num] = re.sub(r'-\s+\[\s\]', '- [x]', line)
-    elif re.search(r'-\s+\[[xX]\]', line):
+        lines[line_num] = re.sub(r'\[\s\]', '[x]', line)
+    elif re.search(r'\[[xX]\]', line):
         # Checked -> Unchecked
-        lines[line_num] = re.sub(r'-\s+\[[xX]\]', '- [ ]', line)
+        lines[line_num] = re.sub(r'\[[xX]\]', '[ ]', line)
     else:
         return jsonify({'error': 'Not a valid checkbox line'}), 400
     

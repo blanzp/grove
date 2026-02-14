@@ -1272,7 +1272,8 @@ function applyMarkdownAction(action, editor) {
             insert = selected || 'list item';
             break;
         case 'checkbox':
-            before = getLinePrefix(text, start) + '- [ ] '; after = '';
+            // No leading dash in todo checkboxes
+            before = getLinePrefix(text, start) + '[ ] '; after = '';
             insert = selected || 'task';
             break;
         case 'link':
@@ -1569,7 +1570,7 @@ function renderTodos() {
             <div class="todos-empty">
                 <i class="fas fa-check-circle" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
                 <p>No todos found. Add checkboxes in your notes:</p>
-                <code>- [ ] Task to do</code>
+                <code>[ ] Task to do</code>
             </div>
         `;
         updateTodosStats();
