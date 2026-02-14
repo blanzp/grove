@@ -20,9 +20,35 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 VAULTS_ROOT = GROVE_HOME / "vaults"
 VAULTS_ROOT.mkdir(parents=True, exist_ok=True)
 
-# Project-level default vault acts as a template seed for new vaults
-DEFAULT_VAULT_PATH = Path(__file__).parent / "vault"  # used only for seeding templates/README
-DEFAULT_VAULT_PATH.mkdir(exist_ok=True)
+# Project-level seed vault acts as a template for new vaults
+PROJECT_SEED_VAULT = Path(__file__).parent / "default-vault"
+# Backward-compat: fall back to legacy 'vault' if default-vault not present
+LEGACY_SEED_VAULT = Path(__file__).parent / "vault"
+
+
+def _seed_vault(path: Path):
+    """Initialize a vault with README and standard templates if missing."""
+    seed = PROJECT_SEED_VAULT if PROJECT_SEED_VAULT.exists() else LEGACY_SEED_VAULT
+    # Templates
+    tpl_dir = path / '.templates'
+    tpl_dir.mkdir(parents=True, exist_ok=True)
+    if seed.exists():
+        seed_tpl = seed / '.templates'
+        if seed_tpl.exists():
+            for f in seed_tpl.glob('*.md'):
+                target = tpl_dir / f.name
+                if not target.exists():
+                    target.write_text(f.read_text())
+        # README
+        seed_readme = seed / 'README.md'
+        if seed_readme.exists():
+            target_readme = path / 'README.md'
+            if not target_readme.exists():
+                target_readme.write_text(seed_readme.read_text())
+    # If no README from seed, write a minimal one
+    rd = path / 'README.md'
+    if not rd.exists():
+        rd.write_text(f"# {path.name} Vault\n\nWelcome to your Grove vault. Create notes, daily logs, and meetings.\n")
 
 
 def get_active_vault_path():
@@ -37,8 +63,8 @@ def get_active_vault_path():
             name = 'default'
     path = VAULTS_ROOT / name
     path.mkdir(parents=True, exist_ok=True)
-    # Ensure templates dir exists
-    (path / '.templates').mkdir(exist_ok=True)
+    # Ensure templates dir exists and seed vault
+    _seed_vault(path)
     return path
 
 # Initialize globals, refreshed on each request as well
@@ -176,17 +202,12 @@ def create_vault():
     if path.exists():
         return jsonify({'error': 'vault already exists'}), 400
     path.mkdir(parents=True, exist_ok=True)
-    tpl_dir = path / '.templates'
-    tpl_dir.mkdir(exist_ok=True)
-    # Copy standard templates from project default vault seed
-    src_tpl = DEFAULT_VAULT_PATH / '.templates'
-    if src_tpl.exists():
-        for tpl_file in src_tpl.iterdir():
-            if tpl_file.is_file() and tpl_file.suffix == '.md':
-                (tpl_dir / tpl_file.name).write_text(tpl_file.read_text())
-    # Seed with a welcome README
+    # Seed vault with templates + README
+    _seed_vault(path)
+    # Ensure a welcome README exists (if seed lacked one), with frontmatter
     readme = path / 'README.md'
-    readme.write_text(f"""---
+    if not readme.exists():
+        readme.write_text(f"""---
 title: Welcome to {name}
 created: {datetime.now().isoformat()}
 type: note
@@ -323,6 +344,8 @@ def switch_vault():
     path = VAULTS_ROOT / name
     if not path.exists():
         return jsonify({'error': 'vault not found'}), 404
+    # Ensure it's seeded
+    _seed_vault(path)
     # write config
     cfg = {'active_vault': name}
     CONFIG_PATH.write_text(json.dumps(cfg))
