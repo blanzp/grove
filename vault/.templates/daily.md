@@ -1,9 +1,9 @@
----
-title: {{title}}
-created: {{date}}
-tags:
-  - 
----
-
 # {{title}}
+
+## Tasks
+- [ ] task1
+
+## End of week goals
+1. 
+1. 
 

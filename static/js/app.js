@@ -239,6 +239,7 @@ async function loadNote(path) {
     document.getElementById('preview-toggle').disabled = false;
     document.getElementById('delete-btn').disabled = false;
     document.getElementById('rename-btn').disabled = false;
+    document.getElementById('share-btn').disabled = false;
     document.getElementById('frontmatter-preview').disabled = false;
     
     // Add to recent files
@@ -375,6 +376,67 @@ function stripFrontmatter(text) {
     const match = text.match(/^(---\n[\s\S]*?\n---)\n*([\s\S]*)$/);
     if (match) return { fm: match[1], body: match[2] };
     return { fm: '', body: text };
+}
+
+// Share functions
+function getRenderedHtml() {
+    const body = document.getElementById('editor').value;
+    const title = document.getElementById('note-title').textContent;
+    let html;
+    if (typeof marked === 'function') html = marked(body);
+    else if (typeof marked === 'object' && typeof marked.parse === 'function') html = marked.parse(body);
+    else html = '<pre>' + body + '</pre>';
+    return { title, body, html };
+}
+
+function shareViaPrint() {
+    hideModal('share-modal');
+    const { title, html } = getRenderedHtml();
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+        <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6}
+        h1,h2,h3{margin-top:1.5em} pre{background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto}
+        code{background:#f5f5f5;padding:2px 4px;border-radius:3px} blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:16px;color:#666}
+        @media print{body{margin:0;max-width:none}}</style></head>
+        <body><h1>${title}</h1>${html}</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+}
+
+function shareViaEmail() {
+    hideModal('share-modal');
+    const { title, body } = getRenderedHtml();
+    const mailto = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(body);
+    window.open(mailto);
+}
+
+async function shareViaCopyMarkdown() {
+    hideModal('share-modal');
+    const body = document.getElementById('editor').value;
+    try {
+        await navigator.clipboard.writeText(body);
+        showNotification('Markdown copied to clipboard');
+    } catch (e) {
+        showNotification('Copy failed');
+    }
+}
+
+async function shareViaCopyHtml() {
+    hideModal('share-modal');
+    const { html } = getRenderedHtml();
+    try {
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([html], { type: 'text/plain' })
+            })
+        ]);
+        showNotification('HTML copied to clipboard');
+    } catch (e) {
+        // Fallback
+        try { await navigator.clipboard.writeText(html); showNotification('HTML copied as text'); }
+        catch (e2) { showNotification('Copy failed'); }
+    }
 }
 
 async function openFrontmatterPreview() {
@@ -731,6 +793,17 @@ function setupEventListeners() {
     document.getElementById('close-todos-btn').addEventListener('click', () => {
         hideModal('todos-modal');
     });
+
+    // Share button
+    document.getElementById('share-btn').addEventListener('click', () => {
+        if (!currentNote) return;
+        showModal('share-modal');
+    });
+    document.getElementById('close-share-btn').addEventListener('click', () => hideModal('share-modal'));
+    document.getElementById('share-print').addEventListener('click', shareViaPrint);
+    document.getElementById('share-email').addEventListener('click', shareViaEmail);
+    document.getElementById('share-copy').addEventListener('click', shareViaCopyMarkdown);
+    document.getElementById('share-copy-html').addEventListener('click', shareViaCopyHtml);
 
     // Frontmatter preview (read-only)
     document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
@@ -1095,6 +1168,7 @@ async function deleteNote() {
         document.getElementById('preview-toggle').disabled = true;
         document.getElementById('delete-btn').disabled = true;
         document.getElementById('rename-btn').disabled = true;
+        document.getElementById('share-btn').disabled = true;
         document.getElementById('frontmatter-preview').disabled = true;
         loadTree();
         removeFromRecent(toRemove);

@@ -102,6 +102,7 @@
                     <button id="preview-toggle" disabled title="Preview (Ctrl+P)"><i class="fas fa-eye"></i></button>
                     <button id="delete-btn" disabled title="Delete Note (Del)"><i class="fas fa-trash"></i></button>
                     <button id="rename-btn" disabled title="Rename (F2)"><i class="fas fa-file-signature"></i></button>
+                    <button id="share-btn" disabled title="Share"><i class="fas fa-share-alt"></i></button>
                     <button id="theme-toggle" title="Toggle Theme" style="margin-left: 8px;"><i class="fas fa-moon"></i></button>
                 </div>
             </div>
@@ -169,6 +170,22 @@
             <pre id="frontmatter-view" style="max-height: 50vh; overflow: auto; background: var(--bg-tertiary); color: var(--text-primary); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></pre>
             <div class="modal-actions">
                 <button class="btn-secondary" id="close-frontmatter-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div class="modal" id="share-modal">
+        <div class="modal-content modal-small">
+            <h2>Share Note</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn-primary" id="share-print"><i class="fas fa-print"></i> Print / Save as PDF</button>
+                <button class="btn-primary" id="share-email"><i class="fas fa-envelope"></i> Email</button>
+                <button class="btn-primary" id="share-copy"><i class="fas fa-copy"></i> Copy as Markdown</button>
+                <button class="btn-primary" id="share-copy-html"><i class="fas fa-code"></i> Copy as HTML</button>
+            </div>
+            <div class="modal-actions" style="margin-top: 12px;">
+                <button class="btn-secondary" id="close-share-btn">Close</button>
             </div>
         </div>
     </div>
