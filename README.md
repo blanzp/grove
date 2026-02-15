@@ -1,6 +1,8 @@
 # 🌲 Grove
 
-A beautiful, lightweight markdown notes app with a VS Code-inspired interface. Organize your thoughts in a personal knowledge grove.
+A self-hosted markdown knowledge base that runs anywhere Python does — no cloud, no install approval, no data leaves your machine.
+
+Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal knowledge grove.
 
 ![Grove](static/grove-logo.png)
 
