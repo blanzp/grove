@@ -35,7 +35,6 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Document types** — auto-set `type` in frontmatter based on template (meeting, decision, research, reflection, execution, daily, note)
 - **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
 - **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
-- **Auto-slug headings** — H2/H3 automatically get `{#slug}` anchors on save for LLM-friendly chunking
 
 ### 👥 Contacts
 - **Contact management** — full CRUD with fields: ID, first name, last name, email, company, template
