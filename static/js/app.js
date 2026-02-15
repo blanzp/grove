@@ -1278,6 +1278,18 @@ function renderPreview() {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly</div>';
         }
         
+        // Render mermaid diagrams
+        if (typeof mermaid !== 'undefined') {
+            preview.querySelectorAll('code.language-mermaid').forEach((block, i) => {
+                const pre = block.parentElement;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = block.textContent;
+                pre.replaceWith(div);
+            });
+            try { mermaid.run({ nodes: preview.querySelectorAll('.mermaid') }); } catch(e) { console.warn('Mermaid:', e); }
+        }
+
         // After rendering, if in split mode, preserve approximate scroll position
         if (previewMode === 'split') {
             const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
@@ -2020,6 +2032,10 @@ function toggleTheme() {
     
     const icon = document.querySelector('#theme-toggle i');
     icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: isLight ? 'default' : 'dark' });
+        renderPreview();
+    }
 }
 
 function loadTheme() {

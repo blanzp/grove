@@ -157,6 +157,7 @@ Grove uses [Marked.js](https://marked.js.org/) v4.3.0 with GitHub Flavored Markd
 | `[^1]` + `[^1]: text` | Footnote with back-link |
 | `@name` | Contact mention (autocomplete in editor) |
 | TOC button | Generates linked Table of Contents from H2–H4 |
+| ` ```mermaid ` | Mermaid diagrams (flowcharts, sequence, Gantt, pie, ER, git graphs) |
 
 ### HTML Passthrough
 
@@ -177,7 +178,6 @@ Marked.js passes raw HTML through to the preview. These all work:
 |---------|-------|
 | Syntax highlighting | No Prism.js/Highlight.js (code blocks render unstyled) |
 | LaTeX / Math | `$x^2$` renders as plain text |
-| Mermaid diagrams | Not yet — easy to add |
 | Admonitions / Callouts | Obsidian-style `> [!note]` not supported |
 | Multi-paragraph footnotes | Single-line footnote bodies only |
 
