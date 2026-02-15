@@ -502,10 +502,11 @@ async function runLlm() {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60s timeout
     
+    let loadingToast = null;
     try {
-        // Disable button and show progress
+        // Disable button and show persistent progress toast
         if (runBtn) runBtn.disabled = true;
-        showNotification('LLM thinking...');
+        loadingToast = showNotification('LLM thinking...', true); // persistent toast
         
         const resp = await fetch('/api/llm', { 
             method: 'POST', 
@@ -516,6 +517,7 @@ async function runLlm() {
         const data = await resp.json();
         
         if (!resp.ok) { 
+            hideNotification(loadingToast);
             showNotification(data.error || 'LLM failed'); 
             return; 
         }
@@ -523,11 +525,13 @@ async function runLlm() {
         const text = data.text || '';
         insertLlmText(editor, text, mode);
         hideModal('llm-modal');
+        hideNotification(loadingToast);
         showNotification('✓ Inserted AI output');
         
         // Trigger autosave soon
         saveNoteUpdated();
     } catch (e) {
+        hideNotification(loadingToast);
         if (e.name === 'AbortError') {
             showNotification('LLM request timed out (60s)');
         } else {
@@ -1912,7 +1916,7 @@ function hideModal(id) {
 }
 
 // Notification helper - toast notification
-function showNotification(message) {
+function showNotification(message, persistent = false) {
     const existing = document.querySelector('.toast-notification');
     if (existing) existing.remove();
     
@@ -1922,10 +1926,26 @@ function showNotification(message) {
     document.body.appendChild(toast);
     
     setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
+    
+    if (!persistent) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    
+    return toast; // Return reference for manual dismissal
+}
+
+function hideNotification(toast) {
+    if (!toast) {
+        const existing = document.querySelector('.toast-notification');
+        if (existing) toast = existing;
+    }
+    if (toast && toast.parentNode) {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    }
 }
 
 // Auto-save functionality
