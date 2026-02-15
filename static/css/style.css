@@ -88,10 +88,12 @@ body.light-theme .sidebar-logo {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    align-items: center;
 }
 
 .toolbar button {
     padding: 6px 10px;
+    height: 32px;
     background: var(--bg-tertiary);
     border: none;
     border-radius: 4px;
@@ -99,6 +101,33 @@ body.light-theme .sidebar-logo {
     cursor: pointer;
     transition: background 0.2s;
     font-size: 14px;
+}
+
+/* Vault bar under toolbar */
+.vault-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+}
+
+.vault-bar #vault-select {
+    flex: 1;
+    height: 32px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0 8px;
+}
+
+.vault-bar button {
+    padding: 6px 10px;
+    height: 32px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
 }
 
 .toolbar button:hover {
