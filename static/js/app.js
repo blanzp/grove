@@ -1289,6 +1289,21 @@ function renderPreview() {
     }
 }
 
+// Handle in-page anchor clicks in preview (for TOC links)
+function setupPreviewAnchorLinks() {
+    const preview = document.getElementById('preview');
+    preview.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+            e.preventDefault();
+            const target = preview.querySelector(href);
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+}
+
 // Setup event listeners
 function setupEventListeners() {
     // Preview toggle button
@@ -1419,6 +1434,7 @@ function setupEventListeners() {
     // @ mention autocomplete
     setupMentionAutocomplete();
     setupLinkAutocomplete();
+    setupPreviewAnchorLinks();
 
     // Frontmatter preview (read-only)
     document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
@@ -2143,6 +2159,9 @@ function applyMarkdownAction(action, editor) {
             before = '[['; after = ']]';
             insert = selected || 'note name';
             break;
+        case 'toc':
+            insertTableOfContents(editor);
+            return;
     }
     
     const replacement = before + insert + after;
@@ -2156,6 +2175,58 @@ function applyMarkdownAction(action, editor) {
     
     // Trigger auto-save
     editor.dispatchEvent(new Event('input'));
+}
+
+// Insert Table of Contents based on headings in the note
+function insertTableOfContents(editor) {
+    const text = editor.value;
+    const lines = text.split('\n');
+    const tocLines = ['## Table of Contents', ''];
+
+    for (const line of lines) {
+        const match = line.match(/^(#{2,4})\s+(.+)/);
+        if (!match) continue;
+        const level = match[1].length; // 2=h2, 3=h3, 4=h4
+        const title = match[2].replace(/\{#.*?\}\s*$/, '').trim();
+        if (title.toLowerCase() === 'table of contents') continue;
+        const slug = title.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+        const indent = '  '.repeat(level - 2);
+        tocLines.push(`${indent}- [${title}](#${slug})`);
+    }
+
+    if (tocLines.length <= 2) {
+        showNotification('No headings found (H2-H4)');
+        return;
+    }
+
+    tocLines.push('');
+    const toc = tocLines.join('\n');
+
+    // Replace existing TOC or insert at cursor
+    const tocStart = text.indexOf('## Table of Contents');
+    if (tocStart !== -1) {
+        // Find end of existing TOC (next heading or double newline after list ends)
+        let tocEnd = tocStart;
+        const restLines = text.substring(tocStart).split('\n');
+        let i = 1; // skip the TOC heading line
+        while (i < restLines.length) {
+            const l = restLines[i].trim();
+            if (l === '' || l.startsWith('- [') || l.startsWith('  - [') || l.startsWith('    - [')) {
+                i++;
+            } else {
+                break;
+            }
+        }
+        tocEnd = tocStart + restLines.slice(0, i).join('\n').length;
+        editor.value = text.substring(0, tocStart) + toc + text.substring(tocEnd);
+    } else {
+        // Insert at cursor position
+        const pos = editor.selectionStart;
+        editor.value = text.substring(0, pos) + toc + text.substring(pos);
+    }
+
+    editor.dispatchEvent(new Event('input'));
+    showNotification('Table of Contents inserted');
 }
 
 // Get prefix needed to start at beginning of current line
