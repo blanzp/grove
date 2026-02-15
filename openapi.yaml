@@ -165,6 +165,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
+  /api/note/{path}/star:
+    post:
+      tags: [Notes]
+      summary: Toggle star status of a note
+      description: Toggles the `starred` field in frontmatter between true and false
+      parameters:
+        - $ref: '#/components/parameters/NotePath'
+      responses:
+        '200':
+          description: Star status toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  starred:
+                    type: boolean
+                    description: New starred status
+        '404':
+          description: Note not found
+
   /api/note/{path}/rename:
     put:
       tags: [Notes]
@@ -846,6 +869,48 @@ paths:
                 items:
                   $ref: '#/components/schemas/ExportNote'
 
+  /api/extract:
+    get:
+      tags: [Export]
+      summary: Extract notes as markdown
+      description: |
+        Extract notes based on time range, starred status, type, and tags.
+        Returns concatenated markdown with metadata headers per note.
+        Time matching: note matches if EITHER created OR updated falls within range.
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: string
+            enum: ["1", "3", "6", "12", "all"]
+            default: "all"
+          description: Time range - number of months or "all" for all time
+        - name: starred
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "true"
+          description: Filter by starred status
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Comma-separated note types to filter (e.g., "meeting,decision,research")
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: Tag to filter by
+      responses:
+        '200':
+          description: Extracted notes as markdown
+          content:
+            text/markdown:
+              schema:
+                type: string
+                description: Concatenated markdown with headers and metadata
+
 components:
   parameters:
     NotePath:
@@ -881,6 +946,9 @@ components:
         type:
           type: string
           enum: [file, folder, asset]
+        starred:
+          type: boolean
+          description: Whether the file is starred (only for type=file)
         children:
           type: array
           items:
@@ -903,6 +971,9 @@ components:
         body:
           type: string
           description: Body without frontmatter
+        starred:
+          type: boolean
+          description: Whether the note is starred
 
     TodoItem:
       type: object

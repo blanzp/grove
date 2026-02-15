@@ -109,10 +109,21 @@ def get_vault_structure(base_path=None):
                     'children': get_vault_structure(item)
                 })
             elif item.suffix == '.md':
+                # Check if note is starred (read first few lines for efficiency)
+                starred = False
+                try:
+                    with item.open('r') as f:
+                        first_lines = ''.join([f.readline() for _ in range(10)])
+                        if re.search(r'starred:\s*true', first_lines):
+                            starred = True
+                except Exception:
+                    pass
+                
                 structure.append({
                     'name': item.stem,
                     'path': str(item.relative_to(VAULT_PATH)),
-                    'type': 'file'
+                    'type': 'file',
+                    'starred': starred
                 })
             elif item.is_file():
                 structure.append({
@@ -369,13 +380,46 @@ def get_note(note_path):
     content = file_path.read_text()
     fm, body = extract_frontmatter(content)
     
+    # Check if starred in frontmatter
+    starred = False
+    if content.startswith('---'):
+        fm_text = content.split('---', 2)[1] if len(content.split('---', 2)) >= 3 else ''
+        if re.search(r'starred:\s*true', fm_text):
+            starred = True
+    
     return jsonify({
         'path': note_path,
         'title': fm.get('title', file_path.stem),
         'tags': fm.get('tags', []),
         'content': content,
-        'body': body
+        'body': body,
+        'starred': starred
     })
+
+
+@app.route('/api/note/<path:note_path>/star', methods=['POST'])
+def toggle_star(note_path):
+    """Toggle star status of a note."""
+    file_path = VAULT_PATH / note_path
+    
+    if not file_path.exists():
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+    
+    content = file_path.read_text()
+    
+    # Check current starred status
+    starred = False
+    if content.startswith('---'):
+        fm_text = content.split('---', 2)[1] if len(content.split('---', 2)) >= 3 else ''
+        if re.search(r'starred:\s*true', fm_text):
+            starred = True
+    
+    # Toggle it
+    new_value = 'false' if starred else 'true'
+    updated_content = _update_frontmatter_field(content, 'starred', new_value)
+    file_path.write_text(updated_content)
+    
+    return jsonify({'success': True, 'starred': not starred})
 
 
 ## save_note is defined at the bottom with updated timestamp support
@@ -1246,6 +1290,162 @@ def export_notes():
         '\n'.join(lines) + '\n',
         mimetype='application/x-ndjson',
         headers={'Content-Disposition': 'attachment; filename=grove-export.jsonl'}
+    )
+
+
+@app.route('/api/extract')
+def extract_notes():
+    """Extract notes based on time range, starred status, type, and tags.
+    
+    Query params:
+        months: integer (1, 3, 6, 12) or "all" (default: "all")
+        starred: "true" or "false" (default: "true")
+        type: comma-separated types to filter (optional)
+        tag: tag to filter (optional)
+    """
+    from datetime import timedelta
+    
+    months_param = request.args.get('months', 'all')
+    starred_only = request.args.get('starred', 'true').lower() == 'true'
+    type_filter = request.args.get('type', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
+    
+    # Calculate time threshold
+    now = datetime.now()
+    threshold = None
+    if months_param != 'all':
+        try:
+            months = int(months_param)
+            threshold = now - timedelta(days=months * 30)
+        except ValueError:
+            return jsonify({'error': 'Invalid months parameter'}), 400
+    
+    # Parse type filter
+    types = [t.strip() for t in type_filter.split(',') if t.strip()] if type_filter else []
+    
+    matching_notes = []
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        if md_file.name.startswith('.'):
+            continue
+        rel = md_file.relative_to(VAULT_PATH)
+        if any(part.startswith('.') for part in rel.parts):
+            continue
+        
+        try:
+            content = md_file.read_text()
+            fm_text = ''
+            body = content
+            
+            if content.startswith('---'):
+                parts = content.split('---', 2)
+                if len(parts) >= 3:
+                    fm_text = parts[1]
+                    body = parts[2]
+            
+            # Check starred status
+            is_starred = bool(re.search(r'starred:\s*true', fm_text))
+            if starred_only and not is_starred:
+                continue
+            
+            # Check type filter
+            if types:
+                type_match = re.search(r'type:\s*(\S+)', fm_text)
+                note_type = type_match.group(1) if type_match else 'note'
+                if note_type not in types:
+                    continue
+            
+            # Check tag filter
+            if tag_filter:
+                tags_match = re.search(r'tags:\s*\n((?:\s*-\s*.+\n?)+)', fm_text)
+                note_tags = []
+                if tags_match:
+                    note_tags = [t.strip('- ').strip() for t in tags_match.group(1).split('\n') if t.strip()]
+                if tag_filter not in note_tags:
+                    continue
+            
+            # Check time range (created OR updated)
+            matches_time = True
+            if threshold:
+                created_match = re.search(r'created:\s*(.+)', fm_text)
+                updated_match = re.search(r'updated:\s*(.+)', fm_text)
+                
+                created_dt = None
+                updated_dt = None
+                
+                if created_match:
+                    try:
+                        created_dt = datetime.fromisoformat(created_match.group(1).strip())
+                    except ValueError:
+                        pass
+                
+                if updated_match:
+                    try:
+                        updated_dt = datetime.fromisoformat(updated_match.group(1).strip())
+                    except ValueError:
+                        pass
+                
+                # Fall back to file mtime if updated not in frontmatter
+                if not updated_dt:
+                    updated_dt = datetime.fromtimestamp(md_file.stat().st_mtime)
+                
+                # Match if EITHER created OR updated is within range
+                matches_time = False
+                if created_dt and created_dt >= threshold:
+                    matches_time = True
+                if updated_dt and updated_dt >= threshold:
+                    matches_time = True
+            
+            if not matches_time:
+                continue
+            
+            # Extract metadata
+            title_match = re.search(r'title:\s*(.+)', fm_text)
+            title = title_match.group(1).strip() if title_match else md_file.stem
+            
+            type_match = re.search(r'type:\s*(\S+)', fm_text)
+            note_type = type_match.group(1) if type_match else 'note'
+            
+            created_match = re.search(r'created:\s*(.+)', fm_text)
+            created_str = created_match.group(1).strip()[:10] if created_match else ''
+            
+            matching_notes.append({
+                'title': title,
+                'type': note_type,
+                'created': created_str,
+                'body': body.strip()
+            })
+        
+        except Exception:
+            continue
+    
+    # Build markdown output
+    if months_param == 'all':
+        time_desc = 'All time'
+    else:
+        start_date = threshold.strftime('%b %Y') if threshold else ''
+        end_date = now.strftime('%b %Y')
+        time_desc = f'Last {months_param} month{"s" if int(months_param) > 1 else ""} ({start_date} – {end_date})'
+    
+    scope_desc = 'Starred only' if starred_only else 'All notes'
+    type_desc = f'Types: {", ".join(types)}' if types else ''
+    
+    output = f'# Extract: {time_desc}\n'
+    output += f'## {len(matching_notes)} notes'
+    if type_desc:
+        output += f' | {type_desc}'
+    output += f' | {scope_desc}\n\n'
+    
+    for note in matching_notes:
+        output += '---\n'
+        output += f'## {note["title"]}\n'
+        output += f'*{note["type"]} · {note["created"]}*\n\n'
+        output += note['body'] + '\n\n'
+    
+    return app.response_class(
+        output,
+        mimetype='text/markdown',
+        headers={'Content-Disposition': 'attachment; filename=grove-extract.md'}
     )
 
 

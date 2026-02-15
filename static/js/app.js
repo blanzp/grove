@@ -215,7 +215,8 @@ function renderTree(items, container, level = 0) {
                 }
             });
         } else {
-            itemDiv.innerHTML = `<i class="fas fa-file-alt"></i> ${item.name}`;
+            const starIcon = item.starred ? '<i class="fas fa-star" style="color: gold; font-size: 0.8em; margin-right: 4px;"></i>' : '';
+            itemDiv.innerHTML = `${starIcon}<i class="fas fa-file-alt"></i> ${item.name}`;
             itemDiv.setAttribute('draggable', 'true');
             itemDiv.addEventListener('click', () => {
                 loadNote(item.path);
@@ -282,6 +283,10 @@ async function loadNote(path) {
     document.getElementById('rename-btn').disabled = false;
     document.getElementById('share-btn').disabled = false;
     document.getElementById('frontmatter-preview').disabled = false;
+    document.getElementById('star-btn').disabled = false;
+    
+    // Update star button appearance
+    updateStarButton(note.starred || false);
     
     // Render preview (default mode)
     renderPreview();
@@ -1047,6 +1052,38 @@ async function createDailyNote() {
     }
 }
 
+// Create planner note (prompt for Daily or Weekly)
+async function createPlannerNote() {
+    const choice = prompt('Planner type? Enter D for Daily, W for Weekly', 'D').trim().toUpperCase();
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+
+    if (choice === 'W') {
+        // ISO week number
+        const tmp = new Date(Date.UTC(yyyy, now.getMonth(), now.getDate()));
+        const dayNum = tmp.getUTCDay() || 7;
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(),0,1));
+        const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+        const ww = String(weekNo).padStart(2, '0');
+        const title = `Week ${yyyy}-W${ww} Planner`;
+        const customFilename = `planner-${yyyy}-W${ww}`;
+        const folder = 'planning';
+        const tags = ['planner','weekly'];
+        const template = 'weekly-planner';
+        await createNote(title, tags, folder, template, customFilename);
+    } else {
+        const title = `Daily Planner ${yyyy}-${mm}-${dd}`;
+        const customFilename = `daily-planner-${yyyy}-${mm}-${dd}`;
+        const folder = 'planning';
+        const tags = ['planner','daily'];
+        const template = 'daily-planner';
+        await createNote(title, tags, folder, template, customFilename);
+    }
+}
+
 // Create meeting note using 'meeting' template
 async function createMeetingNote() {
     const now = new Date();
@@ -1400,6 +1437,24 @@ function setupEventListeners() {
         }
     });
     
+    // Star note button
+    document.getElementById('star-btn').addEventListener('click', toggleStarNote);
+    
+    // Extract modal
+    document.getElementById('extract-btn').addEventListener('click', openExtractModal);
+    document.getElementById('splash-extract').addEventListener('click', openExtractModal);
+    document.getElementById('close-extract-btn').addEventListener('click', () => {
+        hideModal('extract-modal');
+        document.getElementById('extract-result-container').style.display = 'none';
+    });
+    document.getElementById('extract-run-btn').addEventListener('click', runExtract);
+    document.getElementById('extract-copy-btn').addEventListener('click', () => {
+        const textarea = document.getElementById('extract-result');
+        textarea.select();
+        document.execCommand('copy');
+        showNotification('Copied to clipboard');
+    });
+    
     // Auto-save on Ctrl+S
     document.getElementById('editor').addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 's') {
@@ -1425,6 +1480,8 @@ function setupEventListeners() {
 
     // Meeting note button
     document.getElementById('meeting-note').addEventListener('click', createMeetingNote);
+    const plannerBtn = document.getElementById('planner-note');
+    if (plannerBtn) plannerBtn.addEventListener('click', createPlannerNote);
     
     // Create note modal
     // Enter key in new note modal triggers create
@@ -1891,6 +1948,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (st) st.addEventListener('click', () => document.getElementById('manage-templates').click());
     const sm = document.getElementById('splash-meeting');
     if (sm) sm.addEventListener('click', () => document.getElementById('meeting-note').click());
+    const sp = document.getElementById('splash-planner');
+    if (sp) sp.addEventListener('click', () => document.getElementById('planner-note').click());
     const std = document.getElementById('splash-todos');
     if (std) std.addEventListener('click', () => document.getElementById('todos-btn').click());
     const sc = document.getElementById('splash-contacts');
@@ -2109,6 +2168,87 @@ function getLinePrefix(text, pos) {
     
     // Otherwise add a newline to start fresh
     return '\n';
+}
+
+// Star/Unstar note
+async function toggleStarNote() {
+    if (!currentNote) return;
+    
+    const response = await fetch(`/api/note/${currentNote}/star`, {
+        method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+        updateStarButton(result.starred);
+        showNotification(result.starred ? 'Note starred' : 'Note unstarred');
+        loadTree(); // Refresh tree to show/hide star icons
+    } else {
+        showNotification('Error toggling star');
+    }
+}
+
+function updateStarButton(starred) {
+    const starBtn = document.getElementById('star-btn');
+    const icon = starBtn.querySelector('i');
+    if (starred) {
+        icon.className = 'fas fa-star'; // Filled star
+        starBtn.style.color = 'gold';
+    } else {
+        icon.className = 'far fa-star'; // Outline star
+        starBtn.style.color = '';
+    }
+}
+
+// Extract modal
+async function openExtractModal() {
+    // Populate tag filter
+    const tagSelect = document.getElementById('extract-tag');
+    const response = await fetch('/api/tags');
+    const tags = await response.json();
+    
+    tagSelect.innerHTML = '<option value="">All tags</option>';
+    Object.keys(tags).sort().forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = `${tag} (${tags[tag]})`;
+        tagSelect.appendChild(option);
+    });
+    
+    // Reset form
+    document.getElementById('extract-months').value = 'all';
+    document.querySelector('input[name="extract-scope"][value="starred"]').checked = true;
+    document.querySelectorAll('.extract-type').forEach(cb => cb.checked = false);
+    document.getElementById('extract-tag').value = '';
+    document.getElementById('extract-result-container').style.display = 'none';
+    
+    showModal('extract-modal');
+}
+
+async function runExtract() {
+    const months = document.getElementById('extract-months').value;
+    const starred = document.querySelector('input[name="extract-scope"]:checked').value === 'starred' ? 'true' : 'false';
+    const types = Array.from(document.querySelectorAll('.extract-type:checked')).map(cb => cb.value).join(',');
+    const tag = document.getElementById('extract-tag').value;
+    
+    const params = new URLSearchParams({
+        months,
+        starred,
+    });
+    
+    if (types) params.append('type', types);
+    if (tag) params.append('tag', tag);
+    
+    const response = await fetch(`/api/extract?${params}`);
+    const markdown = await response.text();
+    
+    // Count notes from the markdown
+    const noteCount = (markdown.match(/^## /gm) || []).length - 1; // -1 for header
+    
+    document.getElementById('extract-result').value = markdown;
+    document.getElementById('extract-note-count').textContent = `${noteCount} notes extracted`;
+    document.getElementById('extract-result-container').style.display = 'block';
 }
 
 function setupKeyboardShortcuts() {

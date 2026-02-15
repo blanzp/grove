@@ -26,8 +26,10 @@
                     <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
                     <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
                     <button id="meeting-note" title="New Meeting Note"><i class="fas fa-handshake"></i></button>
+                    <button id="planner-note" title="New Planner"><i class="fas fa-calendar-alt"></i></button>
                     <button id="todos-btn" title="Todo Dashboard"><i class="fas fa-tasks"></i></button>
                     <button id="contacts-btn" title="Manage Contacts"><i class="fas fa-address-book"></i></button>
+                    <button id="extract-btn" title="Extract Notes"><i class="fas fa-file-export"></i></button>
                     <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
                     <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -91,9 +93,11 @@
                     <button class="btn-primary" id="splash-new-note"><i class="fas fa-file-alt"></i> New Note</button>
                     <button class="btn-secondary" id="splash-daily-note"><i class="fas fa-calendar-day"></i> Daily Note</button>
                     <button class="btn-secondary" id="splash-meeting"><i class="fas fa-handshake"></i> Meeting</button>
+                    <button class="btn-secondary" id="splash-planner"><i class="fas fa-calendar-alt"></i> Planner</button>
                 </div>
                 <div class="splash-actions">
                     <button class="btn-secondary" id="splash-templates"><i class="fas fa-file-contract"></i> Templates</button>
+                    <button class="btn-secondary" id="splash-extract"><i class="fas fa-file-export"></i> Extract</button>
                     <button class="btn-secondary" id="splash-todos"><i class="fas fa-tasks"></i> Todo Dashboard</button>
                     <button class="btn-secondary" id="splash-contacts"><i class="fas fa-address-book"></i> Contacts</button>
                     <button class="btn-secondary" id="splash-readme"><i class="fas fa-book-open"></i> Readme</button>
@@ -107,6 +111,7 @@
                     <div class="tags-display" id="tags-display"></div>
                 </div>
                 <div class="editor-actions">
+                    <button id="star-btn" disabled title="Star Note"><i class="far fa-star"></i></button>
                     <button id="tags-btn" disabled title="Manage Tags"><i class="fas fa-tags"></i></button>
                     <!-- Frontmatter editing removed: managed by backend for consistency -->
                     <button id="frontmatter-toggle" disabled style="display:none" title="Toggle Frontmatter"><i class="fas fa-code"></i></button>
@@ -297,6 +302,64 @@
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" id="close-tags-btn">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="extract-modal">
+        <div class="modal-content modal-medium extract-form">
+            <h2>Extract Notes</h2>
+
+            <div class="extract-field">
+                <span class="extract-label">Time Range</span>
+                <select id="extract-months">
+                    <option value="1">Last 1 month</option>
+                    <option value="3">Last 3 months</option>
+                    <option value="6">Last 6 months</option>
+                    <option value="12">Last 1 year</option>
+                    <option value="all" selected>All time</option>
+                </select>
+            </div>
+
+            <div class="extract-field">
+                <span class="extract-label">Scope</span>
+                <div class="extract-inline-group">
+                    <label class="extract-option"><input type="radio" name="extract-scope" value="starred" checked> Starred only</label>
+                    <label class="extract-option"><input type="radio" name="extract-scope" value="all"> All notes</label>
+                </div>
+            </div>
+
+            <div class="extract-field">
+                <span class="extract-label">Type Filter <span style="color:var(--text-secondary);font-weight:normal">(optional)</span></span>
+                <div class="extract-inline-group">
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="meeting"> meeting</label>
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="daily"> daily</label>
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="decision"> decision</label>
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="research"> research</label>
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="reflection"> reflection</label>
+                    <label class="extract-option"><input type="checkbox" class="extract-type" value="note"> note</label>
+                </div>
+            </div>
+
+            <div class="extract-field">
+                <span class="extract-label">Tag Filter <span style="color:var(--text-secondary);font-weight:normal">(optional)</span></span>
+                <select id="extract-tag">
+                    <option value="">All tags</option>
+                </select>
+            </div>
+
+            <button class="btn-primary" id="extract-run-btn" style="width:100%;margin-top:8px;"><i class="fas fa-file-export"></i> Extract</button>
+
+            <div id="extract-result-container" style="display:none;margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span id="extract-note-count" style="color:var(--text-secondary);font-size:13px;"></span>
+                    <button class="btn-secondary" id="extract-copy-btn"><i class="fas fa-copy"></i> Copy</button>
+                </div>
+                <textarea id="extract-result" readonly class="extract-textarea"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-extract-btn">Close</button>
             </div>
         </div>
     </div>
