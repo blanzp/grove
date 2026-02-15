@@ -718,7 +718,7 @@ html, body, .app-container, .main-content {
 #llm-modal #llm-status-note:empty { display: none; }
 #llm-modal .form-group { width: 100%; margin: 0; }
 #llm-modal .form-row { display: flex; align-items: center; gap: 8px; }
-#llm-modal .llm-textarea { width: 100%; min-height: 60px; resize: vertical; margin: 0; }
+#llm-modal .llm-textarea { width: 100%; min-height: 60px; resize: vertical; margin: 0; font-size: 15px; line-height: 1.5; }
 #llm-modal .llm-select { width: 100%; max-width: 280px; }
 #llm-modal .checkbox-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 #llm-modal .block-label { display: block; margin-bottom: 4px; }
@@ -727,13 +727,15 @@ html, body, .app-container, .main-content {
 #llm-modal .llm-controls { 
     display: flex; 
     align-items: center; 
-    gap: 12px; 
+    gap: 16px; 
     flex-wrap: wrap; 
     margin: 0;
     height: auto;
     flex-shrink: 0;
-    row-gap: 8px;
+    row-gap: 10px;
 }
+#llm-modal .checkbox-label { flex-shrink: 0; min-width: fit-content; }
+#llm-modal .form-inline { flex-shrink: 0; min-width: fit-content; }
 #llm-modal .llm-controls .spacer { flex: 1; min-width: 0; }
 #llm-modal .modal-actions.right { justify-content: flex-end; }
 #llm-modal .modal-actions.compact { margin-top: 0; }
