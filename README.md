@@ -6,15 +6,42 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ![Grove](static/grove-logo.png)
 
+## Table of Contents
+
+- [Features](#features)
+- [Supported Markdown](#supported-markdown)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Creating Notes](#creating-notes)
+  - [Daily Notes](#daily-notes)
+  - [Meeting Notes](#meeting-notes)
+  - [Planner](#planner-daily--weekly)
+  - [Templates](#templates)
+  - [Frontmatter](#frontmatter)
+  - [Contacts](#contacts)
+  - [Multi-Vault](#multi-vault)
+  - [Images & Attachments](#images--attachments)
+  - [Todo Dashboard](#todo-dashboard)
+  - [Search](#search)
+  - [Footnotes](#footnotes)
+  - [Table of Contents](#table-of-contents-1)
+- [Extracting Notes for LLM Summaries](#extracting-notes-for-llm-summaries)
+- [Configuration](#configuration)
+- [File Structure](#file-structure)
+- [API](#api)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
 ## Features
 
 ### 📝 Editor
 - **Markdown editor** with live preview (edit, split, or preview mode)
-- **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks
+- **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks, TOC
 - **Auto-save** with 2-second debounce — never lose work
 - **Frontmatter preview** — read-only view of YAML frontmatter (managed by Grove)
 - **Wikilinks** — clickable `[[note]]` links to navigate between notes (type `[[` for typeahead)
 - **Footnotes** — standard `[^1]` refs with `[^1]: text` definitions, rendered with back-links
+- **Table of Contents** — toolbar button scans headings and inserts a linked TOC; re-click to update
 - **Image paste** — paste images from clipboard directly into the editor
 - **Image upload** — upload via toolbar button or drag & drop
 
@@ -91,6 +118,70 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `F11` | Toggle fullscreen |
 | `Escape` | Exit fullscreen |
 | `@` | Trigger contact autocomplete |
+| `[[` | Trigger wikilink autocomplete |
+
+## Supported Markdown
+
+Grove uses [Marked.js](https://marked.js.org/) v4.3.0 with GitHub Flavored Markdown (GFM) enabled. All rendering happens client-side in the browser.
+
+### Standard Markdown
+
+| Syntax | Renders as |
+|--------|------------|
+| `# Heading 1` through `#### Heading 4` | Headings (H1–H4) |
+| `**bold**` | **bold** |
+| `*italic*` or `_italic_` | *italic* |
+| `~~strikethrough~~` | ~~strikethrough~~ |
+| `- item` or `* item` | Unordered list |
+| `1. item` | Ordered list |
+| `> quote` | Blockquote |
+| `` `inline code` `` | `inline code` |
+| ` ``` ` fenced block ` ``` ` | Code block |
+| `[text](url)` | Hyperlink |
+| `![alt](url)` | Image |
+| `---` | Horizontal rule |
+
+### GFM (GitHub Flavored Markdown)
+
+| Syntax | Renders as |
+|--------|------------|
+| `\| col \| col \|` | Tables (with header row) |
+| `- [ ] task` | Unchecked checkbox |
+| `- [x] task` | Checked checkbox |
+| `~~deleted~~` | Strikethrough |
+| `https://example.com` | Auto-linked URL |
+
+### Grove Extensions
+
+| Syntax | Renders as |
+|--------|------------|
+| `[[note name]]` | Clickable wikilink (with typeahead) |
+| `[^1]` + `[^1]: text` | Footnote with back-link |
+| `@name` | Contact mention (autocomplete in editor) |
+| TOC button | Generates linked Table of Contents from H2–H4 |
+
+### HTML Passthrough
+
+Marked.js passes raw HTML through to the preview. These all work:
+
+| HTML | Use case |
+|------|----------|
+| `<details><summary>Click</summary>Hidden</details>` | Collapsible section |
+| `<kbd>Ctrl</kbd>` | Keyboard key styling |
+| `<mark>highlighted</mark>` | Highlighted text |
+| `<sup>super</sup>` / `<sub>sub</sub>` | Superscript / subscript |
+| `<br>` | Line break |
+| `<iframe>`, `<video>`, `<audio>` | Embedded media |
+
+### Not Currently Supported
+
+| Feature | Notes |
+|---------|-------|
+| Syntax highlighting | No Prism.js/Highlight.js (code blocks render unstyled) |
+| LaTeX / Math | `$x^2$` renders as plain text |
+| Mermaid diagrams | Not yet — easy to add |
+| Admonitions / Callouts | Obsidian-style `> [!note]` not supported |
+| Multi-paragraph footnotes | Single-line footnote bodies only |
 
 ## Installation
 
@@ -191,7 +282,7 @@ Templates are **body-only** — Grove manages all frontmatter (title, created, t
 - `decision` — Context, Options, Decision, Rationale, Consequences
 - `research` — Question/Hypothesis, Background, Findings, References
 - `reflection` — What happened, What went well, What could be better, Lessons learned
-- `daily-planner`, `weekly-planner` — body-only planners
+- `daily-planner`, `weekly-planner` — structured planners with time blocks and goals
 
 ### Frontmatter
 Grove exclusively manages YAML frontmatter. You cannot edit it directly — use the **📜 scroll icon** to preview it read-only. Frontmatter includes:
@@ -262,28 +353,50 @@ This needs a citation[^1].
 
 - Inserts superscripted refs in the body with a footnotes section at the bottom
 - Includes ↩ back-links from each footnote to its reference
-- Currently supports single-line footnote bodies; ask if you want multi-paragraph support
+- Currently supports single-line footnote bodies
+
+### Table of Contents
+Click the **📋 TOC button** in the markdown toolbar to generate a Table of Contents:
+
+- Scans H2–H4 headings in the current note
+- Inserts a linked bullet list at the cursor position
+- Click again to update the existing TOC in place
+- In preview, clicking a TOC link smooth-scrolls to that heading
 
 ## Extracting Notes for LLM Summaries
 
-You can generate a single markdown document of notes to paste into an LLM.
+Grove is designed to work seamlessly with LLMs. Use the Extract feature to generate a clean markdown document you can paste into any AI assistant.
 
-- In the UI: Click **Extract** (sidebar or splash)
-  - Pick time range: Last 1/3/6/12 months or All time
-  - Scope: Starred only (default) or All notes
-  - Optional filters: type (meeting/daily/decision/research/reflection/note) and tag
-  - Click Extract → Copy to clipboard
+### Using the UI
+1. Click **Extract** (sidebar toolbar or splash screen)
+2. Pick time range: Last 1/3/6/12 months or All time
+3. Scope: **Starred only** (default) or All notes
+4. Optional filters: type (meeting/daily/decision/research/reflection/note) and tag
+5. Click **Extract** → **Copy** to clipboard
+6. Paste into your LLM of choice
 
-- Via API:
-  - `GET /api/extract?months=3&starred=true&type=meeting,decision&tag=project-x`
-  - Returns concatenated markdown with title/date headers and bodies only
+### Using the API
+```
+GET /api/extract?months=3&starred=true&type=meeting,decision&tag=project-x
+```
+Returns concatenated markdown with title/date headers and bodies only.
 
-- Prompt starter:
-  - "You are my operations analyst. Summarize the following notes as an executive weekly summary. Prioritize decisions, risks, blockers, deadlines, and action items with owners. Group by week, then by project. Keep it under 300 words. Output sections: Overview, Decisions, Risks/Blockers, Upcoming, Action Items."
+### Sample Prompts
 
-Tips:
-- Star important notes to keep extracts focused
-- For big ranges, run multiple extracts (per month) to avoid token limits
+**Executive summary:**
+> "You are my operations analyst. Summarize the following notes as an executive weekly summary. Prioritize decisions, risks, blockers, deadlines, and action items with owners. Group by week, then by project. Keep it under 300 words. Output sections: Overview, Decisions, Risks/Blockers, Upcoming, Action Items."
+
+**Meeting recap:**
+> "Produce a 5-bullet recap of each meeting below, plus a consolidated action list with owners and due dates."
+
+**Project status:**
+> "Based on these notes, generate a project status report. Include: progress vs plan, key milestones hit, open risks, and recommended next steps."
+
+### Tips
+- ⭐ Star important notes to keep extracts focused
+- For large date ranges, run multiple extracts (e.g., per month) to avoid token limits
+- Use type filters to extract just meetings, decisions, or research separately
+- The JSONL export (`GET /api/export?format=jsonl`) is better for programmatic LLM pipelines
 
 ## Configuration
 
@@ -306,13 +419,19 @@ Tips:
 ```
 grove/
 ├── app.py                  # Flask backend
-├── requirements.txt        # Python dependencies
-├── .grove/
-│   └── config.json         # Global config (active vault)
+├── requirements.txt        # Python dependencies (Flask only)
+├── openapi.yaml            # OpenAPI 3.0 spec
 ├── default-vault/          # Seed files for new vaults
 │   ├── .grove/
-│   ├── .templates/
-│   └── ...
+│   │   └── config.json
+│   └── .templates/
+│       ├── meeting.md
+│       ├── decision.md
+│       ├── research.md
+│       ├── reflection.md
+│       ├── daily.md
+│       ├── daily-planner.md
+│       └── weekly-planner.md
 ├── static/
 │   ├── css/
 │   │   ├── style.css       # Main styles + CSS variables
@@ -325,15 +444,34 @@ grove/
     └── index.html          # Main HTML template
 ```
 
+Vault data (created at runtime):
+```
+~/.grove/
+├── config.json             # Global config (active vault name)
+└── vaults/
+    ├── default/            # Default vault
+    │   ├── .grove/
+    │   │   ├── config.json     # Per-vault config
+    │   │   └── contacts.json   # Contacts database
+    │   ├── .templates/         # Note templates
+    │   ├── attachments/        # Uploaded images & files
+    │   ├── daily/              # Daily notes
+    │   ├── meetings/           # Meeting notes
+    │   ├── planning/           # Planner notes
+    │   └── README.md
+    └── work/               # Additional vaults
+        └── ...
+```
+
 ## API
 
-OpenAPI 3 spec: `openapi.yaml` (browse in Swagger UI or https://editor.swagger.io)
+Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Editor](https://editor.swagger.io)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | **Notes** | | |
 | `GET` | `/api/tree` | Get vault directory tree (all files) |
-| `GET` | `/api/note/<path>` | Get note content + metadata (includes `starred` boolean) |
+| `GET` | `/api/note/<path>` | Get note content + metadata (includes `starred`) |
 | `PUT` | `/api/note/<path>` | Save note content (adds `updated` timestamp) |
 | `POST` | `/api/note` | Create new note (with optional template) |
 | `DELETE` | `/api/note/<path>` | Delete a note |
@@ -378,15 +516,16 @@ OpenAPI 3 spec: `openapi.yaml` (browse in Swagger UI or https://editor.swagger.i
 | `PUT` | `/api/config` | Update per-vault config |
 | **Export** | | |
 | `GET` | `/api/export?format=jsonl&since=<ISO>` | Export vault notes (JSONL/JSON; incremental via `since`) |
-| `GET` | `/api/extract?months=<n|all>&starred=<true|false>&type=a,b&tag=x` | Concatenate notes for LLM input |
+| `GET` | `/api/extract?months=<n\|all>&starred=<bool>&type=a,b&tag=x` | Concatenate notes for LLM input |
 
 ## Tech Stack
 
-- **Backend:** Flask (Python)
+- **Backend:** Flask (Python) — single dependency
 - **Frontend:** Vanilla JavaScript (no frameworks)
-- **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0
+- **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0 (GFM enabled)
 - **Icons:** [Font Awesome](https://fontawesome.com/) 6.4.0
 - **Styling:** CSS custom properties for theming
+- **Storage:** Flat markdown files — no database
 
 ## License
 
