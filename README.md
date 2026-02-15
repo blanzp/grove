@@ -214,6 +214,11 @@ Your notes are stored at `~/.grove/vaults/` (e.g., `/home/you/.grove/vaults/defa
 
 By default, Grove binds to `0.0.0.0:5000`, so it's accessible from other devices on your network. Open `http://<your-ip>:5000` on your phone or tablet.
 
+To restrict to local-only access (recommended for agent/API use):
+```bash
+GROVE_HOST=127.0.0.1 python app.py
+```
+
 ### Optional: Run as a systemd service (Linux)
 
 Create `/etc/systemd/system/grove.service`:
