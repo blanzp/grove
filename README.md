@@ -1,10 +1,8 @@
-# 🌲 Grove
+# <img src="static/grove-logo.png" alt="Grove" width="32"> Grove
 
 A self-hosted markdown knowledge base that runs anywhere Python does — no cloud, no admin privileges, no data leaves your machine.
 
 Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal knowledge grove.
-
-<img src="static/grove-logo.png" alt="Grove" width="120">
 
 ## Table of Contents
 
