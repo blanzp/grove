@@ -668,6 +668,10 @@ def search_notes():
     results = []
     
     for md_file in VAULT_PATH.rglob('*.md'):
+        # Exclude templates folder from search
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts:
+            continue
         if md_file.name.startswith('.'):
             continue
         
@@ -938,6 +942,10 @@ def get_todos():
     todos = []
     
     for md_file in VAULT_PATH.rglob('*.md'):
+        # Exclude templates folder from todo scan
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts:
+            continue
         if md_file.name.startswith('.'):
             continue
         
