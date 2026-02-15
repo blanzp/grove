@@ -378,7 +378,7 @@ def get_note(note_path):
     })
 
 
-## save_note is defined at the bottom with summary support
+## save_note is defined at the bottom with updated timestamp support
 
 
 @app.route('/api/note/<path:note_path>/tags', methods=['PUT'])
@@ -1235,13 +1235,6 @@ def export_notes():
             if type_match:
                 note['type'] = type_match.group(1)
 
-        # Include summary if present in frontmatter
-        if content.startswith('---'):
-            fm_text = content.split('---', 2)[1] if len(content.split('---', 2)) >= 3 else ''
-            summary_match = re.search(r'summary:\s*(.+)', fm_text)
-            if summary_match:
-                note['summary'] = summary_match.group(1).strip()
-
         notes.append(note)
 
     if fmt == 'json':
@@ -1256,31 +1249,6 @@ def export_notes():
     )
 
 
-# ─── Summaries on Save ───
-
-def _generate_summary(body: str) -> str:
-    """Generate a one-line summary of a note body using OpenAI."""
-    import openai
-    api_key = os.environ.get('OPENAI_API_KEY', '')
-    if not api_key or len(body.strip()) < 50:
-        return ''
-    try:
-        client = openai.OpenAI(api_key=api_key)
-        resp = client.chat.completions.create(
-            model='gpt-4o-mini',
-            messages=[
-                {'role': 'system', 'content': 'You are a note summarizer. Given a markdown note, produce a single concise sentence (max 120 chars) summarizing its content. No quotes, no markdown. Just the summary sentence.'},
-                {'role': 'user', 'content': body[:3000]}  # limit input
-            ],
-            max_tokens=60,
-            temperature=0.3
-        )
-        return resp.choices[0].message.content.strip()
-    except Exception as e:
-        print(f'Summary generation failed: {e}')
-        return ''
-
-
 def _update_frontmatter_field(content: str, field: str, value: str) -> str:
     """Add or update a single field in existing frontmatter."""
     if not content.startswith('---'):
@@ -1291,43 +1259,18 @@ def _update_frontmatter_field(content: str, field: str, value: str) -> str:
     fm_text = parts[1]
     body = parts[2]
 
-    # Check if field exists
     pattern = re.compile(rf'^{field}:\s*.*$', re.MULTILINE)
     if pattern.search(fm_text):
         fm_text = pattern.sub(f'{field}: {value}', fm_text)
     else:
-        # Add before closing, after last field
         fm_text = fm_text.rstrip('\n') + f'\n{field}: {value}\n'
 
     return f'---{fm_text}---{body}'
 
 
-@app.route('/api/note/<path:note_path>/summarize', methods=['POST'])
-def summarize_note(note_path):
-    """Generate and store a summary for a note."""
-    file_path = VAULT_PATH / note_path
-    if not file_path.exists():
-        return jsonify({'error': 'Note not found'}), 404
-
-    content = file_path.read_text()
-    _, body = extract_frontmatter(content)
-    summary = _generate_summary(body)
-
-    if summary:
-        # Re-read file (may have changed since we read it)
-        content = file_path.read_text()
-        content = _update_frontmatter_field(content, 'summary', summary)
-        content = _update_frontmatter_field(content, 'updated', datetime.now().isoformat())
-        file_path.write_text(content)
-        print(f'[Grove] Summary written to {note_path}: {summary}')
-
-    return jsonify({'success': True, 'summary': summary})
-
-
 @app.route('/api/note/<path:note_path>', methods=['PUT'])
 def save_note(note_path):
-    """Save a note, then generate summary + updated timestamp in background."""
-    # First do the normal save
+    """Save a note's content. Adds updated timestamp to frontmatter."""
     data = request.json
     content = data.get('content', '')
 
@@ -1340,22 +1283,6 @@ def save_note(note_path):
     if saved_content.startswith('---'):
         saved_content = _update_frontmatter_field(saved_content, 'updated', datetime.now().isoformat())
         file_path.write_text(saved_content)
-
-    # Generate summary in background thread (non-blocking)
-    import threading
-    def _bg_summarize():
-        try:
-            c = file_path.read_text()
-            _, body = extract_frontmatter(c)
-            summary = _generate_summary(body)
-            if summary:
-                c = file_path.read_text()  # re-read in case of race
-                c = _update_frontmatter_field(c, 'summary', summary)
-                file_path.write_text(c)
-        except Exception as e:
-            print(f'Background summary failed: {e}')
-
-    threading.Thread(target=_bg_summarize, daemon=True).start()
 
     return jsonify({'success': True, 'path': note_path})
 

@@ -35,9 +35,6 @@ tags:
     description: File uploads, serving, and attachments
   - name: Export
     description: JSONL/JSON export for LLM pipelines
-  - name: AI
-    description: AI-powered features (summarization)
-
 paths:
   /api/tree:
     get:
@@ -72,9 +69,7 @@ paths:
     put:
       tags: [Notes]
       summary: Save a note
-      description: |
-        Save note content. Automatically adds `updated` timestamp and generates
-        a one-sentence summary via OpenAI (background, non-blocking).
+      description: Save note content. Automatically adds `updated` timestamp in frontmatter.
       parameters:
         - $ref: '#/components/parameters/NotePath'
       requestBody:
@@ -193,32 +188,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessPath'
-
-  /api/note/{path}/summarize:
-    post:
-      tags: [AI]
-      summary: Generate summary for a note
-      description: |
-        Uses OpenAI gpt-4o-mini to generate a one-sentence summary (max 120 chars).
-        Stores the summary in the note's frontmatter as `summary:` field.
-        Also updates the `updated:` timestamp.
-      parameters:
-        - $ref: '#/components/parameters/NotePath'
-      responses:
-        '200':
-          description: Summary generated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  summary:
-                    type: string
-                    description: Generated summary (empty string if body too short)
-        '404':
-          description: Note not found
 
   /api/folder:
     post:
@@ -848,7 +817,7 @@ paths:
       description: |
         Export all notes from the active vault as JSONL or JSON.
         Supports incremental export via the `since` parameter.
-        Each note includes path, title, type, tags, created, modified, body, and summary (if available).
+        Each note includes path, title, type, tags, created, modified, and body.
       parameters:
         - name: format
           in: query
@@ -1017,6 +986,3 @@ components:
           format: date-time
         body:
           type: string
-        summary:
-          type: string
-          description: AI-generated one-sentence summary (if available)
