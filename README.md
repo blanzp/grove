@@ -1,4 +1,4 @@
-# <img src="static/grove-logo.png" alt="Grove" width="32"> Grove
+# <img src="static/grove-logo.png" alt="Grove" width="64"> Grove
 
 A self-hosted markdown knowledge base that runs anywhere Python does — no cloud, no admin privileges, no data leaves your machine.
 
