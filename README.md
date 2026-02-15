@@ -4,7 +4,7 @@ A self-hosted markdown knowledge base that runs anywhere Python does — no clou
 
 Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal knowledge grove.
 
-![Grove](static/grove-logo.png)
+<img src="static/grove-logo.png" alt="Grove" width="120">
 
 ## Table of Contents
 
