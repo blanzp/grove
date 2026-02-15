@@ -39,22 +39,22 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text())
-    # Always initialize README from project README with Grove docs
+    # Initialize README from project README only if it doesn't exist yet
     rd = path / 'README.md'
-    try:
-        project_readme = (Path(__file__).parent / 'README.md').read_text()
-    except Exception:
-        project_readme = f"# Grove\n\nWelcome to your '{path.name}' vault."
-    # Prepend managed frontmatter so Grove shows proper title/type/tags (avoid dependency on build_frontmatter order)
-    from datetime import datetime as _dt
-    fm = (
-        "---\n"
-        f"title: Grove — {path.name} README\n"
-        f"created: {_dt.now().isoformat()}\n"
-        f"type: note\n"
-        "tags:\n  - grove\n---\n\n"
-    )
-    rd.write_text(fm + project_readme)
+    if not rd.exists():
+        try:
+            project_readme = (Path(__file__).parent / 'README.md').read_text()
+        except Exception:
+            project_readme = f"# Grove\n\nWelcome to your '{path.name}' vault."
+        from datetime import datetime as _dt
+        fm = (
+            "---\n"
+            f"title: Grove — {path.name} README\n"
+            f"created: {_dt.now().isoformat()}\n"
+            f"type: note\n"
+            "tags:\n  - grove\n---\n\n"
+        )
+        rd.write_text(fm + project_readme)
 
 
 def get_active_vault_path():
@@ -378,17 +378,7 @@ def get_note(note_path):
     })
 
 
-@app.route('/api/note/<path:note_path>', methods=['PUT'])
-def save_note(note_path):
-    """Save a note's content. Frontmatter is preserved/managed; auto-add slug ids to H2/H3."""
-    data = request.json
-    content = data.get('content', '')
-
-    file_path = VAULT_PATH / note_path
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(content)
-    
-    return jsonify({'success': True, 'path': note_path})
+## save_note is defined at the bottom with summary support
 
 
 @app.route('/api/note/<path:note_path>/tags', methods=['PUT'])
@@ -1187,6 +1177,187 @@ def upload_paste():
         'url': f'/api/file/{rel_path}',
         'markdown': f'![{file_path.stem}](/api/file/{rel_path})'
     })
+
+
+# ─── JSONL Export (full + incremental) ───
+
+@app.route('/api/export')
+def export_notes():
+    """Export vault notes as JSONL. Supports format=jsonl (default) and since= for incremental.
+    
+    Query params:
+        format: 'jsonl' (default) or 'json'
+        since:  ISO timestamp — only export notes modified after this time
+    """
+    fmt = request.args.get('format', 'jsonl')
+    since_str = request.args.get('since', None)
+    since_ts = None
+    if since_str:
+        try:
+            since_ts = datetime.fromisoformat(since_str).timestamp()
+        except ValueError:
+            return jsonify({'error': f'Invalid since timestamp: {since_str}'}), 400
+
+    notes = []
+    for md_file in VAULT_PATH.rglob('*.md'):
+        if md_file.name.startswith('.'):
+            continue
+        # Skip files in hidden directories (e.g. .templates)
+        rel = md_file.relative_to(VAULT_PATH)
+        if any(part.startswith('.') for part in rel.parts):
+            continue
+
+        # Incremental: skip files not modified since the given timestamp
+        if since_ts is not None:
+            mtime = md_file.stat().st_mtime
+            if mtime < since_ts:
+                continue
+
+        content = md_file.read_text()
+        fm, body = extract_frontmatter(content)
+        path = str(rel)
+        mtime_iso = datetime.fromtimestamp(md_file.stat().st_mtime).isoformat()
+
+        note = {
+            'path': path,
+            'title': fm.get('title', md_file.stem),
+            'type': fm.get('type', 'note') if 'type' in (content.split('---')[1] if content.startswith('---') else '') else 'note',
+            'tags': fm.get('tags', []),
+            'created': fm.get('created', ''),
+            'modified': mtime_iso,
+            'body': body.strip(),
+        }
+
+        # Extract type from frontmatter text directly
+        if content.startswith('---'):
+            fm_text = content.split('---', 2)[1] if len(content.split('---', 2)) >= 3 else ''
+            type_match = re.search(r'type:\s*(\S+)', fm_text)
+            if type_match:
+                note['type'] = type_match.group(1)
+
+        # Include summary if present in frontmatter
+        if content.startswith('---'):
+            fm_text = content.split('---', 2)[1] if len(content.split('---', 2)) >= 3 else ''
+            summary_match = re.search(r'summary:\s*(.+)', fm_text)
+            if summary_match:
+                note['summary'] = summary_match.group(1).strip()
+
+        notes.append(note)
+
+    if fmt == 'json':
+        return jsonify(notes)
+
+    # JSONL format
+    lines = [json.dumps(n, ensure_ascii=False) for n in notes]
+    return app.response_class(
+        '\n'.join(lines) + '\n',
+        mimetype='application/x-ndjson',
+        headers={'Content-Disposition': 'attachment; filename=grove-export.jsonl'}
+    )
+
+
+# ─── Summaries on Save ───
+
+def _generate_summary(body: str) -> str:
+    """Generate a one-line summary of a note body using OpenAI."""
+    import openai
+    api_key = os.environ.get('OPENAI_API_KEY', '')
+    if not api_key or len(body.strip()) < 50:
+        return ''
+    try:
+        client = openai.OpenAI(api_key=api_key)
+        resp = client.chat.completions.create(
+            model='gpt-4o-mini',
+            messages=[
+                {'role': 'system', 'content': 'You are a note summarizer. Given a markdown note, produce a single concise sentence (max 120 chars) summarizing its content. No quotes, no markdown. Just the summary sentence.'},
+                {'role': 'user', 'content': body[:3000]}  # limit input
+            ],
+            max_tokens=60,
+            temperature=0.3
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f'Summary generation failed: {e}')
+        return ''
+
+
+def _update_frontmatter_field(content: str, field: str, value: str) -> str:
+    """Add or update a single field in existing frontmatter."""
+    if not content.startswith('---'):
+        return content
+    parts = content.split('---', 2)
+    if len(parts) < 3:
+        return content
+    fm_text = parts[1]
+    body = parts[2]
+
+    # Check if field exists
+    pattern = re.compile(rf'^{field}:\s*.*$', re.MULTILINE)
+    if pattern.search(fm_text):
+        fm_text = pattern.sub(f'{field}: {value}', fm_text)
+    else:
+        # Add before closing, after last field
+        fm_text = fm_text.rstrip('\n') + f'\n{field}: {value}\n'
+
+    return f'---{fm_text}---{body}'
+
+
+@app.route('/api/note/<path:note_path>/summarize', methods=['POST'])
+def summarize_note(note_path):
+    """Generate and store a summary for a note."""
+    file_path = VAULT_PATH / note_path
+    if not file_path.exists():
+        return jsonify({'error': 'Note not found'}), 404
+
+    content = file_path.read_text()
+    _, body = extract_frontmatter(content)
+    summary = _generate_summary(body)
+
+    if summary:
+        # Re-read file (may have changed since we read it)
+        content = file_path.read_text()
+        content = _update_frontmatter_field(content, 'summary', summary)
+        content = _update_frontmatter_field(content, 'updated', datetime.now().isoformat())
+        file_path.write_text(content)
+        print(f'[Grove] Summary written to {note_path}: {summary}')
+
+    return jsonify({'success': True, 'summary': summary})
+
+
+@app.route('/api/note/<path:note_path>', methods=['PUT'])
+def save_note(note_path):
+    """Save a note, then generate summary + updated timestamp in background."""
+    # First do the normal save
+    data = request.json
+    content = data.get('content', '')
+
+    file_path = VAULT_PATH / note_path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content)
+
+    # Add updated timestamp
+    saved_content = file_path.read_text()
+    if saved_content.startswith('---'):
+        saved_content = _update_frontmatter_field(saved_content, 'updated', datetime.now().isoformat())
+        file_path.write_text(saved_content)
+
+    # Generate summary in background thread (non-blocking)
+    import threading
+    def _bg_summarize():
+        try:
+            c = file_path.read_text()
+            _, body = extract_frontmatter(c)
+            summary = _generate_summary(body)
+            if summary:
+                c = file_path.read_text()  # re-read in case of race
+                c = _update_frontmatter_field(c, 'summary', summary)
+                file_path.write_text(c)
+        except Exception as e:
+            print(f'Background summary failed: {e}')
+
+    threading.Thread(target=_bg_summarize, daemon=True).start()
+
+    return jsonify({'success': True, 'path': note_path})
 
 
 if __name__ == '__main__':

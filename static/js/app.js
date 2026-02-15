@@ -468,18 +468,42 @@ async function shareViaCopyMarkdown() {
 async function shareViaCopyHtml() {
     hideModal('share-modal');
     const { html } = getRenderedHtml();
+    
+    // Try ClipboardItem API first (needs HTTPS + browser support)
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        try {
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    'text/html': new Blob([html], { type: 'text/html' }),
+                    'text/plain': new Blob([html], { type: 'text/plain' })
+                })
+            ]);
+            showNotification('HTML copied to clipboard');
+            return;
+        } catch (e) { /* fall through */ }
+    }
+    
+    // Fallback: use execCommand with a hidden contenteditable div (works on HTTP + Safari)
     try {
-        await navigator.clipboard.write([
-            new ClipboardItem({
-                'text/html': new Blob([html], { type: 'text/html' }),
-                'text/plain': new Blob([html], { type: 'text/plain' })
-            })
-        ]);
+        const tmp = document.createElement('div');
+        tmp.contentEditable = true;
+        tmp.innerHTML = html;
+        tmp.style.position = 'fixed';
+        tmp.style.left = '-9999px';
+        document.body.appendChild(tmp);
+        const range = document.createRange();
+        range.selectNodeContents(tmp);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('copy');
+        sel.removeAllRanges();
+        document.body.removeChild(tmp);
         showNotification('HTML copied to clipboard');
-    } catch (e) {
-        // Fallback
+    } catch (e2) {
+        // Last resort: plain text
         try { await navigator.clipboard.writeText(html); showNotification('HTML copied as text'); }
-        catch (e2) { showNotification('Copy failed'); }
+        catch (e3) { showNotification('Copy failed — try HTTPS for full clipboard support'); }
     }
 }
 
