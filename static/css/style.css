@@ -699,10 +699,12 @@ html, body, .app-container, .main-content {
 }
 
 /* LLM modal layout tweaks */
-#llm-modal .llm-form { display: flex; flex-direction: column; gap: 12px; }
+#llm-modal h2 { margin-bottom: 10px; font-size: 18px; }
+#llm-modal .llm-form { display: flex; flex-direction: column; gap: 8px; }
+#llm-modal .modal-actions { margin-top: 10px; }
 #llm-modal .form-group { width: 100%; }
 #llm-modal .form-row { display: flex; align-items: center; gap: 8px; }
-#llm-modal .llm-textarea { width: 100%; min-height: 100px; resize: vertical; }
+#llm-modal .llm-textarea { width: 100%; min-height: 70px; resize: vertical; }
 #llm-modal .llm-select { width: 100%; max-width: 280px; }
 #llm-modal .checkbox-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 #llm-modal .block-label { display: block; margin-bottom: 4px; }
@@ -744,8 +746,8 @@ html, body, .app-container, .main-content {
 }
 
 .modal-content.modal-medium {
-    max-width: 500px;
-    padding: 20px;
+    max-width: 420px;
+    padding: 16px;
 }
 
 .modal-content.modal-small {
