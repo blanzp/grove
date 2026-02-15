@@ -118,6 +118,8 @@ python app.py
 
 The app starts at **http://localhost:5000**
 
+Your notes are stored at `~/.grove/vaults/` (e.g., `/home/you/.grove/vaults/default/`). Global config lives at `~/.grove/config.json`.
+
 ### Running on a Network
 
 By default, Grove binds to `0.0.0.0:5000`, so it's accessible from other devices on your network. Open `http://<your-ip>:5000` on your phone or tablet.
