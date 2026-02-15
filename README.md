@@ -21,7 +21,7 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault
 - **Recent files** panel for quick access
-- **Search** by note name or content
+- **Search** by note name or content (excludes `.templates/`)
 - **Create, rename, delete** notes and folders
 - **Asset files** — images, PDFs, audio/video shown with type-specific icons
 
@@ -31,7 +31,8 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 - **Daily notes** — one-click daily log creation using customizable template
 - **Templates** — create, edit, and delete body-only note templates (Grove manages frontmatter)
 - **Document types** — auto-set `type` in frontmatter based on template (meeting, decision, research, reflection, execution, daily, note)
-- **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note
+- **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
+- **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
 - **Auto-slug headings** — H2/H3 automatically get `{#slug}` anchors on save for LLM-friendly chunking
 
 ### 👥 Contacts
@@ -100,8 +101,8 @@ A beautiful, lightweight markdown notes app with a VS Code-inspired interface. O
 
 ```bash
 # Clone the repository
-git clone https://github.com/blanzp/mdvault-web.git
-cd mdvault-web
+git clone https://github.com/blanzp/grove.git
+cd grove
 
 # Create virtual environment
 python3 -m venv venv
@@ -121,6 +122,35 @@ The app starts at **http://localhost:5000**
 
 By default, Grove binds to `0.0.0.0:5000`, so it's accessible from other devices on your network. Open `http://<your-ip>:5000` on your phone or tablet.
 
+### Optional: Run as a systemd service (Linux)
+
+Create `/etc/systemd/system/grove.service`:
+
+```
+[Unit]
+Description=Grove - Markdown Notes App
+After=network.target
+
+[Service]
+Type=simple
+User=<your-username>
+WorkingDirectory=/path/to/grove
+ExecStart=/path/to/grove/venv/bin/python app.py
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Reload and start:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable --now grove
+```
+
 ## Usage
 
 ### Creating Notes
@@ -139,6 +169,10 @@ Click the **🤝 handshake icon** to create a meeting note using the meeting tem
 - **Filename format:** `meeting-YYYY-MMDD HHMM-my-meeting-name.md` (e.g., `meeting-2026-0214 1430-q1-planning.md`)
 - **Title (frontmatter):** `My Meeting Name`
 
+### Planner (Daily & Weekly)
+Click the **📆 calendar-alt icon** to create a planner:
+- Daily: `daily-planner-YYYY-MM-DD.md` (tags: `planner, daily`)
+- Weekly: `planner-YYYY-Www.md` using ISO week (tags: `planner, weekly`)
 
 ### Templates
 Manage templates from the **📋 template icon** in the sidebar toolbar.
@@ -154,29 +188,17 @@ Templates are **body-only** — Grove manages all frontmatter (title, created, t
 - `decision` — Context, Options, Decision, Rationale, Consequences
 - `research` — Question/Hypothesis, Background, Findings, References
 - `reflection` — What happened, What went well, What could be better, Lessons learned
-
-**Example template** (`vault/.templates/meeting.md`):
-```markdown
-# {{title}}
-
-## Attendees
-
-## Agenda
-
-## Notes
-
-## Action Items
-
-- [ ]
-```
+- `daily-planner`, `weekly-planner` — body-only planners
 
 ### Frontmatter
 Grove exclusively manages YAML frontmatter. You cannot edit it directly — use the **📜 scroll icon** to preview it read-only. Frontmatter includes:
 
 - `title` — Note title
 - `created` — ISO timestamp
+- `updated` — ISO timestamp (auto-updated on save)
 - `type` — Document type (note, meeting, decision, research, reflection, execution, daily)
 - `tags` — YAML array of tags
+- `starred` — `true|false` (toggled from the ⭐ button)
 
 ### Contacts
 Click the **📒 address book icon** to manage contacts.
@@ -204,10 +226,10 @@ Click the **📒 address book icon** to manage contacts.
 ### Multi-Vault
 Use the **vault selector** dropdown in the sidebar toolbar to switch vaults. Click the **folder+ icon** next to it to create a new vault.
 
-Vaults are stored under `vaults/` (except the default `vault/` directory). Each vault has its own notes, templates, contacts, and config.
+Vaults are stored under `~/.grove/vaults/<name>/`. Global config at `~/.grove/config.json` controls the active vault.
 
 ### Images & Attachments
-- **Paste:** Ctrl+V an image from clipboard — auto-uploads to `vault/attachments/`
+- **Paste:** Ctrl+V an image from clipboard — auto-uploads to `attachments/`
 - **Toolbar:** Click the image icon → pick a file → uploads and inserts markdown
 - **Reference:** `![alt text](/api/file/attachments/photo.png)`
 - **Tree:** Click an image in the file tree to copy its markdown reference
@@ -217,19 +239,14 @@ Click the **✅ tasks icon** to see all checkboxes across your vault. Toggle com
 
 - Two-column layout: Incomplete (left) and Complete (right)
 - Checkboxes use standard markdown format: `- [ ] Task` / `- [x] Done`
-
-### Share
-Click the **📤 share icon** when viewing a note:
-- **Print / PDF** — opens a print-friendly window
-- **Email** — opens mail client with title and content
-- **Copy Markdown** — raw markdown to clipboard
-- **Copy HTML** — rendered HTML to clipboard
+- Excludes `.templates/` from scans
 
 ### Search
 - `Ctrl+K` to focus the search bar
 - Type and press Enter to search
 - Use the tag dropdown to filter by tag
 - Click the **✕** button to clear search
+- Excludes `.templates/` from search
 
 ### Footnotes
 Grove supports standard Markdown footnotes in preview:
@@ -244,6 +261,27 @@ This needs a citation[^1].
 - Includes ↩ back-links from each footnote to its reference
 - Currently supports single-line footnote bodies; ask if you want multi-paragraph support
 
+## Extracting Notes for LLM Summaries
+
+You can generate a single markdown document of notes to paste into an LLM.
+
+- In the UI: Click **Extract** (sidebar or splash)
+  - Pick time range: Last 1/3/6/12 months or All time
+  - Scope: Starred only (default) or All notes
+  - Optional filters: type (meeting/daily/decision/research/reflection/note) and tag
+  - Click Extract → Copy to clipboard
+
+- Via API:
+  - `GET /api/extract?months=3&starred=true&type=meeting,decision&tag=project-x`
+  - Returns concatenated markdown with title/date headers and bodies only
+
+- Prompt starter:
+  - "You are my operations analyst. Summarize the following notes as an executive weekly summary. Prioritize decisions, risks, blockers, deadlines, and action items with owners. Group by week, then by project. Keep it under 300 words. Output sections: Overview, Decisions, Risks/Blockers, Upcoming, Action Items."
+
+Tips:
+- Star important notes to keep extracts focused
+- For big ranges, run multiple extracts (per month) to avoid token limits
+
 ## Configuration
 
 ### Per-Vault Config (`vault/.grove/config.json`)
@@ -253,10 +291,10 @@ This needs a citation[^1].
 }
 ```
 
-### Global Config (`.grove/config.json`)
+### Global Config (`~/.grove/config.json`)
 ```json
 {
-  "active_vault": "vault"
+  "active_vault": "default"
 }
 ```
 
@@ -268,16 +306,10 @@ grove/
 ├── requirements.txt        # Python dependencies
 ├── .grove/
 │   └── config.json         # Global config (active vault)
-├── vault/                  # Default vault
+├── default-vault/          # Seed files for new vaults
 │   ├── .grove/
-│   │   ├── config.json     # Per-vault config
-│   │   └── contacts.json   # Contacts database
-│   ├── .templates/         # Note templates (body-only)
-│   ├── attachments/        # Uploaded images & files
-│   └── daily/              # Daily notes
-├── vaults/                 # Additional vaults
-│   ├── personal/
-│   └── work/
+│   ├── .templates/
+│   └── ...
 ├── static/
 │   ├── css/
 │   │   ├── style.css       # Main styles + CSS variables
@@ -290,18 +322,21 @@ grove/
     └── index.html          # Main HTML template
 ```
 
-## API Endpoints
+## API
+
+OpenAPI 3 spec: `openapi.yaml` (browse in Swagger UI or https://editor.swagger.io)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | **Notes** | | |
 | `GET` | `/api/tree` | Get vault directory tree (all files) |
-| `GET` | `/api/note/<path>` | Get note content + metadata |
-| `PUT` | `/api/note/<path>` | Save note content (auto-slugs H2/H3) |
+| `GET` | `/api/note/<path>` | Get note content + metadata (includes `starred` boolean) |
+| `PUT` | `/api/note/<path>` | Save note content (adds `updated` timestamp) |
 | `POST` | `/api/note` | Create new note (with optional template) |
 | `DELETE` | `/api/note/<path>` | Delete a note |
 | `PUT` | `/api/note/<path>/tags` | Update note tags |
 | `PUT` | `/api/note/<path>/rename` | Rename a note |
+| `POST` | `/api/note/<path>/star` | Toggle `starred` in frontmatter |
 | **Folders** | | |
 | `POST` | `/api/folder` | Create new folder |
 | `POST` | `/api/move` | Move a file |
@@ -314,10 +349,10 @@ grove/
 | `PUT` | `/api/template/<name>` | Update template |
 | `DELETE` | `/api/template/<name>` | Delete template |
 | **Search & Tags** | | |
-| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes |
+| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes (excludes `.templates/`) |
 | `GET` | `/api/tags` | Get all tags with counts |
 | **Todos** | | |
-| `GET` | `/api/todos` | Get all checkboxes across vault |
+| `GET` | `/api/todos` | Get all checkboxes (excludes `.templates/`) |
 | `POST` | `/api/toggle-todo` | Toggle a checkbox |
 | **Files & Images** | | |
 | `GET` | `/api/file/<path>` | Serve any file from vault |
@@ -333,9 +368,14 @@ grove/
 | `GET` | `/api/vaults` | List vaults + active vault |
 | `POST` | `/api/vaults/create` | Create new vault |
 | `POST` | `/api/vaults/switch` | Switch active vault |
+| `POST` | `/api/vaults/delete` | Delete a vault |
+| `GET` | `/api/vaults/export` | Export active vault as ZIP |
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
+| **Export** | | |
+| `GET` | `/api/export?format=jsonl&since=<ISO>` | Export vault notes (JSONL/JSON; incremental via `since`) |
+| `GET` | `/api/extract?months=<n|all>&starred=<true|false>&type=a,b&tag=x` | Concatenate notes for LLM input |
 
 ## Tech Stack
 
