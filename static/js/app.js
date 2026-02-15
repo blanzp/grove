@@ -1389,6 +1389,9 @@ function setupEventListeners() {
     });
     document.getElementById('create-vault-btn').addEventListener('click', createVaultFromModal);
     document.getElementById('cancel-vault-btn').addEventListener('click', () => hideModal('new-vault-modal'));
+    document.getElementById('modal-vault-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); createVaultFromModal(); }
+    });
     document.getElementById('delete-vault').addEventListener('click', deleteCurrentVault);
     document.getElementById('export-vault').addEventListener('click', () => {
         window.location.href = '/api/vaults/export';
