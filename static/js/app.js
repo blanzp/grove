@@ -38,6 +38,39 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardShortcuts();
     setupMarkdownToolbar();
     loadTheme();
+
+    // Query LLM status to set button state
+    fetch('/api/llm/status').then(r=>r.json()).then(s => {
+        const btn = document.getElementById('llm-btn');
+        if (!btn) return;
+        if (s && s.effective) {
+            btn.disabled = false;
+            btn.title = 'LLM Assist';
+        } else {
+            btn.disabled = true;
+            btn.title = 'LLM disabled (set GROVE_LLM_* env vars)';
+        }
+    }).catch(()=>{});
+
+    // Deep-link: if URL has #open=path/to/file.md, load it
+    try {
+        const hash = window.location.hash || '';
+        const m = hash.match(/(?:#|&)open=([^&]+)/);
+        if (m && m[1]) {
+            const path = decodeURIComponent(m[1]);
+            setTimeout(() => loadNote(path), 250);
+        }
+    } catch (e) { /* ignore */ }
+
+    // Respond to back/forward on hash changes
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash || '';
+        const m = hash.match(/(?:#|&)open=([^&]+)/);
+        const path = m && m[1] ? decodeURIComponent(m[1]) : '';
+        if (path && path !== currentNote) {
+            loadNote(path);
+        }
+    });
 });
 
 function initVaultSelect() {
@@ -245,6 +278,15 @@ let currentNoteTags = [];
 let currentNoteFrontmatter = '';
 let showFrontmatter = false;
 
+function setHashOpen(path) {
+    try {
+        const enc = encodeURIComponent(path);
+        if (!window.location.hash.includes(enc)) {
+            window.location.hash = `open=${enc}`;
+        }
+    } catch (e) { /* ignore */ }
+}
+
 async function loadNote(path) {
     const response = await fetch(`/api/note/${path}`);
     const note = await response.json();
@@ -293,6 +335,8 @@ async function loadNote(path) {
     
     // Add to recent files
     addToRecent(path, note.title);
+    // Update URL hash for deep link
+    setHashOpen(path);
     
     // Update breadcrumbs
     updateBreadcrumbs();
@@ -427,6 +471,94 @@ function stripFrontmatter(text) {
     return { fm: '', body: text };
 }
 
+// LLM helpers (optional)
+function initLlmUi() {
+    // nothing yet; placeholder in case we need dynamic pieces later
+}
+
+function openLlmModal() {
+    fetch('/api/llm/status').then(r=>r.json()).then(s => {
+        const note = document.getElementById('llm-status-note');
+        if (note) {
+            note.textContent = s && s.effective ? `Provider: ${s.provider}` : 'LLM disabled or not configured';
+        }
+        showModal('llm-modal');
+        setTimeout(()=>document.getElementById('llm-prompt').focus(),0);
+    }).catch(()=>{
+        showModal('llm-modal');
+    });
+}
+
+async function runLlm() {
+    const ta = document.getElementById('llm-prompt');
+    const includeSel = document.getElementById('llm-include-selection').checked;
+    const mode = document.getElementById('llm-insert-mode').value;
+    const editor = document.getElementById('editor');
+    const runBtn = document.getElementById('llm-run-btn');
+    const sel = includeSel ? editor.value.substring(editor.selectionStart, editor.selectionEnd) : '';
+    const payload = { prompt: ta.value, selection: sel };
+    
+    // Create abort controller for timeout
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60s timeout
+    
+    try {
+        // Disable button and show progress
+        if (runBtn) runBtn.disabled = true;
+        showNotification('LLM thinking...');
+        
+        const resp = await fetch('/api/llm', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(payload),
+            signal: abortController.signal
+        });
+        const data = await resp.json();
+        
+        if (!resp.ok) { 
+            showNotification(data.error || 'LLM failed'); 
+            return; 
+        }
+        
+        const text = data.text || '';
+        insertLlmText(editor, text, mode);
+        hideModal('llm-modal');
+        showNotification('✓ Inserted AI output');
+        
+        // Trigger autosave soon
+        saveNoteUpdated();
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            showNotification('LLM request timed out (60s)');
+        } else {
+            showNotification('LLM call failed');
+        }
+    } finally {
+        clearTimeout(timeoutId);
+        if (runBtn) runBtn.disabled = false;
+    }
+}
+
+function insertLlmText(editor, text, mode) {
+    const marker = `\n\n<!-- ai: inserted ${new Date().toISOString()} -->\n`;
+    const insert = text + marker;
+    if (mode === 'replace') {
+        const start = editor.selectionStart, end = editor.selectionEnd;
+        editor.value = editor.value.substring(0,start) + insert + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + insert.length;
+    } else if (mode === 'cursor') {
+        const pos = editor.selectionStart;
+        editor.value = editor.value.substring(0,pos) + insert + editor.value.substring(pos);
+        editor.selectionStart = editor.selectionEnd = pos + insert.length;
+    } else {
+        // below selection
+        const end = editor.selectionEnd;
+        editor.value = editor.value.substring(0,end) + '\n\n' + insert + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = end + insert.length + 2;
+    }
+    editor.focus();
+}
+
 // Share functions
 function getRenderedHtml() {
     const body = document.getElementById('editor').value;
@@ -465,6 +597,36 @@ async function shareViaCopyMarkdown() {
     try {
         await navigator.clipboard.writeText(body);
         showNotification('Markdown copied to clipboard');
+    } catch (e) {
+        showNotification('Copy failed');
+    }
+}
+
+function shareViaCopyLink() {
+    hideModal('share-modal');
+    if (!currentNote) { showNotification('No note selected'); return; }
+    const url = `${window.location.origin}/#open=${encodeURIComponent(currentNote)}`;
+    // Clipboard API with fallback
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(()=>showNotification('Link copied'))
+            .catch(()=>fallbackCopy(url));
+    } else {
+        fallbackCopy(url);
+    }
+}
+
+function fallbackCopy(text) {
+    try {
+        const tmp = document.createElement('textarea');
+        tmp.value = text;
+        tmp.setAttribute('readonly','');
+        tmp.style.position = 'fixed';
+        tmp.style.left = '-9999px';
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand('copy');
+        document.body.removeChild(tmp);
+        showNotification('Link copied');
     } catch (e) {
         showNotification('Copy failed');
     }
@@ -1433,10 +1595,23 @@ function setupEventListeners() {
         showModal('share-modal');
     });
     document.getElementById('close-share-btn').addEventListener('click', () => hideModal('share-modal'));
+
+    // LLM UI buttons
+    const llmBtn = document.getElementById('llm-btn');
+    if (llmBtn) llmBtn.addEventListener('click', openLlmModal);
+    const llmClose = document.getElementById('llm-close-btn');
+    if (llmClose) llmClose.addEventListener('click', () => hideModal('llm-modal'));
+    const llmRun = document.getElementById('llm-run-btn');
+    if (llmRun) llmRun.addEventListener('click', runLlm);
+
     document.getElementById('share-print').addEventListener('click', shareViaPrint);
     document.getElementById('share-email').addEventListener('click', shareViaEmail);
     document.getElementById('share-copy').addEventListener('click', shareViaCopyMarkdown);
     document.getElementById('share-copy-html').addEventListener('click', shareViaCopyHtml);
+
+    // LLM (optional)
+    initLlmUi();
+    document.getElementById('share-copy-link').addEventListener('click', shareViaCopyLink);
 
     // Contacts
     document.getElementById('contacts-btn').addEventListener('click', openContactsModal);
