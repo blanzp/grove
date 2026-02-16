@@ -2286,6 +2286,63 @@ function updateBreadcrumbs() {
 }
 
 // Splash visibility toggle
+async function loadSplashStats() {
+    try {
+        // Get tree to count files and folders
+        const response = await fetch('/api/tree');
+        const tree = await response.json();
+        
+        let fileCount = 0;
+        let folderCount = 0;
+        
+        function countItems(items) {
+            for (const item of items) {
+                if (item.type === 'folder') {
+                    folderCount++;
+                    if (item.children) countItems(item.children);
+                } else if (item.type === 'file') {
+                    fileCount++;
+                }
+            }
+        }
+        countItems(tree);
+        
+        document.getElementById('stat-files').textContent = fileCount;
+        document.getElementById('stat-folders').textContent = folderCount;
+        document.getElementById('stat-recent').textContent = recentFiles.length;
+        
+        // Populate recent files list
+        const listEl = document.getElementById('splash-recent-list');
+        const containerEl = document.getElementById('splash-recent-container');
+        
+        if (recentFiles.length === 0) {
+            containerEl.style.display = 'none';
+        } else {
+            containerEl.style.display = 'block';
+            listEl.innerHTML = '';
+            
+            for (const recent of recentFiles.slice(0, 5)) {
+                const item = document.createElement('div');
+                item.className = 'splash-recent-item';
+                item.innerHTML = `
+                    <i class="fas fa-file-alt"></i>
+                    <div class="recent-info">
+                        <div class="recent-name">${escapeHtml(recent.title || recent.path)}</div>
+                        <div class="recent-modified">${recent.path}</div>
+                    </div>
+                    <i class="fas fa-chevron-right recent-arrow"></i>
+                `;
+                item.addEventListener('click', () => {
+                    loadNote(recent.path);
+                });
+                listEl.appendChild(item);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load splash stats:', error);
+    }
+}
+
 function showSplash(show) {
     const splash = document.getElementById('splash');
     const editorHeader = document.querySelector('.editor-header');
@@ -2296,6 +2353,11 @@ function showSplash(show) {
     editorHeader.style.display = show ? 'none' : 'flex';
     toolbar.style.display = show ? 'none' : 'flex';
     editorContainer.style.display = show ? 'none' : 'block';
+    
+    // Load stats when showing splash
+    if (show) {
+        loadSplashStats();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

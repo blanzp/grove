@@ -941,6 +941,89 @@ body.light-theme .splash-logo { filter: none; }
 .splash-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
 .splash-hint { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
 
+/* Splash stats */
+.splash-stats {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0;
+    justify-content: center;
+}
+.splash-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 32px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-width: 100px;
+}
+.splash-stat .stat-number {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent-color);
+}
+.splash-stat .stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Splash recent files */
+.splash-recent {
+    width: 100%;
+    max-width: 500px;
+    margin: 20px auto;
+    text-align: left;
+}
+.splash-recent h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+.splash-recent-list {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.splash-recent-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.splash-recent-item:last-child {
+    border-bottom: none;
+}
+.splash-recent-item:hover {
+    background: var(--hover-color);
+}
+.splash-recent-item i {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-right: 12px;
+}
+.splash-recent-item .recent-info {
+    flex: 1;
+}
+.splash-recent-item .recent-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.splash-recent-item .recent-modified {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.splash-recent-item .recent-arrow {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
 /* Backlinks panel */
 .backlinks-panel {
     padding: 8px 16px;
