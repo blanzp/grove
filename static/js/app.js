@@ -63,8 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (m && m[1]) {
             const path = decodeURIComponent(m[1]);
             setTimeout(() => loadNote(path), 250);
+        } else {
+            // No deep link - show splash
+            showSplash(true);
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) { 
+        showSplash(true);
+    }
 
     // Respond to back/forward on hash changes
     window.addEventListener('hashchange', () => {
