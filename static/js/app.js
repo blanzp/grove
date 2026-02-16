@@ -1729,6 +1729,20 @@ function setupEventListeners() {
         }
     });
     
+    // Delete modal
+    document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteNote);
+    document.getElementById('cancel-delete-btn').addEventListener('click', () => hideModal('delete-modal'));
+    
+    // Rename modal
+    document.getElementById('confirm-rename-btn').addEventListener('click', confirmRenameNote);
+    document.getElementById('cancel-rename-btn').addEventListener('click', () => hideModal('rename-modal'));
+    document.getElementById('rename-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('confirm-rename-btn').click();
+        }
+    });
+    
     // Meeting modal
     document.getElementById('create-meeting-btn').addEventListener('click', () => {
         const name = document.getElementById('meeting-name-input').value;
@@ -2103,11 +2117,13 @@ async function saveNoteUpdated(isAutoSave = false) {
 }
 
 // Delete note
-async function deleteNote() {
+function deleteNote() {
     if (!currentNote) return;
-    
-    if (!confirm('Are you sure you want to delete this note?')) return;
-    
+    showModal('delete-modal');
+}
+
+async function confirmDeleteNote() {
+    hideModal('delete-modal');
     const toRemove = currentNote; // capture before clearing
     const response = await fetch(`/api/note/${toRemove}`, {
         method: 'DELETE'
@@ -2149,11 +2165,21 @@ async function deleteNote() {
 }
 
 // Rename note
-async function renameNote() {
+function renameNote() {
     if (!currentNote) return;
-    
-    const newName = prompt('Enter new note name:', document.getElementById('note-title').textContent);
+    document.getElementById('rename-input').value = document.getElementById('note-title').textContent;
+    showModal('rename-modal');
+    setTimeout(() => {
+        const input = document.getElementById('rename-input');
+        input.focus();
+        input.select();
+    }, 0);
+}
+
+async function confirmRenameNote() {
+    const newName = document.getElementById('rename-input').value.trim();
     if (!newName) return;
+    hideModal('rename-modal');
     
     const response = await fetch('/api/rename', {
         method: 'POST',

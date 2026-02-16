@@ -473,6 +473,32 @@ Use placeholders:
         </div>
     </div>
     
+    <!-- Delete Note Modal -->
+    <div class="modal" id="delete-modal">
+        <div class="modal-content modal-small">
+            <h2>Delete Note</h2>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Are you sure you want to delete this note? This cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="confirm-delete-btn" style="background: #dc3545;"><i class="fas fa-trash"></i> Delete</button>
+                <button class="btn-secondary" id="cancel-delete-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Rename Note Modal -->
+    <div class="modal" id="rename-modal">
+        <div class="modal-content modal-small">
+            <h2>Rename Note</h2>
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="rename-input" placeholder="New note name" style="width: 100%;">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="confirm-rename-btn">Rename</button>
+                <button class="btn-secondary" id="cancel-rename-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Meeting Note Modal -->
     <div class="modal" id="meeting-modal">
         <div class="modal-content modal-small">
