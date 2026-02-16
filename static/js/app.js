@@ -1594,7 +1594,8 @@ function setupEventListeners() {
     }
     
     // Full-screen toggle
-    document.getElementById('fullscreen-toggle').addEventListener('click', toggleFullscreen);
+    const fullscreenBtn = document.getElementById('fullscreen-toggle');
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleFullscreen);
     
     // Sidebar collapse toggle
     document.getElementById('sidebar-collapse').addEventListener('click', toggleSidebar);
