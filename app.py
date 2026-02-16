@@ -1809,5 +1809,5 @@ def save_note(note_path):
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('GROVE_PORT', '5000'))
-    host = os.environ.get('GROVE_HOST', '0.0.0.0')
+    host = os.environ.get('GROVE_HOST', '127.0.0.1')
     app.run(debug=False, host=host, port=port)
