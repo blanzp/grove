@@ -1613,6 +1613,71 @@ def upload_paste():
 
 # ─── JSONL Export (full + incremental) ───
 
+@app.route('/api/folders')
+def list_folders():
+    """List all folders in the vault for upload destination selection."""
+    folders = []
+    for item in VAULT_PATH.rglob('*'):
+        if item.is_dir() and not item.name.startswith('.'):
+            rel = item.relative_to(VAULT_PATH)
+            if not any(part.startswith('.') for part in rel.parts):
+                folders.append(str(rel))
+    folders.sort()
+    return jsonify(folders)
+
+
+@app.route('/api/upload/bulk', methods=['POST'])
+def upload_bulk():
+    """Upload multiple files to a specified folder."""
+    folder = request.form.get('folder', '')
+    target_dir = VAULT_PATH / folder if folder else VAULT_PATH
+    target_dir.mkdir(parents=True, exist_ok=True)
+    
+    files = request.files.getlist('files')
+    if not files:
+        return jsonify({'error': 'No files provided'}), 400
+    
+    uploaded = []
+    errors = []
+    
+    for f in files:
+        if not f.filename:
+            continue
+        
+        # Sanitize filename but keep original extension
+        original_name = f.filename
+        safe_name = re.sub(r'[^\w\s.-]', '', original_name).strip()
+        if not safe_name:
+            ext = Path(original_name).suffix or '.bin'
+            safe_name = str(uuid.uuid4())[:8] + ext
+        
+        file_path = target_dir / safe_name
+        # Avoid overwrite
+        if file_path.exists():
+            stem = file_path.stem
+            ext = file_path.suffix
+            file_path = target_dir / f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
+        
+        try:
+            # Save binary for non-text files, text for text files
+            ext = file_path.suffix.lower()
+            if ext in ['.md', '.markdown', '.txt', '.json', '.yaml', '.yml', '.csv']:
+                content = f.read().decode('utf-8')
+                file_path.write_text(content, encoding='utf-8')
+            else:
+                file_path.write_bytes(f.read())
+            rel_path = str(file_path.relative_to(VAULT_PATH))
+            uploaded.append(rel_path)
+        except Exception as e:
+            errors.append(f'{f.filename}: {str(e)}')
+    
+    return jsonify({
+        'success': len(errors) == 0,
+        'uploaded': uploaded,
+        'errors': errors
+    })
+
+
 @app.route('/api/export')
 def export_notes():
     """Export vault notes as JSONL. Supports format=jsonl (default) and since= for incremental.

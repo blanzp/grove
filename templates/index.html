@@ -7,34 +7,41 @@
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260216j">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
+        <!-- Left Action Bar -->
+        <div class="action-bar">
+            <button id="home-btn" title="Home"><i class="fas fa-home"></i></button>
+            <button id="sidebar-collapse" title="Toggle Sidebar" style="background:var(--bg-tertiary); color:var(--text-primary); font-size:18px; width:36px; height:36px; min-height:36px; display:flex !important; align-items:center; justify-content:center; opacity:1 !important; visibility:visible !important; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">☰</button>
+            <div class="action-bar-divider"></div>
+            <button id="new-note" title="New Note (Ctrl+N)"><i class="fas fa-file-alt"></i></button>
+            <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
+            <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
+            <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
+            <button id="meeting-note" title="New Meeting Note"><i class="fas fa-handshake"></i></button>
+            <button id="planner-note" title="New Planner"><i class="fas fa-calendar-alt"></i></button>
+            <div class="action-bar-divider"></div>
+            <button id="todos-btn" title="Todo Dashboard"><i class="fas fa-tasks"></i></button>
+            <button id="contacts-btn" title="Manage Contacts"><i class="fas fa-address-book"></i></button>
+            <button id="extract-btn" title="Extract Notes"><i class="fas fa-file-export"></i></button>
+            <button id="upload-btn" title="Upload Files"><i class="fas fa-cloud-upload-alt"></i></button>
+            <button id="search-btn" title="Search Notes (Ctrl+K)"><i class="fas fa-search"></i></button>
+            <button id="graph-btn" title="Graph View"><i class="fas fa-project-diagram"></i></button>
+            <button id="calendar-btn" title="Calendar View"><i class="fas fa-calendar"></i></button>
+            <div class="action-bar-spacer"></div>
+            <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
+            <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
+        </div>
+        
         <!-- Left Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h1><img src="/static/grove-logo.png" alt="Grove" class="sidebar-logo"> Grove</h1>
-                    <button id="sidebar-collapse" title="Toggle Sidebar"><i class="fas fa-chevron-left"></i></button>
-                </div>
-                <div class="toolbar">
-                    <button id="new-note" title="New Note (Ctrl+N)"><i class="fas fa-file-alt"></i></button>
-                    <button id="new-folder" title="New Folder"><i class="fas fa-folder-plus"></i></button>
-                    <button id="daily-note" title="Daily Note"><i class="fas fa-calendar-day"></i></button>
-                    <button id="manage-templates" title="Manage Templates"><i class="fas fa-file-contract"></i></button>
-                    <button id="meeting-note" title="New Meeting Note"><i class="fas fa-handshake"></i></button>
-                    <button id="planner-note" title="New Planner"><i class="fas fa-calendar-alt"></i></button>
-                    <button id="todos-btn" title="Todo Dashboard"><i class="fas fa-tasks"></i></button>
-                    <button id="contacts-btn" title="Manage Contacts"><i class="fas fa-address-book"></i></button>
-                    <button id="extract-btn" title="Extract Notes"><i class="fas fa-file-export"></i></button>
-                    <button id="search-btn" title="Search Notes (Ctrl+K)"><i class="fas fa-search"></i></button>
-                    <button id="graph-btn" title="Graph View"><i class="fas fa-project-diagram"></i></button>
-                    <button id="calendar-btn" title="Calendar View"><i class="fas fa-calendar"></i></button>
-                    <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
-                    <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
             
@@ -67,26 +74,29 @@
         
         <!-- Main Editor -->
         <div class="main-content">
-            <button id="sidebar-expand" class="sidebar-expand-btn" style="display: none;" title="Show Sidebar">
-                <i class="fas fa-chevron-right"></i>
-            </button>
             <div class="breadcrumbs" id="breadcrumbs">
-                <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">
-                    <i class="fas fa-bars"></i>
-                </button>
                 <span class="save-status" id="save-status"></span>
             </div>
-            
-            <!-- Floating mobile menu (iOS fallback) -->
-            <button id="mobile-menu-fab" class="mobile-menu-fab" aria-label="Menu" title="Menu">
-                <i class="fas fa-bars"></i>
-            </button>
 
             <!-- Splash screen (shown when no note selected) -->
             <div id="splash" class="splash" style="display: none;">
                 <img src="/static/grove-logo.png" alt="Grove" class="splash-logo">
                 <h2>Welcome to Grove</h2>
                 <p class="splash-tagline">Your markdown grove — clean, fast, fully keyboard-driven, markdown-first daily note taker</p>
+                
+                <div class="splash-actions">
+                    <button class="btn-primary" id="splash-new-note"><i class="fas fa-file-alt"></i> New Note</button>
+                    <button class="btn-secondary" id="splash-daily-note"><i class="fas fa-calendar-day"></i> Daily Note</button>
+                    <button class="btn-secondary" id="splash-meeting"><i class="fas fa-handshake"></i> Meeting</button>
+                    <button class="btn-secondary" id="splash-planner"><i class="fas fa-calendar-alt"></i> Planner</button>
+                </div>
+                <div class="splash-actions">
+                    <button class="btn-secondary" id="splash-templates"><i class="fas fa-file-contract"></i> Templates</button>
+                    <button class="btn-secondary" id="splash-extract"><i class="fas fa-file-export"></i> Extract</button>
+                    <button class="btn-secondary" id="splash-todos"><i class="fas fa-tasks"></i> Todo Dashboard</button>
+                    <button class="btn-secondary" id="splash-contacts"><i class="fas fa-address-book"></i> Contacts</button>
+                    <button class="btn-secondary" id="splash-readme"><i class="fas fa-book-open"></i> Readme</button>
+                </div>
                 
                 <!-- Stats -->
                 <div class="splash-stats">
@@ -112,19 +122,6 @@
                     </div>
                 </div>
                 
-                <div class="splash-actions">
-                    <button class="btn-primary" id="splash-new-note"><i class="fas fa-file-alt"></i> New Note</button>
-                    <button class="btn-secondary" id="splash-daily-note"><i class="fas fa-calendar-day"></i> Daily Note</button>
-                    <button class="btn-secondary" id="splash-meeting"><i class="fas fa-handshake"></i> Meeting</button>
-                    <button class="btn-secondary" id="splash-planner"><i class="fas fa-calendar-alt"></i> Planner</button>
-                </div>
-                <div class="splash-actions">
-                    <button class="btn-secondary" id="splash-templates"><i class="fas fa-file-contract"></i> Templates</button>
-                    <button class="btn-secondary" id="splash-extract"><i class="fas fa-file-export"></i> Extract</button>
-                    <button class="btn-secondary" id="splash-todos"><i class="fas fa-tasks"></i> Todo Dashboard</button>
-                    <button class="btn-secondary" id="splash-contacts"><i class="fas fa-address-book"></i> Contacts</button>
-                    <button class="btn-secondary" id="splash-readme"><i class="fas fa-book-open"></i> Readme</button>
-                </div>
                 <p class="splash-hint">Tip: Ctrl+N new note · Ctrl+D daily note · Ctrl+M new meeting · Ctrl+P preview · Ctrl+E edit · Ctrl+K search · F11 fullscreen · @ contacts</p>
             </div>
             
@@ -589,10 +586,32 @@ Use placeholders:
         </div>
     </div>
     
+    <!-- Upload Files Modal -->
+    <div class="modal" id="upload-modal">
+        <div class="modal-content modal-small">
+            <h2>Upload Files</h2>
+            <div style="margin-bottom: 12px;">
+                <label for="upload-folder">Destination folder:</label>
+                <select id="upload-folder" style="width: 100%; padding: 8px; margin-top: 4px;">
+                    <option value="">/ (root)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label for="upload-input">Select files:</label>
+                <input type="file" id="upload-input" multiple style="width: 100%; margin-top: 4px;">
+            </div>
+            <div id="upload-preview" style="max-height: 150px; overflow-y: auto; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary);"></div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="upload-confirm-btn" disabled><i class="fas fa-upload"></i> Upload</button>
+                <button class="btn-secondary" id="cancel-upload-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=20260216h"></script>
 </body>
 </html>

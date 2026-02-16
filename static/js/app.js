@@ -582,6 +582,49 @@ function insertLlmText(editor, text, mode) {
     editor.focus();
 }
 
+// Resolve relative paths in rendered markdown (images, links)
+function resolveRelativePaths(container) {
+    if (!currentNote) return;
+    
+    // Get the directory of the current note
+    const parts = currentNote.split('/');
+    parts.pop(); // Remove filename
+    const noteDir = parts.join('/');
+    
+    // Process images
+    container.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src');
+        if (src && !src.startsWith('/') && !src.startsWith('http') && !src.startsWith('data:')) {
+            // Relative path - resolve it
+            let resolvedPath;
+            if (src.startsWith('./')) {
+                resolvedPath = noteDir ? `${noteDir}/${src.slice(2)}` : src.slice(2);
+            } else {
+                resolvedPath = noteDir ? `${noteDir}/${src}` : src;
+            }
+            img.setAttribute('src', `/api/file/${resolvedPath}`);
+        }
+    });
+    
+    // Process links to local files (not .md notes, not external)
+    container.querySelectorAll('a').forEach(a => {
+        const href = a.getAttribute('href');
+        if (href && !href.startsWith('/') && !href.startsWith('http') && !href.startsWith('#') && !href.endsWith('.md')) {
+            // Check if it looks like a file (has extension)
+            if (href.includes('.') && !href.includes('://')) {
+                let resolvedPath;
+                if (href.startsWith('./')) {
+                    resolvedPath = noteDir ? `${noteDir}/${href.slice(2)}` : href.slice(2);
+                } else {
+                    resolvedPath = noteDir ? `${noteDir}/${href}` : href;
+                }
+                a.setAttribute('href', `/api/file/${resolvedPath}`);
+                a.setAttribute('target', '_blank');
+            }
+        }
+    });
+}
+
 // Share functions
 function getRenderedHtml() {
     const body = document.getElementById('editor').value;
@@ -1474,6 +1517,9 @@ function renderPreview() {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly</div>';
         }
         
+        // Resolve relative paths for images and links
+        resolveRelativePaths(preview);
+        
         // Render mermaid diagrams
         if (typeof mermaid !== 'undefined') {
             preview.querySelectorAll('code.language-mermaid').forEach((block, i) => {
@@ -1552,39 +1598,20 @@ function setupEventListeners() {
     
     // Sidebar collapse toggle
     document.getElementById('sidebar-collapse').addEventListener('click', toggleSidebar);
-    document.getElementById('sidebar-expand').addEventListener('click', toggleSidebar);
+    document.getElementById('home-btn').addEventListener('click', goHome);
     
-    // Mobile menu (header + floating)
-    document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
-    const fab = document.getElementById('mobile-menu-fab');
-    if (fab) fab.addEventListener('click', toggleMobileMenu);
-    
-    // Hide floating button when sidebar is open
-    const sidebar = document.querySelector('.sidebar');
-    const updateFab = () => {
-        if (!fab) return;
-        const isOpen = sidebar.classList.contains('mobile-open');
-        fab.style.display = (window.innerWidth <= 768 && !isOpen) ? 'inline-flex' : 'none';
-    };
-    updateFab();
-    
-    // Recompute on resize/focus/blur (iOS virtual keyboard changes viewport)
-    ['resize','focus','blur'].forEach(ev => window.addEventListener(ev, updateFab));
-    
-    // Close mobile menu when clicking outside sidebar
+    // Close mobile sidebar when clicking outside
     document.addEventListener('click', (e) => {
         const sidebar = document.querySelector('.sidebar');
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const fabBtn = document.getElementById('mobile-menu-fab');
-        
-        const clickOnMenuBtn = (btn) => btn && (e.target === btn || btn.contains(e.target));
+        const actionBar = document.querySelector('.action-bar');
         
         if (window.innerWidth <= 768 && 
             sidebar.classList.contains('mobile-open') &&
-            !sidebar.contains(e.target) && 
-            !clickOnMenuBtn(mobileMenuBtn) &&
-            !clickOnMenuBtn(fabBtn)) {
-            closeMobileMenu();
+            !sidebar.contains(e.target) &&
+            !actionBar.contains(e.target)) {
+            sidebar.classList.remove('mobile-open');
+            const btn = document.getElementById('sidebar-collapse');
+            if (btn) btn.textContent = '☰';
         }
     });
     
@@ -1721,6 +1748,12 @@ function setupEventListeners() {
         }
     });
     document.getElementById('cancel-table-btn').addEventListener('click', () => hideModal('table-modal'));
+    
+    // Upload modal
+    document.getElementById('upload-btn').addEventListener('click', openUploadModal);
+    document.getElementById('cancel-upload-btn').addEventListener('click', () => hideModal('upload-modal'));
+    document.getElementById('upload-input').addEventListener('change', updateUploadPreview);
+    document.getElementById('upload-confirm-btn').addEventListener('click', performUpload);
     document.getElementById('table-rows').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1842,6 +1875,14 @@ function setupEventListeners() {
             createFolder(name, parent);
             hideModal('new-folder-modal');
             document.getElementById('modal-folder-name').value = '';
+        }
+    });
+    
+    // Enter key to create folder
+    document.getElementById('modal-folder-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('create-folder-btn').click();
         }
     });
     
@@ -2456,30 +2497,48 @@ function toggleFullscreen() {
 
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
-    const collapseIcon = document.querySelector('#sidebar-collapse i');
-    const expandBtn = document.getElementById('sidebar-expand');
-    const isCollapsed = sidebar.classList.toggle('collapsed');
-    if (collapseIcon) {
-        collapseIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
-    }
-    expandBtn.style.display = isCollapsed ? 'flex' : 'none';
-}
-
-function toggleMobileMenu() {
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.classList.toggle('mobile-open');
-    // Update FAB visibility
-    const fab = document.getElementById('mobile-menu-fab');
-    if (fab && window.innerWidth <= 768) {
-        fab.style.display = sidebar.classList.contains('mobile-open') ? 'none' : 'inline-flex';
+    const btn = document.getElementById('sidebar-collapse');
+    
+    // On mobile, toggle mobile-open class; on desktop, toggle collapsed class
+    if (window.innerWidth <= 768) {
+        const isOpen = sidebar.classList.toggle('mobile-open');
+        if (btn) btn.textContent = isOpen ? '✕' : '☰';
+    } else {
+        const isCollapsed = sidebar.classList.toggle('collapsed');
+        if (btn) btn.textContent = isCollapsed ? '☰' : '✕';
     }
 }
 
-function closeMobileMenu() {
+function goHome() {
+    // Clear current note and show splash screen
+    currentNote = null;
+    document.getElementById('editor').value = '';
+    document.getElementById('editor').disabled = true;
+    document.getElementById('note-title').textContent = 'Select a note...';
+    document.getElementById('tags-display').innerHTML = '';
+    document.getElementById('breadcrumbs').innerHTML = '<span class="save-status" id="save-status"></span>';
+    
+    // Disable editor buttons
+    document.querySelectorAll('.editor-actions button').forEach(btn => btn.disabled = true);
+    document.getElementById('preview-toggle').disabled = true;
+    
+    // Show splash, hide editor
+    document.getElementById('splash').style.display = 'flex';
+    document.querySelector('.editor-header').style.display = 'none';
+    document.getElementById('markdown-toolbar').style.display = 'none';
+    document.querySelector('.editor-container').style.display = 'none';
+    document.getElementById('backlinks-panel').style.display = 'none';
+    
+    // Update splash stats
+    updateSplashStats();
+    
+    // Close mobile sidebar if open
     const sidebar = document.querySelector('.sidebar');
-    sidebar.classList.remove('mobile-open');
-    const fab = document.getElementById('mobile-menu-fab');
-    if (fab && window.innerWidth <= 768) fab.style.display = 'inline-flex';
+    if (sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        const btn = document.getElementById('sidebar-collapse');
+        if (btn) btn.textContent = '☰';
+    }
 }
 
 // Keyboard shortcuts
@@ -2737,6 +2796,125 @@ function updateStarButton(starred) {
     } else {
         icon.className = 'far fa-star'; // Outline star
         starBtn.style.color = '';
+    }
+}
+
+// Upload modal
+async function openUploadModal() {
+    const folderSelect = document.getElementById('upload-folder');
+    
+    // Fetch folders
+    try {
+        const response = await fetch('/api/folders');
+        const folders = await response.json();
+        
+        folderSelect.innerHTML = '<option value="">/ (root)</option>';
+        folders.forEach(folder => {
+            const option = document.createElement('option');
+            option.value = folder;
+            option.textContent = '/' + folder;
+            folderSelect.appendChild(option);
+        });
+    } catch (e) {
+        console.error('Failed to load folders:', e);
+    }
+    
+    // Reset
+    document.getElementById('upload-input').value = '';
+    document.getElementById('upload-preview').innerHTML = '';
+    document.getElementById('upload-confirm-btn').disabled = true;
+    document.getElementById('upload-confirm-btn').style.display = '';
+    
+    showModal('upload-modal');
+}
+
+function updateUploadPreview() {
+    const input = document.getElementById('upload-input');
+    const preview = document.getElementById('upload-preview');
+    const confirmBtn = document.getElementById('upload-confirm-btn');
+    
+    if (input.files.length === 0) {
+        preview.innerHTML = '';
+        confirmBtn.disabled = true;
+        return;
+    }
+    
+    const items = [];
+    for (const file of input.files) {
+        items.push(`<div><i class="fas fa-file-alt"></i> ${file.name} (${(file.size / 1024).toFixed(1)} KB)</div>`);
+    }
+    preview.innerHTML = items.join('');
+    confirmBtn.disabled = false;
+}
+
+async function performUpload() {
+    const input = document.getElementById('upload-input');
+    const folder = document.getElementById('upload-folder').value;
+    const confirmBtn = document.getElementById('upload-confirm-btn');
+    const preview = document.getElementById('upload-preview');
+    
+    if (input.files.length === 0) return;
+    
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    
+    const formData = new FormData();
+    formData.append('folder', folder);
+    for (const file of input.files) {
+        formData.append('files', file);
+    }
+    
+    try {
+        const response = await fetch('/api/upload/bulk', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.uploaded && result.uploaded.length > 0) {
+            showNotification(`Uploaded ${result.uploaded.length} file(s)`);
+            await loadTree();
+            
+            // Show markdown references for uploaded files
+            // Use relative path if in same folder as current note, otherwise full path
+            const currentDir = currentNote ? currentNote.split('/').slice(0, -1).join('/') : '';
+            const refs = result.uploaded.map(path => {
+                const filename = path.split('/').pop();
+                const name = filename.replace(/\.[^.]+$/, '');
+                const ext = path.split('.').pop().toLowerCase();
+                const fileDir = path.split('/').slice(0, -1).join('/');
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+                
+                // Use relative path if same directory
+                const ref = (fileDir === currentDir) ? filename : `/api/file/${path}`;
+                
+                if (isImage) {
+                    return `![${name}](${ref})`;
+                } else {
+                    return `[${name}](${ref})`;
+                }
+            });
+            
+            preview.innerHTML = `
+                <div style="margin-bottom: 8px; color: var(--text-primary);"><strong>✓ Uploaded!</strong> Copy markdown:</div>
+                <textarea readonly style="width: 100%; height: 80px; font-family: monospace; font-size: 12px; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">${refs.join('\n')}</textarea>
+                <button class="btn-secondary" style="margin-top: 8px; width: 100%;" onclick="this.previousElementSibling.select(); document.execCommand('copy'); showNotification('Copied!');">
+                    <i class="fas fa-copy"></i> Copy to Clipboard
+                </button>
+            `;
+            confirmBtn.style.display = 'none';
+        } else {
+            hideModal('upload-modal');
+        }
+        
+        if (result.errors && result.errors.length > 0) {
+            showNotification(`Errors: ${result.errors.join(', ')}`, 'error');
+        }
+    } catch (e) {
+        showNotification('Upload failed: ' + e.message, 'error');
+    } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-upload"></i> Upload';
     }
 }
 

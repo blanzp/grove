@@ -8,6 +8,7 @@
     --accent-color: #5b9a5f;
     --hover-color: #2a3828;
     --active-color: #34492f;
+    --bar-w: 48px;
 }
 
 body.light-theme {
@@ -40,6 +41,64 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    margin-left: var(--bar-w);
+}
+
+/* Action Bar */
+.action-bar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--bar-w);
+    min-width: var(--bar-w);
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 4px;
+    z-index: 1002;
+}
+
+.action-bar button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.action-bar button:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+    opacity: 1;
+}
+
+.action-bar button:active {
+    background: var(--active-color);
+    opacity: 1;
+}
+
+.action-bar-divider {
+    width: 28px;
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+.action-bar-spacer {
+    flex: 1;
 }
 
 /* Sidebar */
@@ -148,18 +207,14 @@ body.light-theme .sidebar-logo {
 }
 
 #sidebar-collapse {
-    padding: 6px 10px;
-    background: var(--bg-tertiary);
-    border: none;
-    border-radius: 4px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: background 0.2s;
-    font-size: 14px;
-}
-
-#sidebar-collapse:hover {
-    background: var(--hover-color);
+    background: var(--accent-color) !important;
+    opacity: 1 !important;
+    color: white !important;
+    border: none !important;
+    font-size: 16px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
 }
 
 .sidebar-expand-btn {
@@ -295,18 +350,33 @@ body.light-theme .sidebar-logo {
     align-items: center;
     gap: 8px;
     font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.15s;
 }
 
 .tree-item:hover {
     background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+.tree-item:hover i {
+    opacity: 1;
 }
 
 .tree-item.active {
     background: var(--active-color);
+    color: var(--text-primary);
 }
 
 .tree-item i {
     color: var(--text-secondary);
+    opacity: 0.6;
+    font-size: 13px;
+    transition: opacity 0.15s;
+}
+
+.tree-item.active i {
+    opacity: 0.9;
 }
 
 .tree-folder {
@@ -411,13 +481,24 @@ body.light-theme .sidebar-logo {
 
 .editor-actions button {
     padding: 8px 12px;
-    background: var(--accent-color);
-    border: none;
-    border-radius: 4px;
-    color: white;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
     white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    transition: all 0.15s;
+}
+
+body.light-theme .editor-actions button {
+    background: white;
+}
+
+.editor-actions button:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-color);
 }
 
 .editor-actions button:disabled {
@@ -439,20 +520,22 @@ body.light-theme .sidebar-logo {
 
 .markdown-toolbar button {
     padding: 6px 10px;
-    background: var(--bg-tertiary);
+    background: transparent;
     border: none;
     border-radius: 4px;
     color: var(--text-secondary);
+    opacity: 0.65;
     cursor: pointer;
     font-size: 13px;
     min-width: 32px;
     text-align: center;
-    transition: background 0.15s;
+    transition: background 0.15s, opacity 0.15s;
 }
 
 .markdown-toolbar button:hover {
     background: var(--hover-color);
     color: var(--text-primary);
+    opacity: 1;
 }
 
 .markdown-toolbar button:active {
@@ -756,7 +839,7 @@ html, body, .app-container, .main-content {
     background: rgba(0, 0, 0, 0.7);
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1010;
 }
 
 .modal.show {
@@ -1141,4 +1224,109 @@ body.light-theme .splash-logo { filter: none; }
 }
 .calendar-legend i {
     font-size: 8px;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    :root { --bar-w: 44px; }
+    
+    /* App container: already offset by margin-left: var(--bar-w) from base */
+    .app-container {
+        margin-left: var(--bar-w);
+    }
+    
+    /* Action bar: fixed on left, always visible */
+    .action-bar {
+        width: var(--bar-w);
+        min-width: var(--bar-w);
+        padding: 8px 4px;
+        overflow-y: auto;
+    }
+    
+    .action-bar button {
+        width: 34px;
+        height: 34px;
+        min-height: 34px;
+        flex-shrink: 0;
+        font-size: 14px;
+        opacity: 0.7;
+    }
+    
+    #home-btn, #sidebar-collapse {
+        opacity: 1;
+    }
+    
+    .action-bar-spacer {
+        flex: 0;
+        height: 8px;
+    }
+    
+    /* Sidebar: overlay drawer starting at bar edge */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: var(--bar-w);
+        width: calc(100vw - var(--bar-w));
+        min-width: auto;
+        z-index: 1001;
+        transform: translateX(-110%);
+        transition: transform 0.2s ease;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.2);
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+    
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    /* Main content: takes full remaining width */
+    .main-content {
+        width: 100%;
+        min-width: 0;
+    }
+    
+    .editor-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    
+    .title-tags-section {
+        width: 100%;
+    }
+    
+    #note-title {
+        font-size: 16px;
+        white-space: normal;
+        word-break: break-word;
+    }
+    
+    .editor-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+    
+    .editor-actions button {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    
+    .markdown-toolbar {
+        padding: 6px 12px;
+        gap: 2px;
+    }
+    
+    .markdown-toolbar button {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    
+    .backlinks-panel {
+        padding: 6px 12px;
+        flex-wrap: wrap;
+    }
 }
