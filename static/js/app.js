@@ -1278,7 +1278,7 @@ async function createPlannerNote(type) {
 }
 
 // Create meeting note using 'meeting' template
-async function createMeetingNote() {
+async function createMeetingNote(meetingName = '') {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -1286,13 +1286,11 @@ async function createMeetingNote() {
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
     const datestamp = `${yyyy}-${mm}-${dd}-${hh}${min}`;
-    const name = prompt('Meeting name:', '');
-    if (name === null) return; // cancelled
-    const meetingName = name.trim();
+    const name = meetingName.trim();
     // Title in frontmatter is just the meeting name (or "Meeting" if blank)
-    const title = meetingName || 'Meeting';
+    const title = name || 'Meeting';
     // Filename: meeting-YYYY-MMDD HHMM-slugified-name
-    const nameSlug = meetingName ? '-' + meetingName.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s]+/g, '-') : '';
+    const nameSlug = name ? '-' + name.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s]+/g, '-') : '';
     const customFilename = `meeting-${datestamp}${nameSlug}`;
     const folder = 'meetings';
     const tags = [];
@@ -1731,6 +1729,20 @@ function setupEventListeners() {
         }
     });
     
+    // Meeting modal
+    document.getElementById('create-meeting-btn').addEventListener('click', () => {
+        const name = document.getElementById('meeting-name-input').value;
+        hideModal('meeting-modal');
+        createMeetingNote(name);
+    });
+    document.getElementById('cancel-meeting-btn').addEventListener('click', () => hideModal('meeting-modal'));
+    document.getElementById('meeting-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('create-meeting-btn').click();
+        }
+    });
+    
     // Planner modal
     document.getElementById('planner-daily-btn').addEventListener('click', () => {
         hideModal('planner-modal');
@@ -1766,7 +1778,11 @@ function setupEventListeners() {
     document.getElementById('daily-note').addEventListener('click', createDailyNote);
 
     // Meeting note button
-    document.getElementById('meeting-note').addEventListener('click', createMeetingNote);
+    document.getElementById('meeting-note').addEventListener('click', () => {
+        document.getElementById('meeting-name-input').value = '';
+        showModal('meeting-modal');
+        setTimeout(() => document.getElementById('meeting-name-input').focus(), 0);
+    });
     const plannerBtn = document.getElementById('planner-note');
     if (plannerBtn) plannerBtn.addEventListener('click', () => showModal('planner-modal'));
     
@@ -2746,7 +2762,7 @@ function setupKeyboardShortcuts() {
         // Ctrl+M - New meeting note
         if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
             e.preventDefault();
-            createMeetingNote();
+            document.getElementById('meeting-note').click();
         }
         
         // Ctrl+D - New daily note
