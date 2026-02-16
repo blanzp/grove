@@ -7,9 +7,13 @@ let autoSaveTimeout = null;
 let recentFiles = JSON.parse(localStorage.getItem('grove-recent') || '[]').slice(0, 5);
 let allContacts = [];
 let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
+let wikilinkMap = null; // Cache for wikilink title-to-path mapping
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    // Clear wikilink cache on page load to ensure fresh data
+    wikilinkMap = null;
+    
     // Configure marked for proper fenced code handling
     if (typeof marked !== 'undefined') {
         try {
@@ -287,7 +291,7 @@ function setHashOpen(path) {
     } catch (e) { /* ignore */ }
 }
 
-async function loadNote(path) {
+async function loadNote(path, forceEditMode = false) {
     const response = await fetch(`/api/note/${path}`);
     const note = await response.json();
     
@@ -304,14 +308,21 @@ async function loadNote(path) {
         content = fmMatch[2];
     }
     
-    // Default to preview mode when opening a note
-    previewMode = 'preview';
+    // Default to preview mode when opening a note (unless forceEditMode is true)
+    previewMode = forceEditMode ? 'edit' : 'preview';
     showFrontmatter = false;
     const editorContainer = document.getElementById('drop-zone');
-    editorContainer.classList.remove('split-view');
-    editorContainer.classList.add('preview-only');
-    document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-edit"></i>';
-    document.getElementById('preview-toggle').title = 'Edit Mode (Ctrl+P)';
+    
+    if (forceEditMode) {
+        editorContainer.classList.remove('preview-only', 'split-view');
+        document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-eye"></i>';
+        document.getElementById('preview-toggle').title = 'Preview (Ctrl+P)';
+    } else {
+        editorContainer.classList.remove('split-view');
+        editorContainer.classList.add('preview-only');
+        document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-edit"></i>';
+        document.getElementById('preview-toggle').title = 'Edit Mode (Ctrl+P)';
+    }
     
     document.getElementById('note-title').textContent = note.title;
     renderTagsDisplay();
@@ -343,6 +354,9 @@ async function loadNote(path) {
     
     // Setup auto-save for this note
     setupAutoSave();
+    
+    // Load backlinks for this note
+    loadBacklinks(path);
     
     // Highlight active note
     document.querySelectorAll('.tree-item').forEach(item => {
@@ -590,8 +604,20 @@ function shareViaPrint() {
 
 function shareViaEmail() {
     hideModal('share-modal');
-    const { title, body } = getRenderedHtml();
-    const mailto = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(body);
+    const { title, html } = getRenderedHtml();
+    
+    // Convert HTML to plain text while preserving structure
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    
+    // Add line breaks after block elements
+    const blocks = temp.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,hr');
+    blocks.forEach(el => el.innerHTML += '\n');
+    
+    // Extract text content
+    const plainText = temp.textContent || temp.innerText || '';
+    
+    const mailto = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(plainText);
     window.open(mailto);
 }
 
@@ -1043,7 +1069,8 @@ function setupLinkAutocomplete() {
         const text = editor.value;
         const before = text.substring(0, linkStart);
         const after = text.substring(editor.selectionStart);
-        const link = `[[${note.title}]]`;
+        // Use path for unambiguous links (handles duplicate filenames in different folders)
+        const link = `[[${note.path}]]`;
         editor.value = before + link + after;
         const newPos = before.length + link.length;
         editor.selectionStart = editor.selectionEnd = newPos;
@@ -1180,8 +1207,9 @@ async function createNote(title, tags, folder, template, customFilename) {
     const result = await response.json();
     
     if (result.success) {
+        wikilinkMap = null; // Invalidate cache
         loadTree();
-        loadNote(result.path);
+        loadNote(result.path, true); // Force edit mode for new notes
         showNotification('Note created');
     }
 }
@@ -1213,20 +1241,19 @@ async function createDailyNote() {
     
     if (result.success) {
         loadTree();
-        loadNote(result.path);
+        loadNote(result.path, true); // Force edit mode for new daily notes
         showNotification('Daily note created');
     }
 }
 
 // Create planner note (prompt for Daily or Weekly)
-async function createPlannerNote() {
-    const choice = prompt('Planner type? Enter D for Daily, W for Weekly', 'D').trim().toUpperCase();
+async function createPlannerNote(type) {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
 
-    if (choice === 'W') {
+    if (type === 'weekly') {
         // ISO week number
         const tmp = new Date(Date.UTC(yyyy, now.getMonth(), now.getDate()));
         const dayNum = tmp.getUTCDay() || 7;
@@ -1653,6 +1680,10 @@ function setupEventListeners() {
     // Extract modal
     document.getElementById('extract-btn').addEventListener('click', openExtractModal);
     document.getElementById('splash-extract').addEventListener('click', openExtractModal);
+    
+    // Graph view
+    document.getElementById('graph-btn').addEventListener('click', openGraphView);
+    document.getElementById('close-graph-btn').addEventListener('click', () => hideModal('graph-modal'));
     document.getElementById('close-extract-btn').addEventListener('click', () => {
         hideModal('extract-modal');
         document.getElementById('extract-result-container').style.display = 'none';
@@ -1664,6 +1695,42 @@ function setupEventListeners() {
         document.execCommand('copy');
         showNotification('Copied to clipboard');
     });
+    
+    // Table dimension modal
+    document.getElementById('create-table-btn').addEventListener('click', () => {
+        const rows = parseInt(document.getElementById('table-rows').value) || 3;
+        const cols = parseInt(document.getElementById('table-cols').value) || 3;
+        const editor = document.getElementById('editor');
+        
+        if (rows > 0 && cols > 0) {
+            insertMarkdownTable(rows, cols, editor);
+            hideModal('table-modal');
+        }
+    });
+    document.getElementById('cancel-table-btn').addEventListener('click', () => hideModal('table-modal'));
+    document.getElementById('table-rows').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('create-table-btn').click();
+        }
+    });
+    document.getElementById('table-cols').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('create-table-btn').click();
+        }
+    });
+    
+    // Planner modal
+    document.getElementById('planner-daily-btn').addEventListener('click', () => {
+        hideModal('planner-modal');
+        createPlannerNote('daily');
+    });
+    document.getElementById('planner-weekly-btn').addEventListener('click', () => {
+        hideModal('planner-modal');
+        createPlannerNote('weekly');
+    });
+    document.getElementById('cancel-planner-btn').addEventListener('click', () => hideModal('planner-modal'));
     
     // Auto-save on Ctrl+S
     document.getElementById('editor').addEventListener('keydown', (e) => {
@@ -1691,7 +1758,7 @@ function setupEventListeners() {
     // Meeting note button
     document.getElementById('meeting-note').addEventListener('click', createMeetingNote);
     const plannerBtn = document.getElementById('planner-note');
-    if (plannerBtn) plannerBtn.addEventListener('click', createPlannerNote);
+    if (plannerBtn) plannerBtn.addEventListener('click', () => showModal('planner-modal'));
     
     // Create note modal
     // Enter key in new note modal triggers create
@@ -1739,40 +1806,44 @@ function setupEventListeners() {
     });
     
     // Search
+    // Search button opens modal
     document.getElementById('search-btn').addEventListener('click', () => {
-        const query = document.getElementById('search-input').value;
+        showModal('search-modal');
+        setTimeout(() => document.getElementById('search-modal-input').focus(), 0);
+    });
+    
+    // Search modal - search button
+    document.getElementById('search-modal-btn').addEventListener('click', () => {
+        const query = document.getElementById('search-modal-input').value;
         if (query) {
             searchNotes(query, '');
-            document.getElementById('clear-search-btn').style.display = 'block';
+            hideModal('search-modal');
         }
     });
     
-    document.getElementById('search-input').addEventListener('keypress', (e) => {
+    // Search modal - Enter key
+    document.getElementById('search-modal-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            const query = document.getElementById('search-input').value;
+            e.preventDefault();
+            const query = document.getElementById('search-modal-input').value;
             if (query) {
                 searchNotes(query, '');
-                document.getElementById('clear-search-btn').style.display = 'block';
+                hideModal('search-modal');
             }
         }
     });
     
-    // Clear search button
-    document.getElementById('clear-search-btn').addEventListener('click', () => {
-        document.getElementById('search-input').value = '';
-        document.getElementById('clear-search-btn').style.display = 'none';
+    // Search modal - clear button
+    document.getElementById('clear-search-modal-btn').addEventListener('click', () => {
+        document.getElementById('search-modal-input').value = '';
         document.getElementById('tag-filter').value = '';
         loadTree();
+        hideModal('search-modal');
     });
     
-    // Show clear button as user types
-    document.getElementById('search-input').addEventListener('input', (e) => {
-        if (e.target.value === '') {
-            document.getElementById('clear-search-btn').style.display = 'none';
-            loadTree();
-        } else {
-            document.getElementById('clear-search-btn').style.display = 'block';
-        }
+    // Search modal - cancel button
+    document.getElementById('cancel-search-btn').addEventListener('click', () => {
+        hideModal('search-modal');
     });
     
     // Tag filter
@@ -2014,6 +2085,7 @@ async function deleteNote() {
     });
     
     if (response.ok) {
+        wikilinkMap = null; // Invalidate cache
         showNotification('Note deleted');
         currentNote = null;
         currentNoteTags = [];
@@ -2066,6 +2138,7 @@ async function renameNote() {
     const result = await response.json();
     
     if (result.success) {
+        wikilinkMap = null; // Invalidate cache
         showNotification('Note renamed');
         currentNote = result.path;
         document.getElementById('note-title').textContent = newName;
@@ -2200,22 +2273,32 @@ function makeWikilinksClickable() {
 }
 
 async function searchAndLoadNote(noteName) {
-    const response = await fetch(`/api/search?q=${encodeURIComponent(noteName)}`);
-    const results = await response.json();
-    
-    // Prefer exact title match
-    const exact = results.find(r => r.title.toLowerCase() === noteName.toLowerCase());
-    if (exact) {
-        loadNote(exact.path);
-    } else if (results.length > 0) {
-        // Try filename match (stem without extension)
-        const byFilename = results.find(r => {
-            const stem = r.path.split('/').pop().replace('.md', '');
-            return stem.toLowerCase() === noteName.toLowerCase().replace(/\s+/g, '-');
-        });
-        loadNote(byFilename ? byFilename.path : results[0].path);
-    } else {
-        showNotification(`Note "${noteName}" not found`);
+    try {
+        // Load wikilink map if not cached
+        if (!wikilinkMap) {
+            const response = await fetch('/api/wikilink-map');
+            if (!response.ok) {
+                throw new Error(`Failed to load wikilink map: ${response.status}`);
+            }
+            wikilinkMap = await response.json();
+            console.log('Wikilink map loaded:', Object.keys(wikilinkMap).length, 'notes');
+        }
+        
+        // Try exact match (case-insensitive)
+        const normalizedName = noteName.toLowerCase().trim();
+        const path = wikilinkMap[normalizedName];
+        
+        console.log('Resolving wikilink:', noteName, '→', path);
+        
+        if (path) {
+            loadNote(path);
+        } else {
+            console.warn('Wikilink not found in map. Available keys:', Object.keys(wikilinkMap).slice(0, 10));
+            showNotification(`Note "${noteName}" not found`);
+        }
+    } catch (error) {
+        console.error('Failed to resolve wikilink:', error);
+        showNotification(`Failed to load note "${noteName}"`);
     }
 }
 
@@ -2376,6 +2459,9 @@ function applyMarkdownAction(action, editor) {
         case 'toc':
             insertTableOfContents(editor);
             return;
+        case 'table':
+            showTableModal(editor);
+            return;
     }
     
     const replacement = before + insert + after;
@@ -2441,6 +2527,52 @@ function insertTableOfContents(editor) {
 
     editor.dispatchEvent(new Event('input'));
     showNotification('Table of Contents inserted');
+}
+
+// Show table dimension modal
+function showTableModal(editor) {
+    showModal('table-modal');
+    
+    const rowsInput = document.getElementById('table-rows');
+    const colsInput = document.getElementById('table-cols');
+    
+    // Reset to defaults
+    rowsInput.value = 3;
+    colsInput.value = 3;
+    setTimeout(() => rowsInput.focus(), 0);
+}
+
+// Generate and insert markdown table
+function insertMarkdownTable(rows, cols, editor) {
+    let table = '';
+    
+    // Header row
+    const headers = Array(cols).fill('').map((_, i) => `Column ${i + 1}`);
+    table += '| ' + headers.join(' | ') + ' |\n';
+    
+    // Separator row
+    table += '| ' + Array(cols).fill('---').join(' | ') + ' |\n';
+    
+    // Data rows
+    for (let i = 0; i < rows - 1; i++) {
+        table += '| ' + Array(cols).fill('').join(' | ') + ' |\n';
+    }
+    
+    // Insert at cursor position
+    const pos = editor.selectionStart;
+    const text = editor.value;
+    const prefix = getLinePrefix(text, pos);
+    
+    editor.value = text.substring(0, pos) + prefix + table + text.substring(pos);
+    
+    // Position cursor at first header cell
+    const newPos = pos + prefix.length + 2; // after "| "
+    editor.selectionStart = newPos;
+    editor.selectionEnd = newPos + headers[0].length;
+    editor.focus();
+    
+    editor.dispatchEvent(new Event('input'));
+    showNotification(`Table (${rows}×${cols}) inserted`);
 }
 
 // Get prefix needed to start at beginning of current line
@@ -2591,10 +2723,11 @@ function setupKeyboardShortcuts() {
             if (editor && !editor.disabled) editor.focus();
         }
         
-        // Ctrl+K or Cmd+K - Focus search
+        // Ctrl+K or Cmd+K - Open search modal
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            document.getElementById('search-input').focus();
+            showModal('search-modal');
+            setTimeout(() => document.getElementById('search-modal-input').focus(), 0);
         }
         
         // Ctrl+M - New meeting note
@@ -2883,5 +3016,158 @@ function escapeHtml(text) {
 function openTodosModal() {
     loadTodos();
     showModal('todos-modal');
+}
+
+// ─── Backlinks ───
+
+async function loadBacklinks(notePath) {
+    try {
+        const response = await fetch(`/api/backlinks/${notePath}`);
+        const data = await response.json();
+        
+        const panel = document.getElementById('backlinks-panel');
+        const countEl = document.getElementById('backlinks-count');
+        const listEl = document.getElementById('backlinks-list');
+        
+        if (data.count === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+        
+        panel.style.display = 'flex';
+        countEl.textContent = data.count;
+        listEl.innerHTML = '';
+        
+        data.backlinks.forEach(link => {
+            const item = document.createElement('span');
+            item.className = 'backlink-item';
+            item.textContent = link.title;
+            item.title = `Click to open ${link.title}`;
+            item.addEventListener('click', () => {
+                loadNote(link.path);
+            });
+            listEl.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Failed to load backlinks:', error);
+        document.getElementById('backlinks-panel').style.display = 'none';
+    }
+}
+
+// ─── Graph View ───
+
+let graphNetwork = null;
+
+async function openGraphView() {
+    showModal('graph-modal');
+    
+    try {
+        const response = await fetch('/api/graph');
+        const data = await response.json();
+        
+        renderGraph(data);
+    } catch (error) {
+        console.error('Failed to load graph data:', error);
+        showNotification('Failed to load graph');
+    }
+}
+
+function renderGraph(data) {
+    const container = document.getElementById('graph-container');
+    
+    // Detect theme
+    const isDarkMode = !document.body.classList.contains('light-theme');
+    
+    // Theme-aware colors
+    const nodeColor = isDarkMode ? '#888' : '#4a4a4a';
+    const labelColor = isDarkMode ? '#e0e0e0' : '#333';
+    const edgeColor = isDarkMode ? '#555' : '#999';
+    const highlightColor = '#2c5aa0';
+    
+    // Prepare nodes with clean, minimal styling
+    const nodes = new vis.DataSet(data.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        title: n.title,
+        shape: 'dot',
+        size: 6,
+        color: {
+            background: nodeColor,
+            border: nodeColor,
+            highlight: {
+                background: highlightColor,
+                border: highlightColor
+            }
+        },
+        font: {
+            color: labelColor,
+            size: 13,
+            face: 'system-ui, -apple-system, sans-serif'
+        }
+    })));
+    
+    // Prepare edges with thin, subtle lines
+    const edges = new vis.DataSet(data.edges.map(e => ({
+        from: e.from,
+        to: e.to,
+        arrows: {
+            to: {
+                enabled: true,
+                scaleFactor: 0.5
+            }
+        },
+        color: {
+            color: edgeColor,
+            highlight: highlightColor
+        },
+        width: 1,
+        smooth: {
+            type: 'continuous'
+        }
+    })));
+    
+    const graphData = {
+        nodes: nodes,
+        edges: edges
+    };
+    
+    const options = {
+        physics: {
+            stabilization: {
+                iterations: 300,
+                fit: true
+            },
+            barnesHut: {
+                gravitationalConstant: -3000,
+                springLength: 200,
+                springConstant: 0.03,
+                damping: 0.5
+            }
+        },
+        interaction: {
+            hover: true,
+            tooltipDelay: 100,
+            hideEdgesOnDrag: true,
+            hideEdgesOnZoom: false
+        },
+        layout: {
+            improvedLayout: true
+        }
+    };
+    
+    // Create network
+    if (graphNetwork) {
+        graphNetwork.destroy();
+    }
+    graphNetwork = new vis.Network(container, graphData, options);
+    
+    // Handle node click
+    graphNetwork.on('click', function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            hideModal('graph-modal');
+            loadNote(nodeId);
+        }
+    });
 }
 

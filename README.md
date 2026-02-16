@@ -34,23 +34,27 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 📝 Editor
 - **Markdown editor** with live preview (edit, split, or preview mode)
-- **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks, TOC
+- **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks, TOC, **tables**
+- **Table generator** — toolbar button opens dimension picker to insert markdown tables
 - **Auto-save** with 2-second debounce — never lose work
 - **Frontmatter preview** — read-only view of YAML frontmatter (managed by Grove)
 - **Wikilinks** — clickable `[[note]]` links to navigate between notes (type `[[` for typeahead)
+- **Path-based wikilinks** — use `[[folder/note]]` to disambiguate notes with the same name in different folders
 - **Footnotes** — standard `[^1]` refs with `[^1]: text` definitions, rendered with back-links
 - **Table of Contents** — toolbar button scans headings and inserts a linked TOC; re-click to update
 - **Image paste** — paste images from clipboard directly into the editor
 - **Image upload** — upload via toolbar button or drag & drop
+- **New notes open in edit mode** — start writing immediately after creation
 
 ### 📂 File Management
 - **File tree** sidebar with folder navigation — shows all files (markdown, images, PDFs, etc.)
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault
-- **Recent files** panel for quick access
-- **Search** by note name or content (excludes `.templates/`)
+- **Recent files** panel (collapsed by default) for quick access
+- **Search modal** — toolbar button opens search popup (Ctrl+K)
 - **Create, rename, delete** notes and folders
 - **Asset files** — images, PDFs, audio/video shown with type-specific icons
+- **Vault selector** — at bottom of sidebar for switching between vaults
 
 ### 🏷️ Organization
 - **Tag management** — add/remove tags via modal, stored as YAML frontmatter
@@ -60,6 +64,13 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Document types** — auto-set `type` in frontmatter based on template (meeting, decision, research, reflection, execution, daily, note)
 - **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
 - **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
+
+### 🔗 Graph View & Backlinks
+- **Backlinks panel** — shows all notes that link to the current note; click to navigate
+- **Interactive graph view** — visualize your knowledge network with connected nodes
+- **Click to navigate** — click any node in the graph to open that note
+- **Theme-aware** — graph colors adapt to dark/light mode
+- **Wikilink detection** — automatically detects `[[wikilinks]]` to build connections
 
 ### 👥 Contacts
 - **Contact management** — full CRUD with fields: ID, first name, last name, email, company, template
@@ -77,9 +88,10 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 📤 Share
 - **Print / Save as PDF** — clean, formatted print view
-- **Email** — opens mail client with note content
+- **Email** — opens mail client with rendered note content (formatted plain text)
 - **Copy as Markdown** — raw markdown to clipboard
 - **Copy as HTML** — rendered HTML to clipboard (paste into Gmail, Docs, etc.)
+- **Copy link** — copy a deep link to the current note
 
 ### 🖼️ Images & Attachments
 - **Paste from clipboard** — Ctrl+V an image, auto-uploads to `attachments/`
@@ -267,9 +279,9 @@ Click the **🤝 handshake icon** to create a meeting note using the meeting tem
 - **Title (frontmatter):** `My Meeting Name`
 
 ### Planner (Daily & Weekly)
-Click the **📆 calendar-alt icon** to create a planner:
-- Daily: `daily-planner-YYYY-MM-DD.md` (tags: `planner, daily`)
-- Weekly: `planner-YYYY-Www.md` using ISO week (tags: `planner, weekly`)
+Click the **📆 calendar-alt icon** to open the planner modal and select:
+- **Daily Planner**: `daily-planner-YYYY-MM-DD.md` (tags: `planner, daily`)
+- **Weekly Planner**: `planner-YYYY-Www.md` using ISO week (tags: `planner, weekly`)
 
 ### Templates
 Manage templates from the **📋 template icon** in the sidebar toolbar.

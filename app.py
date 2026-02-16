@@ -10,6 +10,136 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# Serve OpenAPI spec for IDE integrations (Copilot, etc.)
+from flask import send_from_directory
+PROJECT_ROOT = Path(__file__).parent
+
+# ─── LLM Config Helpers ───
+
+def _llm_config():
+    cfg = {
+        'enabled': os.environ.get('GROVE_LLM_ENABLED', 'false').lower() == 'true',
+        'provider': os.environ.get('GROVE_LLM_PROVIDER', 'openai').lower(),
+        'endpoint': os.environ.get('GROVE_LLM_ENDPOINT', ''),
+        'api_key': os.environ.get('GROVE_LLM_API_KEY', ''),
+        'model': os.environ.get('GROVE_LLM_MODEL', ''),
+        'max_tokens': int(os.environ.get('GROVE_LLM_MAX_TOKENS', '800') or '800'),
+        'temperature': float(os.environ.get('GROVE_LLM_TEMPERATURE', '0.3') or '0.3'),
+    }
+    # Effective enablement: require API key for openai-like providers
+    eff_enabled = cfg['enabled'] and (cfg['provider'] == 'ollama' or bool(cfg['api_key'])) and bool(cfg['endpoint']) and bool(cfg['model'])
+    cfg['effective'] = eff_enabled
+    return cfg
+
+@app.route('/api/llm/status')
+def llm_status():
+    cfg = _llm_config()
+    # Never return api_key
+    return jsonify({
+        'enabled': cfg['enabled'],
+        'effective': cfg['effective'],
+        'provider': cfg['provider'],
+        'needs_api_key': cfg['provider'] != 'ollama' and not bool(os.environ.get('GROVE_LLM_API_KEY', '')),
+    })
+
+@app.route('/api/llm', methods=['POST'])
+def llm_generate():
+    import urllib.request, urllib.error, ssl
+    cfg = _llm_config()
+    if not cfg['enabled']:
+        return jsonify({'error': 'LLM disabled (set GROVE_LLM_ENABLED=true)'}), 403
+    if not cfg['effective']:
+        return jsonify({'error': 'LLM not configured (endpoint/model/api key)'}), 403
+    data = request.json or {}
+    prompt = (data.get('prompt') or '').strip()
+    selection = (data.get('selection') or '').strip()
+    # Build final prompt: prefer selection if provided, else prompt only; simple concat when both
+    final_prompt = prompt
+    if selection:
+        final_prompt = f"Selection:\n{selection}\n\nInstruction:\n{prompt}" if prompt else selection
+    if not final_prompt:
+        return jsonify({'error': 'prompt required'}), 400
+
+    try:
+        if cfg['provider'] == 'ollama':
+            url = cfg['endpoint'].rstrip('/') + '/api/generate'
+            payload = {
+                'model': cfg['model'],
+                'prompt': final_prompt,
+                'options': {
+                    'temperature': cfg['temperature']
+                }
+            }
+            req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        elif cfg['provider'] == 'anthropic':
+            # Anthropic Messages API
+            url = cfg['endpoint'].rstrip('/') + '/v1/messages'
+            payload = {
+                'model': cfg['model'],
+                'max_tokens': cfg['max_tokens'],
+                'temperature': cfg['temperature'],
+                'messages': [
+                    { 'role': 'user', 'content': final_prompt }
+                ]
+            }
+            req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={
+                'Content-Type': 'application/json',
+                'x-api-key': cfg['api_key'],
+                'anthropic-version': '2023-06-01'
+            })
+        else:
+            # OpenAI-compatible chat completions
+            url = cfg['endpoint'].rstrip('/') + '/v1/chat/completions'
+            payload = {
+                'model': cfg['model'],
+                'messages': [
+                    { 'role': 'system', 'content': 'You are a concise writing assistant for markdown notes.' },
+                    { 'role': 'user', 'content': final_prompt }
+                ],
+                'temperature': cfg['temperature'],
+                'max_tokens': cfg['max_tokens']
+            }
+            req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={
+                'Content-Type': 'application/json',
+                'Authorization': f"Bearer {cfg['api_key']}"
+            })
+        # 20s timeout; basic TLS context
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+            txt = resp.read().decode('utf-8')
+        # Parse response
+        out_text = ''
+        try:
+            obj = json.loads(txt)
+            if cfg['provider'] == 'ollama':
+                out_text = obj.get('response', '')
+            elif cfg['provider'] == 'anthropic':
+                # Messages API returns content array
+                parts = obj.get('content', [])
+                if parts and isinstance(parts, list):
+                    # Text parts have {'type':'text','text':...}
+                    out_text = ''.join(p.get('text','') for p in parts if isinstance(p, dict))
+                else:
+                    out_text = txt
+            else:
+                ch = obj.get('choices', [{}])[0]
+                msg = ch.get('message', {})
+                out_text = msg.get('content', '')
+        except Exception:
+            out_text = txt
+        return jsonify({'text': out_text.strip(), 'model': cfg['model']})
+    except urllib.error.HTTPError as e:
+        return jsonify({'error': f'HTTP {e.code}'}), 502
+    except Exception as ex:
+        return jsonify({'error': 'LLM request failed'}), 502
+
+@app.route('/openapi.yaml')
+def serve_openapi():
+    try:
+        return send_from_directory(str(PROJECT_ROOT), 'openapi.yaml', mimetype='application/yaml')
+    except Exception:
+        return jsonify({'error': 'openapi.yaml not found'}), 404
+
 # Global config under user's home directory
 GROVE_HOME = Path.home() / ".grove"
 GROVE_HOME.mkdir(exist_ok=True)
@@ -166,6 +296,28 @@ def extract_frontmatter(content):
             frontmatter['tags'] = []
     
     return frontmatter, body
+
+
+def extract_wikilinks(content):
+    """Extract wikilinks ([[note name]]) from markdown content."""
+    # Find all [[...]] patterns
+    pattern = r'\[\[([^\]]+)\]\]'
+    matches = re.findall(pattern, content)
+    # Normalize: strip whitespace, convert to lowercase for matching
+    return [m.strip() for m in matches]
+
+
+def get_note_title(note_path):
+    """Get the title of a note from its frontmatter or filename."""
+    try:
+        file_path = VAULT_PATH / note_path
+        if not file_path.exists():
+            return file_path.stem
+        content = file_path.read_text()
+        fm, _ = extract_frontmatter(content)
+        return fm.get('title', file_path.stem)
+    except Exception:
+        return Path(note_path).stem
 
 
 def build_frontmatter(title, tags, doc_type=None):
@@ -714,6 +866,165 @@ def get_tags():
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
     
     return jsonify(tag_counts)
+
+
+@app.route('/api/backlinks/<path:note_path>')
+def get_backlinks(note_path):
+    """Get all notes that link to this note."""
+    file_path = VAULT_PATH / note_path
+    
+    if not file_path.exists():
+        return jsonify({'error': 'Note not found'}), 404
+    
+    # Get the title and filename of the current note
+    current_title = get_note_title(note_path)
+    filename_stem = file_path.stem
+    path_without_ext = note_path.rsplit('.md', 1)[0]
+    
+    # Build a set of possible link targets (title, filename, path, and variations)
+    link_targets = {
+        current_title.lower(),
+        filename_stem.lower(),
+        filename_stem.lower().replace('-', ' '),
+        path_without_ext.lower(),
+        path_without_ext.lower().replace('-', ' ')
+    }
+    
+    backlinks = []
+    
+    # Search all notes for wikilinks to this note
+    for md_file in VAULT_PATH.rglob('*.md'):
+        # Skip templates and hidden files
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts or md_file.name.startswith('.'):
+            continue
+        
+        # Skip self
+        if md_file == file_path:
+            continue
+        
+        try:
+            content = md_file.read_text()
+            wikilinks = extract_wikilinks(content)
+            
+            # Check if any wikilink matches this note's title or filename
+            for link in wikilinks:
+                if link.lower() in link_targets:
+                    note_title = get_note_title(str(md_file.relative_to(VAULT_PATH)))
+                    backlinks.append({
+                        'path': str(md_file.relative_to(VAULT_PATH)),
+                        'title': note_title
+                    })
+                    break
+        except Exception:
+            continue
+    
+    return jsonify({
+        'note': note_path,
+        'title': current_title,
+        'backlinks': backlinks,
+        'count': len(backlinks)
+    })
+
+
+@app.route('/api/wikilink-map')
+def get_wikilink_map():
+    """Get a map of note titles and filenames to paths for wikilink resolution."""
+    title_map = {}
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts or md_file.name.startswith('.'):
+            continue
+        
+        try:
+            rel_path = str(md_file.relative_to(VAULT_PATH))
+            title = get_note_title(rel_path)
+            filename_stem = md_file.stem  # filename without .md extension
+            path_without_ext = rel_path.rsplit('.md', 1)[0]  # e.g., "research/README"
+            
+            # Map title, filename stem, and path (all lowercase) to path
+            title_map[title.lower()] = rel_path
+            title_map[filename_stem.lower()] = rel_path
+            title_map[filename_stem.lower().replace('-', ' ')] = rel_path
+            
+            # Map full path without extension for disambiguation (e.g., [[research/README]])
+            title_map[path_without_ext.lower()] = rel_path
+            title_map[path_without_ext.lower().replace('-', ' ')] = rel_path
+        except Exception:
+            continue
+    
+    return jsonify(title_map)
+
+
+@app.route('/api/graph')
+def get_graph():
+    """Get graph data for all notes and their connections."""
+    nodes = []
+    edges = []
+    
+    # Build a map of title (lowercase) -> note path for link resolution
+    title_to_path = {}
+    
+    # First pass: collect all notes as nodes
+    for md_file in VAULT_PATH.rglob('*.md'):
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts or md_file.name.startswith('.'):
+            continue
+        
+        try:
+            rel_path = str(md_file.relative_to(VAULT_PATH))
+            title = get_note_title(rel_path)
+            
+            content = md_file.read_text()
+            fm, _ = extract_frontmatter(content)
+            tags = fm.get('tags', [])
+            
+            nodes.append({
+                'id': rel_path,
+                'label': title,
+                'title': title,  # For tooltip
+                'tags': tags
+            })
+            
+            # Map title, filename stem, path, and variations for link resolution
+            filename_stem = md_file.stem
+            path_without_ext = rel_path.rsplit('.md', 1)[0]
+            
+            title_to_path[title.lower()] = rel_path
+            title_to_path[filename_stem.lower()] = rel_path
+            title_to_path[filename_stem.lower().replace('-', ' ')] = rel_path
+            title_to_path[path_without_ext.lower()] = rel_path
+            title_to_path[path_without_ext.lower().replace('-', ' ')] = rel_path
+        except Exception:
+            continue
+    
+    # Second pass: extract wikilinks and build edges
+    for md_file in VAULT_PATH.rglob('*.md'):
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts or md_file.name.startswith('.'):
+            continue
+        
+        try:
+            rel_path = str(md_file.relative_to(VAULT_PATH))
+            content = md_file.read_text()
+            wikilinks = extract_wikilinks(content)
+            
+            for link in wikilinks:
+                # Try to resolve the wikilink to a note path
+                target_path = title_to_path.get(link.lower())
+                if target_path:
+                    edges.append({
+                        'from': rel_path,
+                        'to': target_path
+                    })
+        except Exception:
+            continue
+    
+    return jsonify({
+        'nodes': nodes,
+        'edges': edges
+    })
 
 
 @app.route('/api/templates')
