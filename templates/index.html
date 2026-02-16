@@ -32,6 +32,7 @@
                     <button id="extract-btn" title="Extract Notes"><i class="fas fa-file-export"></i></button>
                     <button id="search-btn" title="Search Notes (Ctrl+K)"><i class="fas fa-search"></i></button>
                     <button id="graph-btn" title="Graph View"><i class="fas fa-project-diagram"></i></button>
+                    <button id="calendar-btn" title="Calendar View"><i class="fas fa-calendar"></i></button>
                     <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
                     <button id="fullscreen-toggle" title="Full Screen (F11)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -446,6 +447,29 @@ Use placeholders:
                 <button class="btn-secondary" id="close-graph-btn">Close</button>
             </div>
             <div id="graph-container" style="width: 100%; height: calc(100% - 60px); border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-tertiary);"></div>
+        </div>
+    </div>
+    
+    <!-- Calendar View Modal -->
+    <div class="modal" id="calendar-modal">
+        <div class="modal-content" style="width: 95vw; max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <button class="btn-secondary" id="calendar-prev"><i class="fas fa-chevron-left"></i></button>
+                <h2 style="margin: 0;" id="calendar-title">January 2026</h2>
+                <button class="btn-secondary" id="calendar-next"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid">
+                <!-- Calendar will be rendered here -->
+            </div>
+            <div class="calendar-legend">
+                <span><i class="fas fa-circle" style="color: var(--accent-color);"></i> Daily</span>
+                <span><i class="fas fa-circle" style="color: #3b82f6;"></i> Meeting</span>
+                <span><i class="fas fa-circle" style="color: #8b5cf6;"></i> Planner</span>
+            </div>
+            <div class="modal-actions" style="margin-top: 16px;">
+                <button class="btn-secondary" id="calendar-today">Today</button>
+                <button class="btn-secondary" id="close-calendar-btn">Close</button>
+            </div>
         </div>
     </div>
     

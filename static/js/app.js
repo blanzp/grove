@@ -1684,6 +1684,16 @@ function setupEventListeners() {
     // Graph view
     document.getElementById('graph-btn').addEventListener('click', openGraphView);
     document.getElementById('close-graph-btn').addEventListener('click', () => hideModal('graph-modal'));
+    
+    // Calendar view
+    document.getElementById('calendar-btn').addEventListener('click', openCalendarView);
+    document.getElementById('close-calendar-btn').addEventListener('click', () => hideModal('calendar-modal'));
+    document.getElementById('calendar-prev').addEventListener('click', () => navigateCalendar(-1));
+    document.getElementById('calendar-next').addEventListener('click', () => navigateCalendar(1));
+    document.getElementById('calendar-today').addEventListener('click', () => {
+        calendarDate = new Date();
+        renderCalendar();
+    });
     document.getElementById('close-extract-btn').addEventListener('click', () => {
         hideModal('extract-modal');
         document.getElementById('extract-result-container').style.display = 'none';
@@ -1878,12 +1888,14 @@ function handleDragOver(e) {
         e.preventDefault();
     }
     e.dataTransfer.dropEffect = 'move';
-    e.target.closest('.tree-folder').classList.add('drag-over');
+    const folder = e.target.closest('.tree-folder');
+    if (folder) folder.classList.add('drag-over');
     return false;
 }
 
 function handleDragLeave(e) {
-    e.target.closest('.tree-folder').classList.remove('drag-over');
+    const folder = e.target.closest('.tree-folder');
+    if (folder) folder.classList.remove('drag-over');
 }
 
 async function handleDrop(e) {
@@ -1893,6 +1905,7 @@ async function handleDrop(e) {
     e.preventDefault();
     
     const targetFolder = e.target.closest('.tree-folder');
+    if (!targetFolder) return false;
     targetFolder.classList.remove('drag-over');
     
     if (draggedItem && draggedItem !== targetFolder) {
@@ -3051,6 +3064,207 @@ async function loadBacklinks(notePath) {
     } catch (error) {
         console.error('Failed to load backlinks:', error);
         document.getElementById('backlinks-panel').style.display = 'none';
+    }
+}
+
+// ─── Calendar View ───
+
+let calendarDate = new Date();
+let calendarData = {};
+
+async function openCalendarView() {
+    showModal('calendar-modal');
+    calendarDate = new Date();
+    
+    try {
+        const response = await fetch('/api/calendar');
+        calendarData = await response.json();
+        renderCalendar();
+    } catch (error) {
+        console.error('Failed to load calendar data:', error);
+        showNotification('Failed to load calendar');
+    }
+}
+
+function navigateCalendar(direction) {
+    calendarDate.setMonth(calendarDate.getMonth() + direction);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendar-grid');
+    const titleEl = document.getElementById('calendar-title');
+    
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    
+    // Update title
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    titleEl.textContent = `${monthNames[month]} ${year}`;
+    
+    // Clear grid
+    grid.innerHTML = '';
+    
+    // Add day headers
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-header';
+        header.textContent = day;
+        grid.appendChild(header);
+    });
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay();
+    
+    // Get today for highlighting
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Add empty cells for days before first of month
+    const prevMonth = new Date(year, month, 0);
+    const daysInPrevMonth = prevMonth.getDate();
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+        const dayNum = daysInPrevMonth - i;
+        const dateStr = formatDateStr(year, month - 1, dayNum);
+        const cell = createDayCell(dayNum, dateStr, true);
+        grid.appendChild(cell);
+    }
+    
+    // Add days of current month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = formatDateStr(year, month, day);
+        const isToday = dateStr === todayStr;
+        const cell = createDayCell(day, dateStr, false, isToday);
+        grid.appendChild(cell);
+    }
+    
+    // Add empty cells for days after end of month
+    const totalCells = startDayOfWeek + daysInMonth;
+    const remainingCells = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= remainingCells; i++) {
+        const dateStr = formatDateStr(year, month + 1, i);
+        const cell = createDayCell(i, dateStr, true);
+        grid.appendChild(cell);
+    }
+}
+
+function formatDateStr(year, month, day) {
+    // Handle month overflow/underflow
+    const date = new Date(year, month, day);
+    return date.toISOString().split('T')[0];
+}
+
+function createDayCell(dayNum, dateStr, isOtherMonth, isToday = false) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day';
+    if (isOtherMonth) cell.classList.add('other-month');
+    if (isToday) cell.classList.add('today');
+    
+    const notes = calendarData[dateStr] || [];
+    if (notes.length > 0) cell.classList.add('has-notes');
+    
+    // Day number
+    const numEl = document.createElement('span');
+    numEl.className = 'day-number';
+    numEl.textContent = dayNum;
+    cell.appendChild(numEl);
+    
+    // Dots for note types
+    if (notes.length > 0) {
+        const dotsEl = document.createElement('div');
+        dotsEl.className = 'day-dots';
+        
+        const types = [...new Set(notes.map(n => n.type))];
+        types.slice(0, 3).forEach(type => {
+            const dot = document.createElement('span');
+            dot.className = `day-dot ${type}`;
+            dotsEl.appendChild(dot);
+        });
+        
+        cell.appendChild(dotsEl);
+    }
+    
+    // Click handler
+    cell.addEventListener('click', () => {
+        if (notes.length === 1) {
+            // Single note - open directly
+            hideModal('calendar-modal');
+            loadNote(notes[0].path);
+        } else if (notes.length > 1) {
+            // Multiple notes - show picker
+            showCalendarNotePicker(dateStr, notes);
+        } else {
+            // No notes - create daily note for that date
+            hideModal('calendar-modal');
+            createDailyNoteForDate(dateStr);
+        }
+    });
+    
+    // Tooltip
+    if (notes.length > 0) {
+        cell.title = notes.map(n => n.title).join('\n');
+    } else {
+        cell.title = 'Click to create daily note';
+    }
+    
+    return cell;
+}
+
+function showCalendarNotePicker(dateStr, notes) {
+    const picker = document.createElement('div');
+    picker.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; z-index: 2000; min-width: 200px;';
+    
+    const title = document.createElement('h3');
+    title.style.cssText = 'margin: 0 0 12px 0; font-size: 14px;';
+    title.textContent = `Notes for ${dateStr}`;
+    picker.appendChild(title);
+    
+    notes.forEach(note => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-secondary';
+        btn.style.cssText = 'width: 100%; margin-bottom: 8px; text-align: left;';
+        btn.innerHTML = `<span class="day-dot ${note.type}" style="display: inline-block; margin-right: 8px;"></span>${note.title}`;
+        btn.addEventListener('click', () => {
+            document.body.removeChild(picker);
+            hideModal('calendar-modal');
+            loadNote(note.path);
+        });
+        picker.appendChild(btn);
+    });
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.style.cssText = 'width: 100%;';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => document.body.removeChild(picker));
+    picker.appendChild(cancelBtn);
+    
+    document.body.appendChild(picker);
+}
+
+async function createDailyNoteForDate(dateStr) {
+    const response = await fetch('/api/daily', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateStr })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+        wikilinkMap = null;
+        loadTree();
+        loadNote(result.path, true);
+        showNotification('Daily note created');
+    } else {
+        // Note might already exist, try to load it
+        const dailyPath = `daily/${dateStr}.md`;
+        loadNote(dailyPath);
     }
 }
 

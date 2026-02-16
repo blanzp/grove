@@ -785,12 +785,15 @@ def create_folder():
 
 @app.route('/api/daily', methods=['POST'])
 def create_daily():
-    """Create today's daily note using 'daily' template if present."""
-    today = datetime.now().strftime('%Y-%m-%d')
+    """Create a daily note using 'daily' template if present."""
+    # Support optional date parameter for creating notes on specific dates
+    data = request.get_json(silent=True) or {}
+    date_str = data.get('date', datetime.now().strftime('%Y-%m-%d'))
+    
     daily_folder = VAULT_PATH / 'daily'
     daily_folder.mkdir(exist_ok=True)
     
-    file_path = daily_folder / f"{today}.md"
+    file_path = daily_folder / f"{date_str}.md"
     
     if not file_path.exists():
         # Prefer a body-only template at .templates/daily.md
@@ -799,10 +802,10 @@ def create_daily():
         if tpl.exists():
             body = tpl.read_text()
             # Replace placeholders
-            body = body.replace('{{title}}', today).replace('{{date}}', today)
+            body = body.replace('{{title}}', date_str).replace('{{date}}', date_str)
         if body is None:
-            body = f"# {today}\n\n## Notes\n\n## Tasks\n\n- [ ] \n\n## Links\n\n"
-        fm = build_frontmatter(today, ['daily'], 'daily')
+            body = f"# {date_str}\n\n## Notes\n\n## Tasks\n\n- [ ] \n\n## Links\n\n"
+        fm = build_frontmatter(date_str, ['daily'], 'daily')
         file_path.write_text(fm + body)
     
     return jsonify({
@@ -1025,6 +1028,72 @@ def get_graph():
         'nodes': nodes,
         'edges': edges
     })
+
+
+@app.route('/api/calendar')
+def get_calendar_data():
+    """Get all dated notes for calendar view."""
+    import re
+    
+    # Pattern to extract dates from filenames
+    date_pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
+    week_pattern = re.compile(r'(\d{4})-W(\d{2})')
+    
+    dated_notes = {}  # date string -> list of notes
+    
+    for md_file in VAULT_PATH.rglob('*.md'):
+        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        if '.templates' in rel_parts or md_file.name.startswith('.'):
+            continue
+        
+        try:
+            rel_path = str(md_file.relative_to(VAULT_PATH))
+            filename = md_file.stem
+            title = get_note_title(rel_path)
+            
+            # Determine note type based on path/filename
+            note_type = 'note'
+            if 'daily/' in rel_path or filename.startswith('daily-planner'):
+                note_type = 'daily'
+            elif 'meeting' in rel_path.lower() or filename.startswith('meeting-'):
+                note_type = 'meeting'
+            elif 'planner' in filename.lower():
+                note_type = 'planner'
+            
+            # Extract date from filename
+            date_match = date_pattern.search(filename)
+            if date_match:
+                date_str = date_match.group(1)
+                if date_str not in dated_notes:
+                    dated_notes[date_str] = []
+                dated_notes[date_str].append({
+                    'path': rel_path,
+                    'title': title,
+                    'type': note_type
+                })
+            
+            # Handle weekly planners - add to first day of week
+            week_match = week_pattern.search(filename)
+            if week_match and not date_match:
+                year = int(week_match.group(1))
+                week = int(week_match.group(2))
+                # Get Monday of that week
+                from datetime import datetime, timedelta
+                jan4 = datetime(year, 1, 4)
+                start_of_week1 = jan4 - timedelta(days=jan4.weekday())
+                monday = start_of_week1 + timedelta(weeks=week-1)
+                date_str = monday.strftime('%Y-%m-%d')
+                if date_str not in dated_notes:
+                    dated_notes[date_str] = []
+                dated_notes[date_str].append({
+                    'path': rel_path,
+                    'title': title,
+                    'type': 'planner'
+                })
+        except Exception:
+            continue
+    
+    return jsonify(dated_notes)
 
 
 @app.route('/api/templates')
