@@ -424,23 +424,38 @@ body.fullscreen .main-content {
 
 /* Todo checkboxes in preview */
 .preview-container input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent-color);
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    filter: brightness(1.5);
-}
-
-.preview-container input[type="checkbox"]:not(:checked) {
     appearance: none;
     -webkit-appearance: none;
-    border: 2px solid var(--accent-color);
-    border-radius: 3px;
+    border: 2px solid #4CAF50;
+    border-radius: 4px;
     background: transparent;
+    position: relative;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.preview-container input[type="checkbox"]:checked {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.preview-container input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .preview-container input[type="checkbox"]:not(:checked):hover {
-    background: var(--hover-color);
+    border-color: #81C784;
+    background: rgba(76, 175, 80, 0.1);
 }
 
 /* Templates modal */
