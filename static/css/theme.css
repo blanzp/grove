@@ -422,6 +422,27 @@ body.fullscreen .main-content {
     text-decoration: none;
 }
 
+/* Todo checkboxes in preview */
+.preview-container input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    filter: brightness(1.5);
+}
+
+.preview-container input[type="checkbox"]:not(:checked) {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 2px solid var(--accent-color);
+    border-radius: 3px;
+    background: transparent;
+}
+
+.preview-container input[type="checkbox"]:not(:checked):hover {
+    background: var(--hover-color);
+}
+
 /* Templates modal */
 .modal-large {
     min-width: 1000px;

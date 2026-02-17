@@ -374,6 +374,12 @@ body.light-theme .sidebar-logo {
     font-weight: 500;
 }
 
+.tree-folder.selected {
+    background: var(--hover-color);
+    border-left: 3px solid var(--accent-color);
+    padding-left: calc(var(--indent, 8px) - 3px) !important;
+}
+
 .tree-folder.drag-over {
     background: var(--accent-color);
     border-radius: 4px;

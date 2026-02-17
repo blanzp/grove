@@ -213,6 +213,10 @@ function renderTree(items, container, level = 0) {
                 e.stopPropagation();
                 currentFolder = item.path;
                 
+                // Highlight selected folder
+                document.querySelectorAll('.tree-folder.selected').forEach(el => el.classList.remove('selected'));
+                itemDiv.classList.add('selected');
+                
                 // Toggle folder expansion
                 const existingChildren = itemDiv.nextElementSibling;
                 if (existingChildren && existingChildren.classList.contains('tree-children')) {
@@ -272,13 +276,8 @@ function renderTree(items, container, level = 0) {
         
         container.appendChild(itemDiv);
         
-        // Render children for folders
-        if (item.type === 'folder' && item.children && item.children.length > 0) {
-            const childContainer = document.createElement('div');
-            childContainer.className = 'tree-children';
-            renderTree(item.children, childContainer, level + 1);
-            container.appendChild(childContainer);
-        }
+        // Folders start collapsed - only expand on click
+        // (children are rendered on-demand when folder is clicked)
     });
 }
 
@@ -1319,14 +1318,14 @@ async function createPlannerNote(type) {
         const ww = String(weekNo).padStart(2, '0');
         const title = `Week ${yyyy}-W${ww} Planner`;
         const customFilename = `planner-${yyyy}-W${ww}`;
-        const folder = 'planning';
+        const folder = 'weekly';
         const tags = ['planner','weekly'];
         const template = 'weekly-planner';
         await createNote(title, tags, folder, template, customFilename);
     } else {
         const title = `Daily Planner ${yyyy}-${mm}-${dd}`;
         const customFilename = `daily-planner-${yyyy}-${mm}-${dd}`;
-        const folder = 'planning';
+        const folder = 'daily';
         const tags = ['planner','daily'];
         const template = 'daily-planner';
         await createNote(title, tags, folder, template, customFilename);

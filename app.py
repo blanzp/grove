@@ -1107,8 +1107,8 @@ def delete_template(template_name):
 def move_note():
     """Move a note to a different folder."""
     data = request.json
-    source_path = data.get('source')
-    target_folder = data.get('target', '')
+    source_path = data.get('source', '').strip().strip('/')
+    target_folder = data.get('target', '').strip().strip('/')
     
     if not source_path:
         return jsonify({'error': 'Source path required'}), 400
@@ -1116,7 +1116,7 @@ def move_note():
     source_file = VAULT_PATH / source_path
     
     if not source_file.exists():
-        return jsonify({'error': 'Source file not found'}), 404
+        return jsonify({'error': f'Source file not found: {source_path}'}), 404
     
     # Build target path
     filename = source_file.name
@@ -1203,8 +1203,8 @@ def rename_note():
 def move_folder():
     """Move a folder to another location."""
     data = request.json
-    source_path = data.get('source')
-    target_path = data.get('target', '')
+    source_path = data.get('source', '').strip().strip('/')
+    target_path = data.get('target', '').strip().strip('/')
     
     if not source_path:
         return jsonify({'error': 'Source path required'}), 400
@@ -1212,7 +1212,7 @@ def move_folder():
     source_folder = VAULT_PATH / source_path
     
     if not source_folder.exists() or not source_folder.is_dir():
-        return jsonify({'error': 'Source folder not found'}), 404
+        return jsonify({'error': f'Source folder not found: {source_path}'}), 404
     
     # Prevent moving into itself or its children
     if target_path.startswith(source_path + '/') or target_path == source_path:
