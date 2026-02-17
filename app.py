@@ -362,6 +362,7 @@ def create_vault():
     _seed_vault(path)
     # Create welcome README
     readme = path / 'README.md'
+    print(f"[DEBUG] Creating README at: {readme}")
     readme.write_text(f"""---
 title: Welcome to {name}
 created: {datetime.now().isoformat()}
@@ -449,6 +450,7 @@ Click the **📤 Share** button to:
 
 Happy writing! 🌿
 """)
+    print(f"[DEBUG] README created, exists={readme.exists()}")
     return jsonify({'success': True})
 
 @app.route('/api/vaults/export')
