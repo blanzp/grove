@@ -2004,18 +2004,13 @@ async function handleDrop(e) {
     e.preventDefault();
     
     const targetFolder = e.target.closest('.tree-folder');
-    console.log('[DnD] Drop event, targetFolder:', targetFolder, 'draggedItem:', draggedItem);
-    if (!targetFolder) {
-        console.log('[DnD] No target folder found');
-        return false;
-    }
+    if (!targetFolder) return false;
     targetFolder.classList.remove('drag-over');
     
     if (draggedItem && draggedItem !== targetFolder) {
         const sourcePath = draggedItem.dataset.path;
         const sourceType = draggedItem.dataset.type;
         const targetPath = targetFolder.dataset.path;
-        console.log('[DnD] Moving:', {sourcePath, sourceType, targetPath});
         
         // Check if dropping folder into itself
         if (sourceType === 'folder' && targetPath.startsWith(sourcePath + '/')) {
@@ -2036,7 +2031,6 @@ async function handleDrop(e) {
         });
         
         const result = await response.json();
-        console.log('[DnD] Response:', result);
         
         if (result.success) {
             showNotification(`Moved to ${targetPath || 'root'}`);
