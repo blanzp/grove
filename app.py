@@ -169,22 +169,7 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text())
-    # Initialize README from project README only if it doesn't exist yet
-    rd = path / 'README.md'
-    if not rd.exists():
-        try:
-            project_readme = (Path(__file__).parent / 'README.md').read_text()
-        except Exception:
-            project_readme = f"# Grove\n\nWelcome to your '{path.name}' vault."
-        from datetime import datetime as _dt
-        fm = (
-            "---\n"
-            f"title: Grove — {path.name} README\n"
-            f"created: {_dt.now().isoformat()}\n"
-            f"type: note\n"
-            "tags:\n  - grove\n---\n\n"
-        )
-        rd.write_text(fm + project_readme)
+    # README creation is handled by create_vault() for new vaults
 
 
 def get_active_vault_path():
