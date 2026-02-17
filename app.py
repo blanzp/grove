@@ -169,7 +169,32 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text())
-    # README creation is handled by create_vault() for new vaults
+    # Create welcome README if missing
+    readme = path / 'README.md'
+    if not readme.exists():
+        from datetime import datetime as _dt
+        readme.write_text(f"""---
+title: Welcome to {path.name}
+created: {_dt.now().isoformat()}
+type: note
+tags:
+  - grove
+---
+
+# Welcome to your "{path.name}" vault
+
+This is your Grove vault. See the Grove documentation for a full guide.
+
+## Quick Start
+
+- **New Note** - create notes with optional templates
+- **Daily Note** - quick daily log
+- **Templates** - meeting, decision, research, reflection, daily
+- **Wikilinks** - use `[[Note Name]]` to link between notes
+- **Search** - Ctrl+K to search by title or content
+
+Happy writing!
+""", encoding='utf-8')
 
 
 def get_active_vault_path():
