@@ -358,12 +358,11 @@ def create_vault():
     if path.exists():
         return jsonify({'error': 'vault already exists'}), 400
     path.mkdir(parents=True, exist_ok=True)
-    # Seed vault with templates + README
+    # Seed vault with templates
     _seed_vault(path)
-    # Ensure a welcome README exists (if seed lacked one), with frontmatter
+    # Create welcome README
     readme = path / 'README.md'
-    if not readme.exists():
-        readme.write_text(f"""---
+    readme.write_text(f"""---
 title: Welcome to {name}
 created: {datetime.now().isoformat()}
 type: note
