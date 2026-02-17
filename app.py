@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 
 app = Flask(__name__)
+app.json.ensure_ascii = False  # Allow UTF-8 in JSON responses
 
 # Serve OpenAPI spec for IDE integrations (Copilot, etc.)
 from flask import send_from_directory
@@ -168,7 +169,7 @@ def _seed_vault(path: Path):
             for f in seed_tpl.glob('*.md'):
                 target = tpl_dir / f.name
                 if not target.exists():
-                    target.write_text(f.read_text(encoding="utf-8"))
+                    target.write_text(f.read_text(encoding="utf-8", errors="replace"))
     # Create README from project README if missing
     readme = path / 'README.md'
     if not readme.exists():
@@ -194,7 +195,7 @@ def get_active_vault_path():
     name = 'default'
     if CONFIG_PATH.exists():
         try:
-            cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8") or '{}')
+            cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8", errors="replace") or '{}')
             name = cfg.get('active_vault', 'default')
         except Exception:
             name = 'default'
@@ -316,7 +317,7 @@ def get_note_title(note_path):
         file_path = VAULT_PATH / note_path
         if not file_path.exists():
             return file_path.stem
-        content = file_path.read_text(encoding="utf-8")
+        content = file_path.read_text(encoding="utf-8", errors="replace")
         fm, _ = extract_frontmatter(content)
         return fm.get('title', file_path.stem)
     except Exception:
@@ -409,7 +410,7 @@ def delete_vault():
     cfg = {}
     if CONFIG_PATH.exists():
         try:
-            cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8") or '{}')
+            cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8", errors="replace") or '{}')
         except Exception:
             pass
     if cfg.get('active_vault') == name:
@@ -470,7 +471,7 @@ def toggle_star(note_path):
     if not file_path.exists():
         return jsonify({'success': False, 'error': 'Note not found'}), 404
     
-    content = file_path.read_text(encoding="utf-8")
+    content = file_path.read_text(encoding="utf-8", errors="replace")
     
     # Check current starred status
     starred = False
@@ -500,7 +501,7 @@ def update_note_tags(note_path):
     if not file_path.exists():
         return jsonify({'success': False, 'error': 'Note not found'}), 404
     
-    content = file_path.read_text(encoding="utf-8")
+    content = file_path.read_text(encoding="utf-8", errors="replace")
     
     # Update or add frontmatter
     if content.startswith('---'):
@@ -587,7 +588,7 @@ def rename_note_title(note_path):
     new_path = file_path.parent / new_filename
     
     # Update content title in frontmatter if exists
-    content = file_path.read_text(encoding="utf-8")
+    content = file_path.read_text(encoding="utf-8", errors="replace")
     if content.startswith('---'):
         parts = content.split('---', 2)
         if len(parts) >= 3:
@@ -653,7 +654,7 @@ def create_note():
     if template:
         template_path = TEMPLATES_PATH / f"{template}.md"
         if template_path.exists():
-            tpl = template_path.read_text(encoding="utf-8")
+            tpl = template_path.read_text(encoding="utf-8", errors="replace")
             # Replace placeholders, then strip any frontmatter the template might have
             tpl = tpl.replace('{{title}}', title)
             tpl = tpl.replace('{{date}}', datetime.now().strftime('%Y-%m-%d'))
@@ -713,7 +714,7 @@ def create_daily():
         body = None
         tpl = TEMPLATES_PATH / 'daily.md'
         if tpl.exists():
-            body = tpl.read_text(encoding="utf-8")
+            body = tpl.read_text(encoding="utf-8", errors="replace")
             # Replace placeholders
             body = body.replace('{{title}}', date_str).replace('{{date}}', date_str)
         if body is None:
@@ -743,7 +744,7 @@ def search_notes():
         if md_file.name.startswith('.'):
             continue
         
-        content = md_file.read_text(encoding="utf-8")
+        content = md_file.read_text(encoding="utf-8", errors="replace")
         fm, body = extract_frontmatter(content)
         
         title = fm.get('title', md_file.stem)
@@ -775,11 +776,14 @@ def get_tags():
         if md_file.name.startswith('.'):
             continue
         
-        content = md_file.read_text(encoding="utf-8")
-        fm, _ = extract_frontmatter(content)
-        
-        for tag in fm.get('tags', []):
-            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        try:
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            fm, _ = extract_frontmatter(content)
+            
+            for tag in fm.get('tags', []):
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        except Exception:
+            continue  # Skip files with encoding issues
     
     return jsonify(tag_counts)
 
@@ -820,7 +824,7 @@ def get_backlinks(note_path):
             continue
         
         try:
-            content = md_file.read_text(encoding="utf-8")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
             wikilinks = extract_wikilinks(content)
             
             # Check if any wikilink matches this note's title or filename
@@ -892,7 +896,7 @@ def get_graph():
             rel_path = str(md_file.relative_to(VAULT_PATH))
             title = get_note_title(rel_path)
             
-            content = md_file.read_text(encoding="utf-8")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
             fm, _ = extract_frontmatter(content)
             tags = fm.get('tags', [])
             
@@ -923,7 +927,7 @@ def get_graph():
         
         try:
             rel_path = str(md_file.relative_to(VAULT_PATH))
-            content = md_file.read_text(encoding="utf-8")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
             wikilinks = extract_wikilinks(content)
             
             for link in wikilinks:
@@ -1029,7 +1033,7 @@ def get_template(template_name):
     if not template_path.exists():
         return jsonify({'error': 'Template not found'}), 404
     
-    content = template_path.read_text(encoding="utf-8")
+    content = template_path.read_text(encoding="utf-8", errors="replace")
     
     return jsonify({
         'name': template_name,
@@ -1175,7 +1179,7 @@ def rename_note():
         return jsonify({'error': 'A note with that name already exists'}), 400
     
     # Update title in frontmatter
-    content = old_file.read_text(encoding="utf-8")
+    content = old_file.read_text(encoding="utf-8", errors="replace")
     content = re.sub(r'title:.*', f'title: {new_name}', content)
     
     old_file.rename(new_file)
@@ -1242,7 +1246,7 @@ def get_todos():
         if md_file.name.startswith('.'):
             continue
         
-        content = md_file.read_text(encoding="utf-8")
+        content = md_file.read_text(encoding="utf-8", errors="replace")
         fm, body = extract_frontmatter(content)
         
         title = fm.get('title', md_file.stem)
@@ -1293,7 +1297,7 @@ def toggle_todo():
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
     
-    content = file_path.read_text(encoding="utf-8")
+    content = file_path.read_text(encoding="utf-8", errors="replace")
     lines = content.split('\n')
     
     if line_num >= len(lines):
@@ -1322,7 +1326,7 @@ def _grove_config():
     cfg_path = VAULT_PATH / '.grove' / 'config.json'
     if cfg_path.exists():
         try:
-            return json.loads(cfg_path.read_text(encoding="utf-8"))
+            return json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
         except Exception:
             return {}
     return {}
@@ -1357,7 +1361,7 @@ def _read_contacts():
     if not p.exists():
         return []
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(p.read_text(encoding="utf-8", errors="replace"))
     except Exception:
         return []
 
@@ -1623,7 +1627,7 @@ def export_notes():
             if mtime < since_ts:
                 continue
 
-        content = md_file.read_text(encoding="utf-8")
+        content = md_file.read_text(encoding="utf-8", errors="replace")
         fm, body = extract_frontmatter(content)
         path = str(rel)
         mtime_iso = datetime.fromtimestamp(md_file.stat().st_mtime).isoformat()
@@ -1699,7 +1703,7 @@ def extract_notes():
             continue
         
         try:
-            content = md_file.read_text(encoding="utf-8")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
             fm_text = ''
             body = content
             
@@ -1845,7 +1849,7 @@ def save_note(note_path):
     file_path.write_text(content, encoding="utf-8")
 
     # Add updated timestamp
-    saved_content = file_path.read_text(encoding="utf-8")
+    saved_content = file_path.read_text(encoding="utf-8", errors="replace")
     if saved_content.startswith('---'):
         saved_content = _update_frontmatter_field(saved_content, 'updated', datetime.now().isoformat())
         file_path.write_text(saved_content, encoding="utf-8")
