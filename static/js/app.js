@@ -1396,7 +1396,7 @@ async function loadTags() {
     const tags = await response.json();
     
     const select = document.getElementById('tag-filter');
-    select.innerHTML = '<option value="">All Tags</option>';
+    select.innerHTML = '<option value="__all__">All Tags</option>';
     
     Object.keys(tags).sort().forEach(tag => {
         const option = document.createElement('option');
@@ -1970,14 +1970,16 @@ function setupEventListeners() {
     });
     
     // Tag filter
-    document.getElementById('tag-filter').addEventListener('change', (e) => {
+    document.getElementById('tag-filter').addEventListener('change', async (e) => {
         const tag = e.target.value;
-        if (tag) {
-            searchNotes('', tag);
-            document.getElementById('clear-search-btn').style.display = 'block';
+        if (tag && tag !== '__all__') {
+            await searchNotes('', tag);
         } else {
-            document.getElementById('clear-search-btn').style.display = 'none';
-            loadTree();
+            // Reset to full tree
+            e.target.value = '__all__';
+            const container = document.getElementById('file-tree');
+            container.innerHTML = '';
+            await loadTree();
         }
     });
 }
