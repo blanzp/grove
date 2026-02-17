@@ -207,9 +207,9 @@ git clone https://github.com/blanzp/grove.git
 cd grove
 
 # Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# or: .venv\Scripts\activate  # Windows
 
 # Install dependencies
 pip install -r requirements.txt
@@ -244,7 +244,7 @@ After=network.target
 Type=simple
 User=<your-username>
 WorkingDirectory=/path/to/grove
-ExecStart=/path/to/grove/venv/bin/python app.py
+ExecStart=/path/to/grove/.venv/bin/python app.py
 Restart=always
 RestartSec=2
 Environment=PYTHONUNBUFFERED=1
