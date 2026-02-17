@@ -1,5 +1,13 @@
 """MDVault Web - Markdown vault manager web application."""
 
+import sys
+import io
+
+# Fix Windows console encoding for UTF-8 output
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 from flask import Flask, render_template, request, jsonify, send_file
 from pathlib import Path
 import os
@@ -415,7 +423,7 @@ def delete_vault():
             pass
     if cfg.get('active_vault') == name:
         cfg['active_vault'] = 'default'
-        CONFIG_PATH.write_text(json.dumps(cfg))
+        CONFIG_PATH.write_text(json.dumps(cfg), encoding='utf-8')
     return jsonify({'success': True})
 
 @app.route('/api/vaults/switch', methods=['POST'])
@@ -431,7 +439,7 @@ def switch_vault():
     _seed_vault(path)
     # write config
     cfg = {'active_vault': name}
-    CONFIG_PATH.write_text(json.dumps(cfg))
+    CONFIG_PATH.write_text(json.dumps(cfg), encoding='utf-8')
     return jsonify({'success': True})
 
 
