@@ -169,32 +169,23 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text())
-    # Create welcome README if missing
+    # Create README from project README if missing
     readme = path / 'README.md'
     if not readme.exists():
         from datetime import datetime as _dt
-        readme.write_text(f"""---
-title: Welcome to {path.name}
-created: {_dt.now().isoformat()}
-type: note
-tags:
-  - grove
----
-
-# Welcome to your "{path.name}" vault
-
-This is your Grove vault. See the Grove documentation for a full guide.
-
-## Quick Start
-
-- **New Note** - create notes with optional templates
-- **Daily Note** - quick daily log
-- **Templates** - meeting, decision, research, reflection, daily
-- **Wikilinks** - use `[[Note Name]]` to link between notes
-- **Search** - Ctrl+K to search by title or content
-
-Happy writing!
-""", encoding='utf-8')
+        project_readme_path = Path(__file__).parent / 'README.md'
+        try:
+            project_readme = project_readme_path.read_text(encoding='utf-8')
+        except Exception:
+            project_readme = f"# {path.name}\n\nWelcome to your Grove vault."
+        fm = (
+            "---\n"
+            f"title: Grove - {path.name} README\n"
+            f"created: {_dt.now().isoformat()}\n"
+            "type: note\n"
+            "tags:\n  - grove\n---\n\n"
+        )
+        readme.write_text(fm + project_readme, encoding='utf-8')
 
 
 def get_active_vault_path():
@@ -383,97 +374,8 @@ def create_vault():
     if path.exists():
         return jsonify({'error': 'vault already exists'}), 400
     path.mkdir(parents=True, exist_ok=True)
-    # Seed vault with templates
+    # Seed vault with templates + README (from project README.md)
     _seed_vault(path)
-    # Create welcome README
-    readme = path / 'README.md'
-    readme.write_text(f"""---
-title: Welcome to {name}
-created: {datetime.now().isoformat()}
-type: note
-tags:
-  - grove
----
-
-# Welcome to your "{name}" vault
-
-This is your new Grove vault. Here's a quick guide to get started.
-
-## Creating Notes
-
-- Click the **New Note** button in the sidebar toolbar
-- Choose a title, optional tags, and a template
-- Or click **Daily Note** for a quick daily log
-
-## Templates
-
-Grove ships with standard templates. Click the **Templates** button to manage them.
-
-| Template | Type | Use for |
-|----------|------|---------|
-| meeting | Meeting notes | Attendees, agenda, action items |
-| decision | Decision records | Context, options, rationale |
-| research | Research notes | Hypothesis, findings, references |
-| reflection | Reflections | What happened, lessons learned |
-| daily | Daily logs | Notes, tasks, links |
-
-Templates are **body-only** - Grove manages all frontmatter automatically.
-
-## Document Types
-
-Every note gets a `type` in its frontmatter:
-- **note** - default when no template is used
-- **meeting, decision, research, reflection** - matches the template
-- **daily** - for daily notes
-
-View frontmatter with the **Frontmatter Preview** button (read-only).
-
-## Contacts & Mentions
-
-Click the **Contacts** button to add people. Then type `@` in any note to search and insert a contact link.
-
-Each contact has a configurable template (e.g., `http://phone.google.com/{{{{id}}}}`) with placeholders: `{{{{id}}}}`, `{{{{first_name}}}}`, `{{{{last_name}}}}`, `{{{{email}}}}`, `{{{{company}}}}`.
-
-## Images & Attachments
-
-- **Paste** an image from clipboard (Ctrl+V) - auto-uploads to `attachments/`
-- **Upload** via the image toolbar button
-- **Reference**: `![alt text](/api/file/attachments/photo.png)`
-- Click any image in the file tree to copy its markdown reference
-
-## Sharing
-
-Click the **Share** button to:
-- Print / Save as PDF
-- Email the note
-- Copy as Markdown or HTML
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+S | Save |
-| Ctrl+N | New note |
-| Ctrl+P | Toggle preview |
-| Ctrl+M | New meeting |
-| Ctrl+K | Search |
-| Ctrl+B | Bold |
-| Ctrl+I | Italic |
-| Ctrl+L | Link |
-| Ctrl+V | Paste image |
-| F2 | Rename |
-| F11 | Fullscreen |
-| @ | Contact autocomplete |
-
-## Tips
-
-- **Tags** - use the tag button to tag notes for filtering
-- **Todos** - use `- [ ] task` for checkboxes, view all in the Todo Dashboard
-- **Wikilinks** - use `[[Note Name]]` to link between notes
-- **Search** - Ctrl+K to search by title or content
-
-Happy writing!
-""", encoding='utf-8')
     return jsonify({'success': True})
 
 @app.route('/api/vaults/export')
