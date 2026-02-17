@@ -1750,6 +1750,21 @@ function setupEventListeners() {
     });
     document.getElementById('cancel-table-btn').addEventListener('click', () => hideModal('table-modal'));
     
+    // Mermaid diagram picker
+    document.getElementById('mermaid-btn').addEventListener('click', () => showModal('mermaid-modal'));
+    document.getElementById('cancel-mermaid-btn').addEventListener('click', () => hideModal('mermaid-modal'));
+    document.querySelectorAll('.mermaid-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.type;
+            const template = mermaidTemplates[type];
+            if (template) {
+                const editor = document.getElementById('editor');
+                insertTextAtCursor(editor, '\n' + template + '\n');
+                hideModal('mermaid-modal');
+            }
+        });
+    });
+    
     // Upload modal
     document.getElementById('upload-btn').addEventListener('click', openUploadModal);
     document.getElementById('cancel-upload-btn').addEventListener('click', () => hideModal('upload-modal'));
@@ -2799,6 +2814,149 @@ function updateStarButton(starred) {
         starBtn.style.color = '';
     }
 }
+
+// Mermaid diagram templates
+const mermaidTemplates = {
+    flowchart: `\`\`\`mermaid
+flowchart TD
+    A[Start] --> B{Decision?}
+    B -->|Yes| C[Do something]
+    B -->|No| D[Do something else]
+    C --> E[End]
+    D --> E
+\`\`\``,
+    sequence: `\`\`\`mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant Charlie
+    Alice->>Bob: Hello Bob
+    Bob->>Charlie: Hello Charlie
+    Charlie-->>Bob: Hi Bob
+    Bob-->>Alice: Hi Alice
+    Alice->>Bob: How are you?
+    Bob->>Alice: Great!
+\`\`\``,
+    class: `\`\`\`mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound()
+    }
+    class Dog {
+        +String breed
+        +fetch()
+    }
+    class Cat {
+        +String color
+        +purr()
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+\`\`\``,
+    state: `\`\`\`mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Processing : Submit
+    Processing --> Success : Valid
+    Processing --> Error : Invalid
+    Error --> Idle : Retry
+    Success --> [*]
+\`\`\``,
+    er: `\`\`\`mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER {
+        string name
+        string email
+        int id
+    }
+    ORDER {
+        int id
+        date created
+        string status
+    }
+    LINE-ITEM {
+        int quantity
+        float price
+        string product
+    }
+\`\`\``,
+    journey: `\`\`\`mermaid
+journey
+    title My Working Day
+    section Morning
+        Wake up: 3: Me
+        Breakfast: 4: Me
+        Commute: 2: Me, Bus
+    section Work
+        Meetings: 3: Me, Team
+        Coding: 5: Me
+        Lunch: 4: Me, Coworker
+    section Evening
+        Commute home: 2: Me
+        Dinner: 5: Me, Family
+        Relax: 5: Me
+\`\`\``,
+    gantt: `\`\`\`mermaid
+gantt
+    title Project Timeline
+    dateFormat YYYY-MM-DD
+    section Planning
+        Requirements    :a1, 2026-01-01, 7d
+        Design          :a2, after a1, 5d
+    section Development
+        Backend         :b1, after a2, 14d
+        Frontend        :b2, after a2, 14d
+    section Testing
+        QA              :c1, after b1, 7d
+        UAT             :c2, after c1, 5d
+    section Launch
+        Deploy          :d1, after c2, 2d
+\`\`\``,
+    pie: `\`\`\`mermaid
+pie title Project Time Distribution
+    "Development" : 40
+    "Testing" : 20
+    "Meetings" : 15
+    "Documentation" : 10
+    "Planning" : 10
+    "Other" : 5
+\`\`\``,
+    requirement: `\`\`\`mermaid
+requirementDiagram
+    requirement user_auth {
+        id: REQ-001
+        text: Users must authenticate before accessing the system
+        risk: high
+        verifymethod: test
+    }
+    requirement data_encrypt {
+        id: REQ-002
+        text: All data must be encrypted at rest
+        risk: medium
+        verifymethod: inspection
+    }
+    element app_server {
+        type: software
+    }
+    app_server - satisfies -> user_auth
+    app_server - satisfies -> data_encrypt
+\`\`\``,
+    c4: `\`\`\`mermaid
+C4Context
+    title System Context Diagram
+    Person(user, "User", "A user of the system")
+    System(system, "My System", "The main application")
+    System_Ext(email, "Email Service", "Sends emails")
+    System_Ext(db, "Database", "Stores data")
+    Rel(user, system, "Uses")
+    Rel(system, email, "Sends notifications")
+    Rel(system, db, "Reads/writes data")
+\`\`\``
+};
 
 // Upload modal
 async function openUploadModal() {

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260216m">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260216n">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -172,6 +172,7 @@
                 <button title="Wikilink" data-action="wikilink"><i class="fas fa-brackets-curly"></i>[[</button>
                 <button title="Insert Table of Contents" data-action="toc"><i class="fas fa-list-alt"></i></button>
                 <button title="Insert Table" data-action="table"><i class="fas fa-table"></i></button>
+                <button title="Insert Mermaid Diagram" id="mermaid-btn"><i class="fas fa-diagram-project"></i></button>
             </div>
             
             <!-- @ mention autocomplete dropdown -->
@@ -585,6 +586,28 @@ Use placeholders:
         </div>
     </div>
     
+    <!-- Mermaid Diagram Picker Modal -->
+    <div class="modal" id="mermaid-modal">
+        <div class="modal-content modal-small">
+            <h2>Insert Mermaid Diagram</h2>
+            <div id="mermaid-types" style="display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto;">
+                <button class="btn-secondary mermaid-type-btn" data-type="flowchart"><i class="fas fa-project-diagram"></i> Flowchart</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="sequence"><i class="fas fa-exchange-alt"></i> Sequence Diagram</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="class"><i class="fas fa-sitemap"></i> Class Diagram</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="state"><i class="fas fa-random"></i> State Diagram</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="er"><i class="fas fa-database"></i> Entity Relationship</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="journey"><i class="fas fa-route"></i> User Journey</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="gantt"><i class="fas fa-tasks"></i> Gantt Chart</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="pie"><i class="fas fa-chart-pie"></i> Pie Chart</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="requirement"><i class="fas fa-clipboard-check"></i> Requirements</button>
+                <button class="btn-secondary mermaid-type-btn" data-type="c4"><i class="fas fa-building"></i> C4 Diagram</button>
+            </div>
+            <div class="modal-actions" style="margin-top: 12px;">
+                <button class="btn-secondary" id="cancel-mermaid-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Upload Files Modal -->
     <div class="modal" id="upload-modal">
         <div class="modal-content modal-small">
@@ -611,6 +634,6 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260216m"></script>
+    <script src="/static/js/app.js?v=20260216n"></script>
 </body>
 </html>
