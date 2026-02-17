@@ -287,10 +287,12 @@ def extract_frontmatter(content):
     if tags_match:
         frontmatter['tags'] = [t.strip('- ').strip() for t in tags_match.group(1).split('\n') if t.strip()]
     else:
-        # Try comma-separated format (tags: tag1, tag2)
+        # Try inline format: tags: [tag1, tag2] or tags: tag1, tag2
         tags_match = re.search(r'tags:\s*([^\n]+)', fm_text)
         if tags_match:
             tags_str = tags_match.group(1).strip()
+            # Strip YAML inline array brackets
+            tags_str = tags_str.strip('[]')
             frontmatter['tags'] = [t.strip() for t in tags_str.split(',') if t.strip()]
         else:
             frontmatter['tags'] = []
