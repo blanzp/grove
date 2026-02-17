@@ -874,7 +874,7 @@ function renderContactsList() {
     });
 }
 
-function openContactEdit(contact) {
+async function openContactEdit(contact) {
     document.getElementById('contact-edit-title').textContent = contact ? 'Edit Contact' : 'Add Contact';
     const idField = document.getElementById('contact-edit-id');
     idField.value = contact ? contact.id : '';
@@ -883,7 +883,15 @@ function openContactEdit(contact) {
     document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
     document.getElementById('contact-email').value = contact ? contact.email : '';
     document.getElementById('contact-company').value = contact ? contact.company : '';
-    document.getElementById('contact-template').value = contact ? contact.template : defaultContactTemplate;
+    // Fetch fresh default template from config
+    let tpl = defaultContactTemplate;
+    if (!contact) {
+        try {
+            const cfg = await (await fetch('/api/config')).json();
+            if (cfg.default_contact_template) tpl = cfg.default_contact_template;
+        } catch (e) {}
+    }
+    document.getElementById('contact-template').value = contact ? contact.template : tpl;
     showModal('contact-edit-modal');
     setTimeout(() => document.getElementById('contact-first-name').focus(), 0);
 }
