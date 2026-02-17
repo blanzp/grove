@@ -2526,17 +2526,9 @@ function toggleSidebar() {
 }
 
 function goHome() {
-    // Clear current note and show splash screen
-    currentNote = null;
-    document.getElementById('editor').value = '';
-    document.getElementById('editor').disabled = true;
-    document.getElementById('note-title').textContent = 'Select a note...';
-    document.getElementById('tags-display').innerHTML = '';
-    document.getElementById('breadcrumbs').innerHTML = '<span class="save-status" id="save-status"></span>';
-    
-    // Disable editor buttons
-    document.querySelectorAll('.editor-actions button').forEach(btn => btn.disabled = true);
-    document.getElementById('preview-toggle').disabled = true;
+    // Navigate to root
+    window.location.href = '/';
+}
     
     // Show splash, hide editor
     document.getElementById('splash').style.display = 'flex';
