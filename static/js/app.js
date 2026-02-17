@@ -2945,7 +2945,7 @@ requirementDiagram
     app_server - satisfies -> user_auth
     app_server - satisfies -> data_encrypt
 \`\`\``,
-    c4: `\`\`\`mermaid
+    c4context: `\`\`\`mermaid
 C4Context
     title System Context Diagram
     Person(user, "User", "A user of the system")
@@ -2955,6 +2955,57 @@ C4Context
     Rel(user, system, "Uses")
     Rel(system, email, "Sends notifications")
     Rel(system, db, "Reads/writes data")
+\`\`\``,
+    c4container: `\`\`\`mermaid
+C4Container
+    title Container Diagram
+    Person(user, "User", "End user of the system")
+    System_Boundary(boundary, "My System") {
+        Container(web, "Web App", "React", "Delivers the frontend")
+        Container(api, "API Server", "Node.js", "Handles business logic")
+        ContainerDb(db, "Database", "PostgreSQL", "Stores application data")
+        Container(cache, "Cache", "Redis", "Session and data cache")
+    }
+    Rel(user, web, "Uses", "HTTPS")
+    Rel(web, api, "Calls", "JSON/HTTPS")
+    Rel(api, db, "Reads/writes", "SQL")
+    Rel(api, cache, "Reads/writes", "TCP")
+\`\`\``,
+    c4component: `\`\`\`mermaid
+C4Component
+    title Component Diagram - API Server
+    Container_Boundary(api, "API Server") {
+        Component(auth, "Auth Module", "Express middleware", "Handles authentication")
+        Component(users, "User Service", "Node.js", "Manages user accounts")
+        Component(orders, "Order Service", "Node.js", "Processes orders")
+        Component(notify, "Notification Service", "Node.js", "Sends alerts")
+    }
+    ContainerDb(db, "Database", "PostgreSQL")
+    Container_Ext(email, "Email Provider", "SendGrid")
+    Rel(auth, users, "Validates")
+    Rel(orders, db, "Reads/writes")
+    Rel(users, db, "Reads/writes")
+    Rel(notify, email, "Sends via")
+\`\`\``,
+    c4deployment: `\`\`\`mermaid
+C4Deployment
+    title Deployment Diagram - Production
+    Deployment_Node(aws, "AWS", "Cloud") {
+        Deployment_Node(vpc, "VPC") {
+            Deployment_Node(ecs, "ECS Cluster") {
+                Container(api, "API Server", "Node.js")
+                Container(web, "Web App", "React")
+            }
+            Deployment_Node(rds, "RDS") {
+                ContainerDb(db, "Database", "PostgreSQL")
+            }
+        }
+        Deployment_Node(cdn, "CloudFront") {
+            Container(static, "Static Assets", "S3")
+        }
+    }
+    Rel(web, api, "Calls", "HTTPS")
+    Rel(api, db, "Reads/writes", "SQL")
 \`\`\``
 };
 
