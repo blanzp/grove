@@ -506,6 +506,20 @@ Use placeholders:
             </div>
         </div>
     </div>
+
+    <!-- Delete Vault Modal -->
+    <div class="modal" id="delete-vault-modal">
+        <div class="modal-content modal-small">
+            <h2>Delete Vault</h2>
+            <p style="margin-bottom: 12px; color: var(--text-secondary);">
+                This will permanently delete the vault <strong id="delete-vault-name"></strong> and all of its notes. This cannot be undone.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="confirm-delete-vault-btn" style="background: #dc3545;"><i class="fas fa-trash"></i> Delete Vault</button>
+                <button class="btn-secondary" id="cancel-delete-vault-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
     
     <!-- Rename Note Modal -->
     <div class="modal" id="rename-modal">

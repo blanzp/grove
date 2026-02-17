@@ -104,6 +104,7 @@ function initVaultSelect() {
     });
 }
 
+let pendingDeleteVault = null;
 async function deleteCurrentVault() {
     const sel = document.getElementById('vault-select');
     const name = sel.value;
@@ -111,17 +112,26 @@ async function deleteCurrentVault() {
         showNotification('Cannot delete the default vault');
         return;
     }
-    if (!confirm(`Are you sure you want to permanently delete the "${name}" vault and ALL its notes?`)) return;
-    if (!confirm(`This cannot be undone. Type-to-confirm: delete "${name}"?`)) return;
+    pendingDeleteVault = name;
+    document.getElementById('delete-vault-name').textContent = `"${name}"`;
+    showModal('delete-vault-modal');
+}
+
+async function confirmDeleteVault() {
+    if (!pendingDeleteVault) { hideModal('delete-vault-modal'); return; }
+    const name = pendingDeleteVault;
     const resp = await fetch('/api/vaults/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
     if (resp.ok) {
+        hideModal('delete-vault-modal');
         localStorage.setItem('grove-recent', '[]');
         location.reload();
     } else {
         const err = await resp.json();
+        hideModal('delete-vault-modal');
         showNotification(err.error || 'Delete failed');
     }
 }
+
 
 async function createVaultFromModal() {
     const input = document.getElementById('modal-vault-name');
@@ -1636,6 +1646,10 @@ function setupEventListeners() {
         if (e.key === 'Enter') { e.preventDefault(); createVaultFromModal(); }
     });
     document.getElementById('delete-vault').addEventListener('click', deleteCurrentVault);
+    const cdvb = document.getElementById('confirm-delete-vault-btn');
+    if (cdvb) cdvb.addEventListener('click', confirmDeleteVault);
+    const cancelDvb = document.getElementById('cancel-delete-vault-btn');
+    if (cancelDvb) cancelDvb.addEventListener('click', () => hideModal('delete-vault-modal'));
     document.getElementById('export-vault').addEventListener('click', () => {
         window.location.href = '/api/vaults/export';
     });
