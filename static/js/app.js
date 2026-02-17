@@ -2529,25 +2529,6 @@ function goHome() {
     // Navigate to root
     window.location.href = '/';
 }
-    
-    // Show splash, hide editor
-    document.getElementById('splash').style.display = 'flex';
-    document.querySelector('.editor-header').style.display = 'none';
-    document.getElementById('markdown-toolbar').style.display = 'none';
-    document.querySelector('.editor-container').style.display = 'none';
-    document.getElementById('backlinks-panel').style.display = 'none';
-    
-    // Update splash stats
-    updateSplashStats();
-    
-    // Close mobile sidebar if open
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar.classList.contains('mobile-open')) {
-        sidebar.classList.remove('mobile-open');
-        const btn = document.getElementById('sidebar-collapse');
-        if (btn) btn.textContent = '☰';
-    }
-}
 
 // Keyboard shortcuts
 // Markdown toolbar
