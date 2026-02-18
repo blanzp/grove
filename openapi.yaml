@@ -779,6 +779,25 @@ paths:
         '404':
           description: File not found
 
+  /asset/{path}:
+    get:
+      tags: [Files & Images]
+      summary: Stable asset alias
+      description: Alias of /api/file for serving attachments and images with a shorter path.
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+        '403':
+          description: Access denied (path traversal)
+        '404':
+          description: File not found
+
   /api/upload:
     post:
       tags: [Files & Images]
@@ -1005,6 +1024,12 @@ components:
           type: string
         company:
           type: string
+        phone:
+          type: string
+          description: Optional phone number (E.164 or free-form)
+        zoom_id:
+          type: string
+          description: Optional Zoom meeting ID or full URL
         template:
           type: string
 
@@ -1020,6 +1045,10 @@ components:
         email:
           type: string
         company:
+          type: string
+        phone:
+          type: string
+        zoom_id:
           type: string
         template:
           type: string

@@ -259,13 +259,16 @@ function renderTree(items, container, level = 0) {
             const icon = iconMap[ext] || 'fa-file';
             itemDiv.innerHTML = `<i class="fas ${icon}"></i> ${item.name}`;
             itemDiv.style.opacity = '0.8';
+            itemDiv.addEventListener('mouseenter', (e) => {
+                if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
+                    showThumbnailHover(e.currentTarget, `/api/file/${item.path}`);
+                }
+            });
+            itemDiv.addEventListener('mouseleave', hideThumbnailHover);
             itemDiv.addEventListener('click', () => {
-                // Open asset in new tab or copy path
                 const url = `/api/file/${item.path}`;
                 if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
-                    // Copy markdown image ref
-                    const md = `![${item.name}](${url})`;
-                    navigator.clipboard.writeText(md).then(() => showNotification('Image markdown copied'));
+                    openAssetPreview(item.path, item.name);
                 } else {
                     window.open(url, '_blank');
                 }
@@ -592,6 +595,140 @@ function insertLlmText(editor, text, mode) {
 }
 
 // Resolve relative paths in rendered markdown (images, links)
+// Optional: build a Zoom join URL from id/URL
+function buildZoomUrl(zoomVal) {
+    if (!zoomVal) return '';
+    const v = String(zoomVal).trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    // digits with optional spaces/dashes
+    const digits = v.replace(/[^0-9]/g, '');
+    if (digits.length >= 9 && digits.length <= 12) {
+        return `https://zoom.us/j/${digits}`;
+    }
+    return '';
+}
+
+// Lightweight thumbnail-on-hover for images in the file tree
+let hoverThumbEl = null;
+function showThumbnailHover(targetEl, src) {
+    hideThumbnailHover();
+    const rect = targetEl.getBoundingClientRect();
+    const img = document.createElement('img');
+    img.src = src;
+    img.loading = 'lazy';
+    img.style.cssText = 'position:fixed; max-width:200px; max-height:150px; object-fit:contain; border:1px solid var(--border-color); background: var(--bg-secondary); padding:4px; border-radius:4px; z-index:1500; box-shadow:0 2px 10px rgba(0,0,0,0.3)';
+    img.onerror = () => hideThumbnailHover();
+    document.body.appendChild(img);
+    hoverThumbEl = img;
+    const top = Math.min(window.innerHeight - 170, rect.top + 4);
+    const left = rect.right + 8;
+    img.style.top = top + 'px';
+    img.style.left = left + 'px';
+}
+function hideThumbnailHover() {
+    if (hoverThumbEl && hoverThumbEl.parentNode) hoverThumbEl.parentNode.removeChild(hoverThumbEl);
+    hoverThumbEl = null;
+}
+
+// Asset preview in main pane for images, with lightbox + copy markdown
+async function openAssetPreview(path, filename) {
+    currentNote = null; // Clear current note context
+    updateBreadcrumbs();
+    const editorHeader = document.querySelector('.editor-header');
+    const toolbar = document.getElementById('markdown-toolbar');
+    const editorContainer = document.querySelector('.editor-container');
+    if (editorHeader) editorHeader.style.display = 'none';
+    if (toolbar) toolbar.style.display = 'none';
+    if (editorContainer) editorContainer.style.display = 'block';
+
+    const preview = document.getElementById('preview');
+    const url = `/api/file/${path}`;
+    const md = `![${filename}](${url})`;
+    preview.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:14px; color: var(--text-secondary);">${escapeHtml(filename)}</div>
+            <div>
+                <button class="btn-secondary" id="copy-md-btn"><i class="fas fa-copy"></i> Copy Markdown</button>
+                <button class="btn-secondary" id="open-lightbox-btn"><i class="fas fa-expand"></i> Open</button>
+                <a class="btn-secondary" href="${url}" target="_blank"><i class="fas fa-external-link-alt"></i> New Tab</a>
+            </div>
+        </div>
+        <div style="width:100%; display:flex; justify-content:center; align-items:center;">
+            <img id="asset-inline-img" src="${url}" alt="${escapeHtml(filename)}" loading="lazy" style="max-height:70vh; width:auto; max-width:100%; object-fit:contain; border:1px solid var(--border-color); border-radius:6px; background: var(--bg-tertiary);" />
+        </div>
+        <div id="asset-error" style="display:none; color:#dc3545; margin-top:8px;">Failed to load image.</div>
+    `;
+    document.getElementById('asset-inline-img').addEventListener('error', ()=>{
+        document.getElementById('asset-error').style.display = 'block';
+    });
+    document.getElementById('copy-md-btn').addEventListener('click', ()=>{
+        navigator.clipboard.writeText(md).then(()=>showNotification('Markdown copied'));
+    });
+    document.getElementById('open-lightbox-btn').addEventListener('click', ()=> openImageLightbox(url));
+    // Ensure preview-only mode
+    const dz = document.getElementById('drop-zone');
+    dz.classList.remove('split-view');
+    dz.classList.add('preview-only');
+}
+
+// Lightbox with zoom/pan
+let lightboxState = { scale: 1, x: 0, y: 0, dragging: false, lastX: 0, lastY: 0 };
+function openImageLightbox(src) {
+    const img = document.getElementById('lightbox-image');
+    img.src = src;
+    img.onload = () => resetLightboxTransform();
+    showModal('image-lightbox-modal');
+}
+function resetLightboxTransform() {
+    lightboxState = { scale: 1, x: 0, y: 0, dragging: false, lastX: 0, lastY: 0 };
+    applyLightboxTransform();
+}
+function applyLightboxTransform() {
+    const img = document.getElementById('lightbox-image');
+    img.style.transform = `translate(calc(-50% + ${lightboxState.x}px), calc(-50% + ${lightboxState.y}px)) scale(${lightboxState.scale})`;
+}
+function setupLightboxControls() {
+    const stage = document.getElementById('lightbox-stage');
+    const img = document.getElementById('lightbox-image');
+
+    // Mouse wheel zoom
+    stage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.1 : -0.1;
+        lightboxState.scale = Math.max(0.1, Math.min(10, lightboxState.scale + delta));
+        applyLightboxTransform();
+    }, { passive: false });
+
+    // Drag to pan
+    stage.addEventListener('mousedown', (e) => {
+        lightboxState.dragging = true;
+        lightboxState.lastX = e.clientX;
+        lightboxState.lastY = e.clientY;
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!lightboxState.dragging) return;
+        const dx = e.clientX - lightboxState.lastX;
+        const dy = e.clientY - lightboxState.lastY;
+        lightboxState.x += dx; lightboxState.y += dy;
+        lightboxState.lastX = e.clientX; lightboxState.lastY = e.clientY;
+        applyLightboxTransform();
+    });
+    window.addEventListener('mouseup', () => { lightboxState.dragging = false; });
+
+    // Buttons
+    const zin = document.getElementById('zoom-in-btn');
+    const zout = document.getElementById('zoom-out-btn');
+    const reset = document.getElementById('reset-zoom-btn');
+    if (zin) zin.addEventListener('click', ()=>{ lightboxState.scale = Math.min(10, lightboxState.scale + 0.1); applyLightboxTransform(); });
+    if (zout) zout.addEventListener('click', ()=>{ lightboxState.scale = Math.max(0.1, lightboxState.scale - 0.1); applyLightboxTransform(); });
+    if (reset) reset.addEventListener('click', resetLightboxTransform);
+
+    const closeBtn = document.getElementById('close-image-lightbox');
+    if (closeBtn) closeBtn.addEventListener('click', ()=> hideModal('image-lightbox-modal'));
+}
+
+document.addEventListener('DOMContentLoaded', setupLightboxControls);
+
 function resolveRelativePaths(container) {
     if (!currentNote) return;
     
@@ -862,10 +999,13 @@ function renderContactsList() {
     allContacts.forEach(c => {
         const row = document.createElement('div');
         row.className = 'contact-row';
+        const phoneHtml = c.phone ? ` · <a href="tel:${encodeURIComponent(c.phone)}" title="Call">${escapeHtml(c.phone)}</a>` : '';
+        const zoomUrl = buildZoomUrl(c.zoom_id);
+        const zoomHtml = zoomUrl ? ` · <a href="${zoomUrl}" target="_blank" title="Join Zoom">Zoom</a>` : '';
         row.innerHTML = `
             <div class="contact-info">
                 <div class="name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</div>
-                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
+                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}${phoneHtml}${zoomHtml}</div>
             </div>
             <div class="contact-actions">
                 <button class="btn-secondary" style="padding:4px 8px;" data-edit="${c.id}"><i class="fas fa-pen"></i></button>
@@ -892,6 +1032,8 @@ async function openContactEdit(contact) {
     document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
     document.getElementById('contact-email').value = contact ? contact.email : '';
     document.getElementById('contact-company').value = contact ? contact.company : '';
+    document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
+    document.getElementById('contact-zoom').value = contact ? (contact.zoom_id || '') : '';
     // Fetch fresh default template from config
     let tpl = defaultContactTemplate;
     if (!contact) {
@@ -914,6 +1056,8 @@ async function saveContactFromModal() {
         last_name: document.getElementById('contact-last-name').value.trim(),
         email: document.getElementById('contact-email').value.trim(),
         company: document.getElementById('contact-company').value.trim(),
+        phone: document.getElementById('contact-phone').value.trim(),
+        zoom_id: document.getElementById('contact-zoom').value.trim(),
         template: document.getElementById('contact-template').value.trim() || defaultContactTemplate
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }

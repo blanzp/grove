@@ -247,10 +247,30 @@
             <input type="text" id="contact-last-name" placeholder="Last Name">
             <input type="text" id="contact-email" placeholder="Email">
             <input type="text" id="contact-company" placeholder="Company">
+            <input type="text" id="contact-phone" placeholder="Phone (e.g., +15551234567)">
+            <input type="text" id="contact-zoom" placeholder="Zoom ID or URL (e.g., 123456789 or https://zoom.us/j/123456789)">
             <input type="text" id="contact-template" placeholder="Template (e.g., [{{first_name}}](mailto:{{email}}))">
             <div class="modal-actions">
                 <button class="btn-primary" id="save-contact-btn">Save</button>
                 <button class="btn-secondary" id="cancel-contact-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div class="modal" id="image-lightbox-modal">
+        <div class="modal-content" style="width:90vw; max-width:1200px; height:90vh; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 style="margin:0; font-size:16px;">Image Viewer</h2>
+                <div>
+                    <button class="btn-secondary" id="zoom-out-btn" title="Zoom Out">-</button>
+                    <button class="btn-secondary" id="zoom-in-btn" title="Zoom In">+</button>
+                    <button class="btn-secondary" id="reset-zoom-btn" title="Reset">Reset</button>
+                    <button class="btn-secondary" id="close-image-lightbox">Close</button>
+                </div>
+            </div>
+            <div id="lightbox-stage" style="flex:1; border:1px solid var(--border-color); background:var(--bg-tertiary); border-radius:6px; overflow:hidden; position:relative;">
+                <img id="lightbox-image" src="" alt="" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(1); max-width:none; max-height:none; user-select:none; -webkit-user-drag:none;">
             </div>
         </div>
     </div>

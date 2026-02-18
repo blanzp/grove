@@ -1374,6 +1374,12 @@ def _read_contacts():
         return []
 
 def _write_contacts(contacts):
+    # Backward-compatible: ensure optional fields exist as strings if present
+    for c in contacts:
+        if 'zoom_id' in c and c['zoom_id'] is None:
+            c['zoom_id'] = ''
+        if 'phone' in c and c['phone'] is None:
+            c['phone'] = ''
     _contacts_path().write_text(json.dumps(contacts, indent=2))
 
 @app.route('/api/contacts', methods=['GET'])
@@ -1393,6 +1399,8 @@ def add_contact():
         'last_name': data.get('last_name', ''),
         'email': data.get('email', ''),
         'company': data.get('company', ''),
+        'phone': data.get('phone', ''),
+        'zoom_id': data.get('zoom_id', ''),
         'template': data.get('template', _default_contact_template())
     }
     contacts.append(contact)
@@ -1406,7 +1414,7 @@ def update_contact(contact_id):
     contacts = _read_contacts()
     for c in contacts:
         if str(c.get('id')) == str(contact_id):
-            for field in ['id', 'first_name', 'last_name', 'email', 'company', 'template']:
+            for field in ['id', 'first_name', 'last_name', 'email', 'company', 'phone', 'zoom_id', 'template']:
                 if field in data and data[field] is not None:
                     c[field] = data[field]
             _write_contacts(contacts)
@@ -1465,6 +1473,11 @@ def serve_file(file_path):
     except ValueError:
         return jsonify({'error': 'Access denied'}), 403
     return send_file(full_path)
+
+# Stable asset route (alias) for attachments and images
+@app.route('/asset/<path:file_path>')
+def serve_asset(file_path):
+    return serve_file(file_path)
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():

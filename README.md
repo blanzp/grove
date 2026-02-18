@@ -73,9 +73,10 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Wikilink detection** — automatically detects `[[wikilinks]]` to build connections
 
 ### 👥 Contacts
-- **Contact management** — full CRUD with fields: ID, first name, last name, email, company, template
+- **Contact management** — full CRUD with fields: ID, first name, last name, email, company, phone, zoom_id, template
 - **@ mention autocomplete** — type `@` in the editor to search and insert contacts
 - **Template substitution** — each contact has a configurable template with placeholders: `{{id}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{company}}`
+- **Phone & Zoom** — phone renders as a tel: link; Zoom accepts full URL or a numeric meeting ID (auto-builds join URL)
 - **Default template** — configurable per-vault in `.grove/config.json`
 - **Import contacts** — bulk import from JSON file
 
@@ -96,8 +97,10 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 ### 🖼️ Images & Attachments
 - **Paste from clipboard** — Ctrl+V an image, auto-uploads to `attachments/`
 - **Toolbar upload** — click the image icon to pick a file
-- **File serving** — `GET /api/file/<path>` serves any file from the vault
-- **Tree integration** — click an image in the tree to copy its markdown reference
+- **Inline previews** — click an image asset in the tree to preview inline with object-fit contain; lazy-loaded with error fallback
+- **Lightbox** — open full-size image in a zoomable (+/-, mousewheel) and pannable (drag) modal
+- **Copy Markdown** — one-click button copies `![alt](/asset/path)` or `![alt](/api/file/path)` snippet
+- **File serving** — `GET /api/file/<path>` and alias `GET /asset/<path>` serve files from the vault
 - **Supported formats** — PNG, JPG, JPEG, GIF, WEBP, SVG, PDF, MP3, MP4, WAV
 
 ### 🎨 Appearance
