@@ -679,7 +679,6 @@ function openImageLightbox(src) {
     const img = document.getElementById('lightbox-image');
     img.src = src;
     img.onload = () => resetLightboxTransform();
-    console.log('Attempting to open image modal');
     showModal('image-lightbox-modal');
 }
 function resetLightboxTransform() {
