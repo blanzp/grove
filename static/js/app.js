@@ -649,7 +649,7 @@ async function openAssetPreview(path, filename) {
             <div style="font-size:14px; color: var(--text-secondary);">${escapeHtml(filename)}</div>
             <div>
                 <button class="btn-secondary" id="copy-md-btn"><i class="fas fa-copy"></i> Copy Markdown</button>
-                <button class="btn-secondary" id="open-lightbox-btn"><i class="fas fa-expand"></i> Open</button>
+                <button class="btn-secondary open-lightbox-btn"><i class="fas fa-expand"></i> Open</button>
                 <a class="btn-secondary" href="${url}" target="_blank"><i class="fas fa-external-link-alt"></i> New Tab</a>
             </div>
         </div>
@@ -664,7 +664,9 @@ async function openAssetPreview(path, filename) {
     document.getElementById('copy-md-btn').addEventListener('click', ()=>{
         navigator.clipboard.writeText(md).then(()=>showNotification('Markdown copied'));
     });
-    document.getElementById('open-lightbox-btn').addEventListener('click', ()=> openImageLightbox(url));
+    document.querySelectorAll('.open-lightbox-btn').forEach(button => {
+    button.addEventListener('click', () => openImageLightbox(url));
+});
     // Ensure preview-only mode
     const dz = document.getElementById('drop-zone');
     dz.classList.remove('split-view');
