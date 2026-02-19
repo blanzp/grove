@@ -2254,10 +2254,18 @@ function setupDragAndDrop() {
 
 // Modal helpers
 function showModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.style.display = 'block'; // Ensure modal is displayed
+}
     document.getElementById(id).classList.add('show');
 }
 
 function hideModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.style.display = 'none'; // Ensure modal is hidden
+}
     document.getElementById(id).classList.remove('show');
 }
 
