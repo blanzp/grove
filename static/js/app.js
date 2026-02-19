@@ -1135,6 +1135,7 @@ function setupMentionAutocomplete() {
         tpl = tpl.replace(/\{\{email\}\}/g, contact.email || '');
         tpl = tpl.replace(/\{\{company\}\}/g, contact.company || '');
         tpl = tpl.replace(/\{\{id\}\}/g, contact.id || '');
+    tpl = tpl.replace(/\{\{zoom_id\}\}/g, contact.zoom_id || '');
 
         const text = editor.value;
         const before = text.substring(0, mentionStart);
