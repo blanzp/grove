@@ -4,6 +4,12 @@ A self-hosted markdown knowledge base that runs anywhere Python does — no clou
 
 Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal knowledge grove.
 
+## Recent Updates
+
+**Extended Contacts (`extended-contacts` branch)** — Advanced contact management with template profiles, customizable name/email/phone/zoom templates, and Font Awesome icons in @ mentions.
+
+**Bug Fixes (`bugfixes` branch)** — Image preview modal, folder/file deletion via right-click context menu, contacts search/filter, auto-closing upload modal, and formatted email sharing.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -53,6 +59,8 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Recent files** panel (collapsed by default) for quick access
 - **Search modal** — toolbar button opens search popup (Ctrl+K)
 - **Create, rename, delete** notes and folders
+- **Right-click context menu** — delete files, folders, and images via right-click
+- **Image preview** — click images in tree to open preview modal with proper sizing
 - **Asset files** — images, PDFs, audio/video shown with type-specific icons
 - **Vault selector** — at bottom of sidebar for switching between vaults
 
@@ -73,11 +81,15 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Wikilink detection** — automatically detects `[[wikilinks]]` to build connections
 
 ### 👥 Contacts
-- **Contact management** — full CRUD with fields: ID, first name, last name, email, company, template
+- **Contact management** — full CRUD with fields: ID, first name, last name, email, phone, zoom ID, company
 - **@ mention autocomplete** — type `@` in the editor to search and insert contacts
-- **Template substitution** — each contact has a configurable template with placeholders: `{{id}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{company}}`
-- **Default template** — configurable per-vault in `.grove/config.json`
+- **Template profiles** — create multiple contact templates with customizable name format, email, phone, and zoom URL patterns
+- **Smart icons** — Font Awesome icons (📧 email, 📞 phone, 🎥 zoom) appear as clickable links in mentions
+- **Profile-based rendering** — each contact uses its selected profile to format mentions with available contact methods
+- **Template substitution** — placeholders: `{{id}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{zoom_id}}`, `{{company}}`
+- **Search & filter** — search contacts by name, email, phone, company, or zoom ID
 - **Import contacts** — bulk import from JSON file
+- **Visual indicators** — contacts list shows icons for available contact methods
 
 ### 🗄️ Multi-Vault
 - **Multiple vaults** — create and switch between vaults (e.g., personal, work)
@@ -88,16 +100,17 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 📤 Share
 - **Print / Save as PDF** — clean, formatted print view
-- **Email** — opens mail client with rendered note content (formatted plain text)
+- **Email** — opens mail client with formatted HTML content auto-copied to clipboard (paste with Cmd+V)
 - **Copy as Markdown** — raw markdown to clipboard
 - **Copy as HTML** — rendered HTML to clipboard (paste into Gmail, Docs, etc.)
 - **Copy link** — copy a deep link to the current note
 
 ### 🖼️ Images & Attachments
 - **Paste from clipboard** — Ctrl+V an image, auto-uploads to `attachments/`
-- **Toolbar upload** — click the image icon to pick a file
+- **Toolbar upload** — click the image icon to pick files, auto-closes modal and copies markdown to clipboard
+- **Image preview modal** — click images in tree to view with proper sizing and copy markdown reference
 - **File serving** — `GET /api/file/<path>` serves any file from the vault
-- **Tree integration** — click an image in the tree to copy its markdown reference
+- **Right-click delete** — delete images directly from tree via context menu
 - **Supported formats** — PNG, JPG, JPEG, GIF, WEBP, SVG, PDF, MP3, MP4, WAV
 
 ### 🎨 Appearance
@@ -312,23 +325,41 @@ Grove exclusively manages YAML frontmatter. You cannot edit it directly — use 
 ### Contacts
 Click the **📒 address book icon** to manage contacts.
 
-**Fields:** ID, first name, last name, email, company, template
+**Fields:** ID, first name, last name, email, phone, zoom ID, company, profile selection
 
-**@ Autocomplete:** Type `@` in the editor and start typing. Arrow keys to navigate, Enter/Tab to insert. The contact's template is rendered with field substitution.
+**Template Profiles:** Create custom templates for how contacts are rendered. Each profile has:
+- **Name template** — format for displaying the name (e.g., `{{first_name}} {{last_name}}`)
+- **Email template** — URL pattern (e.g., `mailto:{{email}}`)
+- **Phone template** — URL pattern (e.g., `tel:{{phone}}`)
+- **Zoom template** — URL pattern (e.g., `https://zoom.us/j/{{zoom_id}}`)
+- **Enable/disable** — toggle which methods appear in mentions
 
-**Default template:** Configure in `vault/.grove/config.json`:
-```json
-{
-  "default_contact_template": "http://phone.google.com/{{id}}"
-}
+**@ Autocomplete:** Type `@` in the editor and start typing. Arrow keys to navigate, Enter/Tab to insert. The contact renders using its profile with Font Awesome icons for available methods.
+
+**Example mention:**
+```
+Paul Blanz [<i class="fas fa-envelope"></i>](mailto:paul@example.com) [<i class="fas fa-phone"></i>](tel:+1234567890) [<i class="fas fa-video"></i>](https://zoom.us/j/123456)
 ```
 
-**Template placeholders:** `{{id}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{company}}`
+**Search & filter:** Search bar at top of contacts modal filters by name, email, phone, company, or zoom ID in real-time.
+
+**Template placeholders:** `{{id}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{zoom_id}}`, `{{company}}`
+
+**Profile management:** Click "Manage Profiles" to create, edit, or delete template profiles. Set one as default for new contacts.
 
 **Bulk import:** Click "Import JSON" and upload a file:
 ```json
 [
-  {"id": "12345", "first_name": "Jane", "last_name": "Smith", "email": "jane@example.com", "company": "Acme"}
+  {
+    "id": "12345",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "email": "jane@example.com",
+    "phone": "+1234567890",
+    "zoom_id": "123456789",
+    "company": "Acme",
+    "profile_id": "default"
+  }
 ]
 ```
 
