@@ -1241,6 +1241,34 @@ def move_folder():
     })
 
 
+@app.route('/api/folder/<path:folder_path>', methods=['DELETE'])
+def delete_folder(folder_path):
+    """Delete a folder and all its contents."""
+    import shutil
+
+    folder_path = folder_path.strip().strip('/')
+    if not folder_path:
+        return jsonify({'error': 'Folder path required'}), 400
+
+    target_folder = VAULT_PATH / folder_path
+
+    if not target_folder.exists():
+        return jsonify({'error': 'Folder not found'}), 404
+
+    if not target_folder.is_dir():
+        return jsonify({'error': 'Path is not a folder'}), 400
+
+    # Prevent deleting special folders
+    if folder_path.startswith('.'):
+        return jsonify({'error': 'Cannot delete hidden folders'}), 403
+
+    try:
+        shutil.rmtree(target_folder)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete folder: {str(e)}'}), 500
+
+
 @app.route('/api/todos')
 def get_todos():
     """Get all todos from all notes."""
