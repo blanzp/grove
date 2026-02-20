@@ -230,6 +230,7 @@
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button class="btn-primary" id="add-contact-btn"><i class="fas fa-plus"></i> Add Contact</button>
                 <button class="btn-secondary" id="import-contacts-btn"><i class="fas fa-file-import"></i> Import JSON</button>
+                <button class="btn-secondary" id="manage-profiles-btn"><i class="fas fa-cog"></i> Manage Profiles</button>
             </div>
             <div id="contacts-list" style="max-height: 50vh; overflow-y: auto;"></div>
             <div class="modal-actions">
@@ -246,11 +247,84 @@
             <input type="text" id="contact-first-name" placeholder="First Name">
             <input type="text" id="contact-last-name" placeholder="Last Name">
             <input type="text" id="contact-email" placeholder="Email">
+            <input type="text" id="contact-phone" placeholder="Phone (e.g., +1234567890)">
+            <input type="text" id="contact-zoom-id" placeholder="Zoom ID">
             <input type="text" id="contact-company" placeholder="Company">
-            <input type="text" id="contact-template" placeholder="Template (e.g., [{{first_name}}](mailto:{{email}}))">
+            <select id="contact-profile" style="margin-bottom: 12px;">
+                <option value="">Select Profile...</option>
+            </select>
             <div class="modal-actions">
                 <button class="btn-primary" id="save-contact-btn">Save</button>
                 <button class="btn-secondary" id="cancel-contact-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Profiles Management Modal -->
+    <div class="modal" id="profiles-modal">
+        <div class="modal-content modal-large">
+            <h2>Template Profiles</h2>
+            <button class="btn-primary" id="add-profile-btn" style="margin-bottom: 12px;"><i class="fas fa-plus"></i> Add Profile</button>
+            <div id="profiles-list" style="max-height: 50vh; overflow-y: auto;"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-profiles-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Edit Modal -->
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content modal-small">
+            <h2 id="profile-edit-title">Add Profile</h2>
+            <input type="text" id="profile-name" placeholder="Profile Name">
+
+            <div style="margin-top: 16px;">
+                <div style="margin-bottom: 8px;">
+                    <span style="font-weight: 600;">Name Template</span>
+                </div>
+                <input type="text" id="profile-name-template" placeholder="{{first_name}} {{last_name}}" style="width: 100%;">
+            </div>
+
+            <div style="margin-top: 16px;">
+                <div style="margin-bottom: 8px;">
+                    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="profile-email-enabled" style="margin: 0;">
+                        <span style="font-weight: 600;">Email Template</span>
+                    </label>
+                </div>
+                <input type="text" id="profile-email-template" placeholder="mailto:{{email}}" style="width: 100%;">
+            </div>
+
+            <div style="margin-top: 16px;">
+                <div style="margin-bottom: 8px;">
+                    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="profile-phone-enabled" style="margin: 0;">
+                        <span style="font-weight: 600;">Phone Template</span>
+                    </label>
+                </div>
+                <input type="text" id="profile-phone-template" placeholder="tel:{{phone}}" style="width: 100%;">
+            </div>
+
+            <div style="margin-top: 16px;">
+                <div style="margin-bottom: 8px;">
+                    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="profile-zoom-enabled" style="margin: 0;">
+                        <span style="font-weight: 600;">Zoom Template</span>
+                    </label>
+                </div>
+                <input type="text" id="profile-zoom-template" placeholder="https://zoom.us/j/{{zoom_id}}" style="width: 100%;">
+            </div>
+
+            <div style="margin-top: 16px;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" id="profile-is-default" style="margin: 0;">
+                    <span style="font-weight: 600;">Set as default profile</span>
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-primary" id="save-profile-btn">Save</button>
+                <button class="btn-secondary" id="cancel-profile-btn">Cancel</button>
             </div>
         </div>
     </div>

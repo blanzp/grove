@@ -1328,3 +1328,19 @@ body.light-theme .splash-logo { filter: none; }
         flex-wrap: wrap;
     }
 }
+
+/* Contact mention icons */
+#preview a .fa-envelope,
+#preview a .fa-phone,
+#preview a .fa-video {
+    color: var(--text-secondary);
+    opacity: 0.8;
+    font-size: 0.85em;
+}
+
+#preview a:hover .fa-envelope,
+#preview a:hover .fa-phone,
+#preview a:hover .fa-video {
+    opacity: 1;
+    color: var(--accent-color);
+}

@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initVaultSelect();
     loadContacts();
+    loadProfiles();
 
     loadTree();
     loadTags();
@@ -276,6 +277,14 @@ function renderTree(items, container, level = 0) {
                 } else {
                     window.open(url, '_blank');
                 }
+            });
+
+            // Add context menu for assets (right-click to delete)
+            itemDiv.addEventListener('contextmenu', (e) => {
+                console.log('Context menu triggered for asset:', item.name);
+                e.preventDefault();
+                e.stopPropagation();
+                showFileContextMenu(e, item.path, item.name);
             });
         } else {
             const starIcon = item.starred ? '<i class="fas fa-star" style="color: gold; font-size: 0.8em; margin-right: 4px;"></i>' : '';
@@ -892,12 +901,16 @@ function renderContactsList(filterText = '') {
         const firstName = (c.first_name || '').toLowerCase();
         const lastName = (c.last_name || '').toLowerCase();
         const email = (c.email || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        const zoomId = (c.zoom_id || '').toLowerCase();
         const company = (c.company || '').toLowerCase();
         const id = (c.id || '').toLowerCase();
 
         return firstName.includes(filter) ||
                lastName.includes(filter) ||
                email.includes(filter) ||
+               phone.includes(filter) ||
+               zoomId.includes(filter) ||
                company.includes(filter) ||
                id.includes(filter);
     }) : allContacts;
@@ -911,10 +924,18 @@ function renderContactsList(filterText = '') {
     filteredContacts.forEach(c => {
         const row = document.createElement('div');
         row.className = 'contact-row';
+
+        // Build contact methods icons
+        const methods = [];
+        if (c.email) methods.push('<i class="fas fa-envelope"></i>');
+        if (c.phone) methods.push('<i class="fas fa-phone"></i>');
+        if (c.zoom_id) methods.push('<i class="fas fa-video"></i>');
+        const methodsHtml = methods.length > 0 ? ' · ' + methods.join(' ') : '';
+
         row.innerHTML = `
             <div class="contact-info">
                 <div class="name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</div>
-                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
+                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}${methodsHtml}</div>
             </div>
             <div class="contact-actions">
                 <button class="btn-secondary" style="padding:4px 8px;" data-edit="${c.id}"><i class="fas fa-pen"></i></button>
@@ -940,16 +961,25 @@ async function openContactEdit(contact) {
     document.getElementById('contact-first-name').value = contact ? contact.first_name : '';
     document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
     document.getElementById('contact-email').value = contact ? contact.email : '';
+    document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
+    document.getElementById('contact-zoom-id').value = contact ? (contact.zoom_id || '') : '';
     document.getElementById('contact-company').value = contact ? contact.company : '';
-    // Fetch fresh default template from config
-    let tpl = defaultContactTemplate;
-    if (!contact) {
-        try {
-            const cfg = await (await fetch('/api/config')).json();
-            if (cfg.default_contact_template) tpl = cfg.default_contact_template;
-        } catch (e) {}
-    }
-    document.getElementById('contact-template').value = contact ? contact.template : tpl;
+
+    // Populate profile dropdown
+    const profileSelect = document.getElementById('contact-profile');
+    profileSelect.innerHTML = '<option value="">Select Profile...</option>';
+    allProfiles.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.name + (p.is_default ? ' (Default)' : '');
+        if (contact && contact.profile_id === p.id) {
+            option.selected = true;
+        } else if (!contact && p.is_default) {
+            option.selected = true;
+        }
+        profileSelect.appendChild(option);
+    });
+
     showModal('contact-edit-modal');
     setTimeout(() => document.getElementById('contact-first-name').focus(), 0);
 }
@@ -957,13 +987,16 @@ async function openContactEdit(contact) {
 async function saveContactFromModal() {
     const existingId = document.getElementById('contact-edit-id').dataset.existing;
     const newId = document.getElementById('contact-edit-id').value.trim();
+    const profileValue = document.getElementById('contact-profile').value;
     const data = {
         id: newId || undefined,
         first_name: document.getElementById('contact-first-name').value.trim(),
         last_name: document.getElementById('contact-last-name').value.trim(),
         email: document.getElementById('contact-email').value.trim(),
+        phone: document.getElementById('contact-phone').value.trim(),
+        zoom_id: document.getElementById('contact-zoom-id').value.trim(),
         company: document.getElementById('contact-company').value.trim(),
-        template: document.getElementById('contact-template').value.trim() || defaultContactTemplate
+        profile_id: profileValue ? profileValue : null
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
     if (existingId) {
@@ -974,7 +1007,7 @@ async function saveContactFromModal() {
     hideModal('contact-edit-modal');
     await loadContacts();
     renderContactsList();
-    showNotification(id ? 'Contact updated' : 'Contact added');
+    showNotification(existingId ? 'Contact updated' : 'Contact added');
 }
 
 async function importContactsPrompt() {
@@ -998,6 +1031,135 @@ async function importContactsPrompt() {
         }
     };
     input.click();
+}
+
+// ─── Template Profiles Management ───
+
+let allProfiles = [];
+
+async function loadProfiles() {
+    try {
+        const cfg = await (await fetch('/api/config')).json();
+        allProfiles = cfg.template_profiles || [];
+    } catch (e) {
+        allProfiles = [];
+    }
+}
+
+function openProfilesModal() {
+    renderProfilesList();
+    showModal('profiles-modal');
+}
+
+function renderProfilesList() {
+    const container = document.getElementById('profiles-list');
+    if (allProfiles.length === 0) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);">No profiles yet.</div>';
+        return;
+    }
+    container.innerHTML = '';
+    allProfiles.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+        const defaultBadge = p.is_default ? '<span style="background:#4CAF50;color:white;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px;">DEFAULT</span>' : '';
+        const enabledTemplates = [];
+        if (p.email_enabled) enabledTemplates.push('<i class="fas fa-envelope"></i> Email');
+        if (p.phone_enabled) enabledTemplates.push('<i class="fas fa-phone"></i> Phone');
+        if (p.zoom_enabled) enabledTemplates.push('<i class="fas fa-video"></i> Zoom');
+        row.innerHTML = `
+            <div class="contact-info">
+                <div class="name">${escapeHtml(p.name)}${defaultBadge}</div>
+                <div class="detail">${enabledTemplates.join(' · ')}</div>
+            </div>
+            <div class="contact-actions">
+                <button class="btn-secondary" style="padding:4px 8px;" data-edit="${p.id}"><i class="fas fa-pen"></i></button>
+                ${!p.is_default ? `<button class="btn-secondary" style="padding:4px 8px;" data-delete="${p.id}"><i class="fas fa-trash"></i></button>` : ''}
+            </div>
+        `;
+        row.querySelector('[data-edit]').addEventListener('click', () => openProfileEdit(p));
+        const deleteBtn = row.querySelector('[data-delete]');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete profile "${p.name}"?`)) return;
+                allProfiles = allProfiles.filter(prof => prof.id !== p.id);
+                await saveProfiles();
+                renderProfilesList();
+            });
+        }
+        container.appendChild(row);
+    });
+}
+
+function openProfileEdit(profile) {
+    document.getElementById('profile-edit-title').textContent = profile ? 'Edit Profile' : 'Add Profile';
+    const nameField = document.getElementById('profile-name');
+    nameField.value = profile ? profile.name : '';
+    nameField.dataset.existing = profile ? profile.id : '';
+
+    document.getElementById('profile-name-template').value = profile ? (profile.name_template || '') : '{{first_name}} {{last_name}}';
+
+    document.getElementById('profile-email-template').value = profile ? (profile.email_template || '') : 'mailto:{{email}}';
+    document.getElementById('profile-email-enabled').checked = profile ? (profile.email_enabled !== false) : true;
+
+    document.getElementById('profile-phone-template').value = profile ? (profile.phone_template || '') : 'tel:{{phone}}';
+    document.getElementById('profile-phone-enabled').checked = profile ? (profile.phone_enabled !== false) : true;
+
+    document.getElementById('profile-zoom-template').value = profile ? (profile.zoom_template || '') : 'https://zoom.us/j/{{zoom_id}}';
+    document.getElementById('profile-zoom-enabled').checked = profile ? (profile.zoom_enabled !== false) : true;
+
+    document.getElementById('profile-is-default').checked = profile ? (profile.is_default === true) : false;
+
+    showModal('profile-edit-modal');
+    setTimeout(() => nameField.focus(), 0);
+}
+
+async function saveProfileFromModal() {
+    const existingId = document.getElementById('profile-name').dataset.existing;
+    const name = document.getElementById('profile-name').value.trim();
+    if (!name) {
+        showNotification('Profile name required');
+        return;
+    }
+
+    const newProfile = {
+        id: existingId || 'profile_' + Date.now(),
+        name: name,
+        name_template: document.getElementById('profile-name-template').value.trim() || '{{first_name}} {{last_name}}',
+        email_template: document.getElementById('profile-email-template').value.trim(),
+        email_enabled: document.getElementById('profile-email-enabled').checked,
+        phone_template: document.getElementById('profile-phone-template').value.trim(),
+        phone_enabled: document.getElementById('profile-phone-enabled').checked,
+        zoom_template: document.getElementById('profile-zoom-template').value.trim(),
+        zoom_enabled: document.getElementById('profile-zoom-enabled').checked,
+        is_default: document.getElementById('profile-is-default').checked
+    };
+
+    // If setting as default, remove default flag from others
+    if (newProfile.is_default) {
+        allProfiles.forEach(p => p.is_default = false);
+    }
+
+    if (existingId) {
+        const idx = allProfiles.findIndex(p => p.id === existingId);
+        if (idx >= 0) allProfiles[idx] = newProfile;
+    } else {
+        allProfiles.push(newProfile);
+    }
+
+    await saveProfiles();
+    hideModal('profile-edit-modal');
+    renderProfilesList();
+    showNotification(existingId ? 'Profile updated' : 'Profile added');
+}
+
+async function saveProfiles() {
+    const cfg = await (await fetch('/api/config')).json();
+    cfg.template_profiles = allProfiles;
+    await fetch('/api/config', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(cfg)
+    });
 }
 
 // ─── @ Mention Autocomplete ───
@@ -1034,18 +1196,59 @@ function setupMentionAutocomplete() {
     }
 
     function insertMention(contact) {
-        let tpl = contact.template || '[{{first_name}} {{last_name}}](mailto:{{email}})';
-        tpl = tpl.replace(/\{\{first_name\}\}/g, contact.first_name || '');
-        tpl = tpl.replace(/\{\{last_name\}\}/g, contact.last_name || '');
-        tpl = tpl.replace(/\{\{email\}\}/g, contact.email || '');
-        tpl = tpl.replace(/\{\{company\}\}/g, contact.company || '');
-        tpl = tpl.replace(/\{\{id\}\}/g, contact.id || '');
+        // Find the profile for this contact
+        const profile = allProfiles.find(p => p.id === contact.profile_id) ||
+                       allProfiles.find(p => p.is_default) ||
+                       allProfiles[0];
+
+        // Helper function to substitute variables in templates
+        function substitute(template) {
+            if (!template) return '';
+            return template
+                .replace(/\{\{first_name\}\}/g, contact.first_name || '')
+                .replace(/\{\{last_name\}\}/g, contact.last_name || '')
+                .replace(/\{\{email\}\}/g, contact.email || '')
+                .replace(/\{\{phone\}\}/g, contact.phone || '')
+                .replace(/\{\{zoom_id\}\}/g, contact.zoom_id || '')
+                .replace(/\{\{company\}\}/g, contact.company || '')
+                .replace(/\{\{id\}\}/g, contact.id || '');
+        }
+
+        // Build contact name using profile's name template
+        const nameTemplate = profile && profile.name_template ? profile.name_template : '{{first_name}} {{last_name}}';
+        const contactName = substitute(nameTemplate);
+
+        // Build the mention text with icons for enabled templates
+        let mentionText = contactName;
+
+        if (profile) {
+            const icons = [];
+
+            if (profile.email_enabled && contact.email) {
+                const url = substitute(profile.email_template);
+                icons.push(`[<i class="fas fa-envelope"></i>](${url})`);
+            }
+
+            if (profile.phone_enabled && contact.phone) {
+                const url = substitute(profile.phone_template);
+                icons.push(`[<i class="fas fa-phone"></i>](${url})`);
+            }
+
+            if (profile.zoom_enabled && contact.zoom_id) {
+                const url = substitute(profile.zoom_template);
+                icons.push(`[<i class="fas fa-video"></i>](${url})`);
+            }
+
+            if (icons.length > 0) {
+                mentionText += ' ' + icons.join(' ');
+            }
+        }
 
         const text = editor.value;
         const before = text.substring(0, mentionStart);
         const after = text.substring(editor.selectionStart);
-        editor.value = before + tpl + after;
-        const newPos = before.length + tpl.length;
+        editor.value = before + mentionText + after;
+        const newPos = before.length + mentionText.length;
         editor.selectionStart = editor.selectionEnd = newPos;
         editor.focus();
         closeMention();
@@ -1758,6 +1961,13 @@ function setupEventListeners() {
     document.getElementById('contacts-search').addEventListener('input', (e) => {
         renderContactsList(e.target.value);
     });
+
+    // Template Profiles
+    document.getElementById('manage-profiles-btn').addEventListener('click', openProfilesModal);
+    document.getElementById('close-profiles-btn').addEventListener('click', () => hideModal('profiles-modal'));
+    document.getElementById('add-profile-btn').addEventListener('click', () => openProfileEdit(null));
+    document.getElementById('save-profile-btn').addEventListener('click', saveProfileFromModal);
+    document.getElementById('cancel-profile-btn').addEventListener('click', () => hideModal('profile-edit-modal'));
 
     // @ mention autocomplete
     setupMentionAutocomplete();

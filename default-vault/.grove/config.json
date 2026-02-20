@@ -1,3 +1,17 @@
 {
-  "default_contact_template": "[{{last_name}},{{first_name}}](http://phone.mycontacts.com/{{id}})"
+  "default_contact_template": "[{{last_name}},{{first_name}}](http://phone.mycontacts.com/{{id}})",
+  "template_profiles": [
+    {
+      "id": "default",
+      "name": "Default",
+      "is_default": true,
+      "name_template": "{{first_name}} {{last_name}}",
+      "phone_template": "tel:{{phone}}",
+      "phone_enabled": true,
+      "email_template": "mailto:{{email}}",
+      "email_enabled": true,
+      "zoom_template": "https://zoom.us/j/{{zoom_id}}",
+      "zoom_enabled": true
+    }
+  ]
 }

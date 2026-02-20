@@ -1362,10 +1362,31 @@ def _grove_config():
     cfg_path = VAULT_PATH / '.grove' / 'config.json'
     if cfg_path.exists():
         try:
-            return json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
         except Exception:
-            return {}
-    return {}
+            cfg = {}
+    else:
+        cfg = {}
+
+    # Ensure template_profiles exists with default profile
+    if 'template_profiles' not in cfg:
+        cfg['template_profiles'] = [
+            {
+                'id': 'default',
+                'name': 'Default',
+                'is_default': True,
+                'name_template': '{{first_name}} {{last_name}}',
+                'phone_template': 'tel:{{phone}}',
+                'phone_enabled': True,
+                'email_template': 'mailto:{{email}}',
+                'email_enabled': True,
+                'zoom_template': 'https://zoom.us/j/{{zoom_id}}',
+                'zoom_enabled': True
+            }
+        ]
+        _save_grove_config(cfg)
+
+    return cfg
 
 def _save_grove_config(cfg):
     grove_dir = VAULT_PATH / '.grove'
@@ -1420,7 +1441,10 @@ def add_contact():
         'first_name': data.get('first_name', ''),
         'last_name': data.get('last_name', ''),
         'email': data.get('email', ''),
+        'phone': data.get('phone', ''),
+        'zoom_id': data.get('zoom_id', ''),
         'company': data.get('company', ''),
+        'profile_id': data.get('profile_id'),
         'template': data.get('template', _default_contact_template())
     }
     contacts.append(contact)
@@ -1434,8 +1458,8 @@ def update_contact(contact_id):
     contacts = _read_contacts()
     for c in contacts:
         if str(c.get('id')) == str(contact_id):
-            for field in ['id', 'first_name', 'last_name', 'email', 'company', 'template']:
-                if field in data and data[field] is not None:
+            for field in ['id', 'first_name', 'last_name', 'email', 'phone', 'zoom_id', 'company', 'profile_id', 'template']:
+                if field in data:
                     c[field] = data[field]
             _write_contacts(contacts)
             return jsonify({'success': True, 'contact': c})
