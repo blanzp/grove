@@ -870,7 +870,8 @@ html, body, .app-container, .main-content {
 }
 
 .modal-content input,
-.modal-content select {
+.modal-content select,
+.modal-content textarea {
     width: 100%;
     padding: 10px;
     margin-bottom: 12px;
@@ -879,6 +880,7 @@ html, body, .app-container, .main-content {
     border-radius: 4px;
     color: var(--text-primary);
     font-size: 14px;
+    font-family: inherit;
 }
 
 .modal-content label {
@@ -1327,4 +1329,20 @@ body.light-theme .splash-logo { filter: none; }
         padding: 6px 12px;
         flex-wrap: wrap;
     }
+}
+
+/* Contact mention icons */
+#preview a .fa-envelope,
+#preview a .fa-phone,
+#preview a .fa-video {
+    color: var(--text-secondary);
+    opacity: 0.8;
+    font-size: 0.85em;
+}
+
+#preview a:hover .fa-envelope,
+#preview a:hover .fa-phone,
+#preview a:hover .fa-video {
+    opacity: 1;
+    color: var(--accent-color);
 }

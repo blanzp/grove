@@ -1241,6 +1241,34 @@ def move_folder():
     })
 
 
+@app.route('/api/folder/<path:folder_path>', methods=['DELETE'])
+def delete_folder(folder_path):
+    """Delete a folder and all its contents."""
+    import shutil
+
+    folder_path = folder_path.strip().strip('/')
+    if not folder_path:
+        return jsonify({'error': 'Folder path required'}), 400
+
+    target_folder = VAULT_PATH / folder_path
+
+    if not target_folder.exists():
+        return jsonify({'error': 'Folder not found'}), 404
+
+    if not target_folder.is_dir():
+        return jsonify({'error': 'Path is not a folder'}), 400
+
+    # Prevent deleting special folders
+    if folder_path.startswith('.'):
+        return jsonify({'error': 'Cannot delete hidden folders'}), 403
+
+    try:
+        shutil.rmtree(target_folder)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete folder: {str(e)}'}), 500
+
+
 @app.route('/api/todos')
 def get_todos():
     """Get all todos from all notes."""
@@ -1334,10 +1362,31 @@ def _grove_config():
     cfg_path = VAULT_PATH / '.grove' / 'config.json'
     if cfg_path.exists():
         try:
-            return json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
         except Exception:
-            return {}
-    return {}
+            cfg = {}
+    else:
+        cfg = {}
+
+    # Ensure template_profiles exists with default profile
+    if 'template_profiles' not in cfg:
+        cfg['template_profiles'] = [
+            {
+                'id': 'default',
+                'name': 'Default',
+                'is_default': True,
+                'name_template': '{{first_name}} {{last_name}}',
+                'phone_template': 'tel:{{phone}}',
+                'phone_enabled': True,
+                'email_template': 'mailto:{{email}}',
+                'email_enabled': True,
+                'zoom_template': 'https://zoom.us/j/{{zoom_id}}',
+                'zoom_enabled': True
+            }
+        ]
+        _save_grove_config(cfg)
+
+    return cfg
 
 def _save_grove_config(cfg):
     grove_dir = VAULT_PATH / '.grove'
@@ -1392,7 +1441,15 @@ def add_contact():
         'first_name': data.get('first_name', ''),
         'last_name': data.get('last_name', ''),
         'email': data.get('email', ''),
+        'phone': data.get('phone', ''),
+        'office_phone': data.get('office_phone', ''),
+        'mobile_phone': data.get('mobile_phone', ''),
+        'zoom_id': data.get('zoom_id', ''),
         'company': data.get('company', ''),
+        'title': data.get('title', ''),
+        'department': data.get('department', ''),
+        'note': data.get('note', ''),
+        'profile_id': data.get('profile_id'),
         'template': data.get('template', _default_contact_template())
     }
     contacts.append(contact)
@@ -1406,8 +1463,8 @@ def update_contact(contact_id):
     contacts = _read_contacts()
     for c in contacts:
         if str(c.get('id')) == str(contact_id):
-            for field in ['id', 'first_name', 'last_name', 'email', 'company', 'template']:
-                if field in data and data[field] is not None:
+            for field in ['id', 'first_name', 'last_name', 'email', 'phone', 'office_phone', 'mobile_phone', 'zoom_id', 'company', 'title', 'department', 'note', 'profile_id', 'template']:
+                if field in data:
                     c[field] = data[field]
             _write_contacts(contacts)
             return jsonify({'success': True, 'contact': c})

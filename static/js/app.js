@@ -1,5 +1,6 @@
 // Grove - Markdown Notes App
 
+
 let currentNote = null;
 let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initVaultSelect();
     loadContacts();
+    loadProfiles();
 
     loadTree();
     loadTags();
@@ -253,6 +255,14 @@ function renderTree(items, container, level = 0) {
             itemDiv.addEventListener('dragover', handleDragOver);
             itemDiv.addEventListener('dragleave', handleDragLeave);
             itemDiv.addEventListener('drop', handleDrop);
+
+            // Add context menu for folders (right-click to delete)
+            itemDiv.addEventListener('contextmenu', (e) => {
+                console.log('Context menu triggered for folder:', item.name);
+                e.preventDefault();
+                e.stopPropagation();
+                showFolderContextMenu(e, item.path, item.name);
+            });
         } else if (item.type === 'asset') {
             const ext = (item.name.split('.').pop() || '').toLowerCase();
             const iconMap = {png:'fa-image',jpg:'fa-image',jpeg:'fa-image',gif:'fa-image',webp:'fa-image',svg:'fa-image',pdf:'fa-file-pdf',mp3:'fa-file-audio',mp4:'fa-file-video',wav:'fa-file-audio'};
@@ -260,15 +270,22 @@ function renderTree(items, container, level = 0) {
             itemDiv.innerHTML = `<i class="fas ${icon}"></i> ${item.name}`;
             itemDiv.style.opacity = '0.8';
             itemDiv.addEventListener('click', () => {
-                // Open asset in new tab or copy path
+                // Open asset in preview modal or new tab
                 const url = `/api/file/${item.path}`;
                 if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
-                    // Copy markdown image ref
-                    const md = `![${item.name}](${url})`;
-                    navigator.clipboard.writeText(md).then(() => showNotification('Image markdown copied'));
+                    // Open image in preview modal
+                    openImagePreview(url, item.name, item.path);
                 } else {
                     window.open(url, '_blank');
                 }
+            });
+
+            // Add context menu for assets (right-click to delete)
+            itemDiv.addEventListener('contextmenu', (e) => {
+                console.log('Context menu triggered for asset:', item.name);
+                e.preventDefault();
+                e.stopPropagation();
+                showFileContextMenu(e, item.path, item.name);
             });
         } else {
             const starIcon = item.starred ? '<i class="fas fa-star" style="color: gold; font-size: 0.8em; margin-right: 4px;"></i>' : '';
@@ -282,6 +299,14 @@ function renderTree(items, container, level = 0) {
             // Make files draggable
             itemDiv.addEventListener('dragstart', handleDragStart);
             itemDiv.addEventListener('dragend', handleDragEnd);
+
+            // Add context menu for files (right-click to delete)
+            itemDiv.addEventListener('contextmenu', (e) => {
+                console.log('Context menu triggered for file:', item.name);
+                e.preventDefault();
+                e.stopPropagation();
+                showFileContextMenu(e, item.path, item.name);
+            });
         }
         
         container.appendChild(itemDiv);
@@ -346,7 +371,6 @@ async function loadNote(path, forceEditMode = false) {
     const fmToggle = document.getElementById('frontmatter-toggle');
     if (fmToggle) fmToggle.disabled = true;
     document.getElementById('preview-toggle').disabled = false;
-    document.getElementById('delete-btn').disabled = false;
     document.getElementById('rename-btn').disabled = false;
     document.getElementById('share-btn').disabled = false;
     document.getElementById('frontmatter-preview').disabled = false;
@@ -659,23 +683,35 @@ function shareViaPrint() {
     setTimeout(() => win.print(), 300);
 }
 
-function shareViaEmail() {
+async function shareViaEmail() {
     hideModal('share-modal');
     const { title, html } = getRenderedHtml();
-    
-    // Convert HTML to plain text while preserving structure
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    
-    // Add line breaks after block elements
-    const blocks = temp.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,hr');
-    blocks.forEach(el => el.innerHTML += '\n');
-    
-    // Extract text content
-    const plainText = temp.textContent || temp.innerText || '';
-    
-    const mailto = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(plainText);
-    window.open(mailto);
+
+    // Create formatted HTML for email with inline styles
+    const emailHtml = `<div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.6;color:#333">
+<h1 style="margin-top:0;color:#2c3e50">${title}</h1>
+${html}
+</div>`;
+
+    try {
+        // Automatically copy formatted content to clipboard
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([emailHtml], { type: 'text/html' }),
+                'text/plain': new Blob([document.getElementById('editor').value], { type: 'text/plain' })
+            })
+        ]);
+
+        // Open email client
+        window.open('mailto:?subject=' + encodeURIComponent(title));
+
+        // Show persistent notification
+        showNotification('✓ Formatted content copied! Just paste (Cmd+V) into email body', true);
+    } catch (e) {
+        // Fallback: open email and show instruction
+        window.open('mailto:?subject=' + encodeURIComponent(title));
+        showNotification('Copy the note content manually');
+    }
 }
 
 async function shareViaCopyMarkdown() {
@@ -848,24 +884,74 @@ async function loadContacts() {
 }
 
 function openContactsModal() {
+    document.getElementById('contacts-search').value = '';
     renderContactsList();
     showModal('contacts-modal');
 }
 
-function renderContactsList() {
+function renderContactsList(filterText = '') {
     const container = document.getElementById('contacts-list');
     if (allContacts.length === 0) {
         container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);">No contacts yet.</div>';
         return;
     }
+
+    // Filter contacts based on search text
+    const filter = filterText.toLowerCase().trim();
+    const filteredContacts = filter ? allContacts.filter(c => {
+        const firstName = (c.first_name || '').toLowerCase();
+        const lastName = (c.last_name || '').toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        const officePhone = (c.office_phone || '').toLowerCase();
+        const mobilePhone = (c.mobile_phone || '').toLowerCase();
+        const zoomId = (c.zoom_id || '').toLowerCase();
+        const company = (c.company || '').toLowerCase();
+        const title = (c.title || '').toLowerCase();
+        const department = (c.department || '').toLowerCase();
+        const note = (c.note || '').toLowerCase();
+        const id = (c.id || '').toLowerCase();
+
+        return firstName.includes(filter) ||
+               lastName.includes(filter) ||
+               email.includes(filter) ||
+               phone.includes(filter) ||
+               officePhone.includes(filter) ||
+               mobilePhone.includes(filter) ||
+               zoomId.includes(filter) ||
+               company.includes(filter) ||
+               title.includes(filter) ||
+               department.includes(filter) ||
+               note.includes(filter) ||
+               id.includes(filter);
+    }) : allContacts;
+
+    if (filteredContacts.length === 0) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);">No contacts match your search.</div>';
+        return;
+    }
+
     container.innerHTML = '';
-    allContacts.forEach(c => {
+    filteredContacts.forEach(c => {
         const row = document.createElement('div');
         row.className = 'contact-row';
+
+        // Build clickable contact method icons
+        const methods = [];
+        if (c.email) methods.push(`<a href="mailto:${escapeHtml(c.email)}" title="${escapeHtml(c.email)}" style="color:inherit;"><i class="fas fa-envelope"></i></a>`);
+        const anyPhone = c.mobile_phone || c.phone || c.office_phone;
+        if (anyPhone) methods.push(`<a href="tel:${escapeHtml(anyPhone)}" title="${escapeHtml(anyPhone)}" style="color:inherit;"><i class="fas fa-phone"></i></a>`);
+        if (c.office_phone && c.office_phone !== anyPhone) methods.push(`<a href="tel:${escapeHtml(c.office_phone)}" title="Office: ${escapeHtml(c.office_phone)}" style="color:inherit;"><i class="fas fa-building"></i></a>`);
+        if (c.zoom_id) {
+            const zoomUrl = c.zoom_id.startsWith('http') ? c.zoom_id : `https://zoom.us/j/${c.zoom_id}`;
+            methods.push(`<a href="${escapeHtml(zoomUrl)}" target="_blank" title="Zoom: ${escapeHtml(c.zoom_id)}" style="color:inherit;"><i class="fas fa-video"></i></a>`);
+        }
+        const methodsHtml = methods.length > 0 ? ' · ' + methods.join(' ') : '';
+
         row.innerHTML = `
             <div class="contact-info">
                 <div class="name">${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</div>
-                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}</div>
+                <div class="detail">${escapeHtml(c.id || '')}${c.email ? ' · ' + escapeHtml(c.email) : ''}${c.company ? ' · ' + escapeHtml(c.company) : ''}${methodsHtml}</div>
             </div>
             <div class="contact-actions">
                 <button class="btn-secondary" style="padding:4px 8px;" data-edit="${c.id}"><i class="fas fa-pen"></i></button>
@@ -888,19 +974,33 @@ async function openContactEdit(contact) {
     const idField = document.getElementById('contact-edit-id');
     idField.value = contact ? contact.id : '';
     idField.dataset.existing = contact ? contact.id : '';
-    document.getElementById('contact-first-name').value = contact ? contact.first_name : '';
-    document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
-    document.getElementById('contact-email').value = contact ? contact.email : '';
-    document.getElementById('contact-company').value = contact ? contact.company : '';
-    // Fetch fresh default template from config
-    let tpl = defaultContactTemplate;
-    if (!contact) {
-        try {
-            const cfg = await (await fetch('/api/config')).json();
-            if (cfg.default_contact_template) tpl = cfg.default_contact_template;
-        } catch (e) {}
-    }
-    document.getElementById('contact-template').value = contact ? contact.template : tpl;
+    document.getElementById('contact-first-name').value = contact ? (contact.first_name || '') : '';
+    document.getElementById('contact-last-name').value = contact ? (contact.last_name || '') : '';
+    document.getElementById('contact-title').value = contact ? (contact.title || '') : '';
+    document.getElementById('contact-department').value = contact ? (contact.department || '') : '';
+    document.getElementById('contact-company').value = contact ? (contact.company || '') : '';
+    document.getElementById('contact-email').value = contact ? (contact.email || '') : '';
+    document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
+    document.getElementById('contact-office-phone').value = contact ? (contact.office_phone || '') : '';
+    document.getElementById('contact-mobile-phone').value = contact ? (contact.mobile_phone || '') : '';
+    document.getElementById('contact-zoom-id').value = contact ? (contact.zoom_id || '') : '';
+    document.getElementById('contact-note').value = contact ? (contact.note || '') : '';
+
+    // Populate profile dropdown
+    const profileSelect = document.getElementById('contact-profile');
+    profileSelect.innerHTML = '<option value="">Select Profile...</option>';
+    allProfiles.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.name + (p.is_default ? ' (Default)' : '');
+        if (contact && contact.profile_id === p.id) {
+            option.selected = true;
+        } else if (!contact && p.is_default) {
+            option.selected = true;
+        }
+        profileSelect.appendChild(option);
+    });
+
     showModal('contact-edit-modal');
     setTimeout(() => document.getElementById('contact-first-name').focus(), 0);
 }
@@ -908,13 +1008,21 @@ async function openContactEdit(contact) {
 async function saveContactFromModal() {
     const existingId = document.getElementById('contact-edit-id').dataset.existing;
     const newId = document.getElementById('contact-edit-id').value.trim();
+    const profileValue = document.getElementById('contact-profile').value;
     const data = {
         id: newId || undefined,
         first_name: document.getElementById('contact-first-name').value.trim(),
         last_name: document.getElementById('contact-last-name').value.trim(),
-        email: document.getElementById('contact-email').value.trim(),
+        title: document.getElementById('contact-title').value.trim(),
+        department: document.getElementById('contact-department').value.trim(),
         company: document.getElementById('contact-company').value.trim(),
-        template: document.getElementById('contact-template').value.trim() || defaultContactTemplate
+        email: document.getElementById('contact-email').value.trim(),
+        phone: document.getElementById('contact-phone').value.trim(),
+        office_phone: document.getElementById('contact-office-phone').value.trim(),
+        mobile_phone: document.getElementById('contact-mobile-phone').value.trim(),
+        zoom_id: document.getElementById('contact-zoom-id').value.trim(),
+        note: document.getElementById('contact-note').value.trim(),
+        profile_id: profileValue ? profileValue : null
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
     if (existingId) {
@@ -925,7 +1033,7 @@ async function saveContactFromModal() {
     hideModal('contact-edit-modal');
     await loadContacts();
     renderContactsList();
-    showNotification(id ? 'Contact updated' : 'Contact added');
+    showNotification(existingId ? 'Contact updated' : 'Contact added');
 }
 
 async function importContactsPrompt() {
@@ -949,6 +1057,135 @@ async function importContactsPrompt() {
         }
     };
     input.click();
+}
+
+// ─── Template Profiles Management ───
+
+let allProfiles = [];
+
+async function loadProfiles() {
+    try {
+        const cfg = await (await fetch('/api/config')).json();
+        allProfiles = cfg.template_profiles || [];
+    } catch (e) {
+        allProfiles = [];
+    }
+}
+
+function openProfilesModal() {
+    renderProfilesList();
+    showModal('profiles-modal');
+}
+
+function renderProfilesList() {
+    const container = document.getElementById('profiles-list');
+    if (allProfiles.length === 0) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);">No profiles yet.</div>';
+        return;
+    }
+    container.innerHTML = '';
+    allProfiles.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+        const defaultBadge = p.is_default ? '<span style="background:#4CAF50;color:white;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px;">DEFAULT</span>' : '';
+        const enabledTemplates = [];
+        if (p.email_enabled) enabledTemplates.push('<i class="fas fa-envelope"></i> Email');
+        if (p.phone_enabled) enabledTemplates.push('<i class="fas fa-phone"></i> Phone');
+        if (p.zoom_enabled) enabledTemplates.push('<i class="fas fa-video"></i> Zoom');
+        row.innerHTML = `
+            <div class="contact-info">
+                <div class="name">${escapeHtml(p.name)}${defaultBadge}</div>
+                <div class="detail">${enabledTemplates.join(' · ')}</div>
+            </div>
+            <div class="contact-actions">
+                <button class="btn-secondary" style="padding:4px 8px;" data-edit="${p.id}"><i class="fas fa-pen"></i></button>
+                ${!p.is_default ? `<button class="btn-secondary" style="padding:4px 8px;" data-delete="${p.id}"><i class="fas fa-trash"></i></button>` : ''}
+            </div>
+        `;
+        row.querySelector('[data-edit]').addEventListener('click', () => openProfileEdit(p));
+        const deleteBtn = row.querySelector('[data-delete]');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete profile "${p.name}"?`)) return;
+                allProfiles = allProfiles.filter(prof => prof.id !== p.id);
+                await saveProfiles();
+                renderProfilesList();
+            });
+        }
+        container.appendChild(row);
+    });
+}
+
+function openProfileEdit(profile) {
+    document.getElementById('profile-edit-title').textContent = profile ? 'Edit Profile' : 'Add Profile';
+    const nameField = document.getElementById('profile-name');
+    nameField.value = profile ? profile.name : '';
+    nameField.dataset.existing = profile ? profile.id : '';
+
+    document.getElementById('profile-name-template').value = profile ? (profile.name_template || '') : '{{first_name}} {{last_name}}';
+
+    document.getElementById('profile-email-template').value = profile ? (profile.email_template || '') : 'mailto:{{email}}';
+    document.getElementById('profile-email-enabled').checked = profile ? (profile.email_enabled !== false) : true;
+
+    document.getElementById('profile-phone-template').value = profile ? (profile.phone_template || '') : 'tel:{{phone}}';
+    document.getElementById('profile-phone-enabled').checked = profile ? (profile.phone_enabled !== false) : true;
+
+    document.getElementById('profile-zoom-template').value = profile ? (profile.zoom_template || '') : 'https://zoom.us/j/{{zoom_id}}';
+    document.getElementById('profile-zoom-enabled').checked = profile ? (profile.zoom_enabled !== false) : true;
+
+    document.getElementById('profile-is-default').checked = profile ? (profile.is_default === true) : false;
+
+    showModal('profile-edit-modal');
+    setTimeout(() => nameField.focus(), 0);
+}
+
+async function saveProfileFromModal() {
+    const existingId = document.getElementById('profile-name').dataset.existing;
+    const name = document.getElementById('profile-name').value.trim();
+    if (!name) {
+        showNotification('Profile name required');
+        return;
+    }
+
+    const newProfile = {
+        id: existingId || 'profile_' + Date.now(),
+        name: name,
+        name_template: document.getElementById('profile-name-template').value.trim() || '{{first_name}} {{last_name}}',
+        email_template: document.getElementById('profile-email-template').value.trim(),
+        email_enabled: document.getElementById('profile-email-enabled').checked,
+        phone_template: document.getElementById('profile-phone-template').value.trim(),
+        phone_enabled: document.getElementById('profile-phone-enabled').checked,
+        zoom_template: document.getElementById('profile-zoom-template').value.trim(),
+        zoom_enabled: document.getElementById('profile-zoom-enabled').checked,
+        is_default: document.getElementById('profile-is-default').checked
+    };
+
+    // If setting as default, remove default flag from others
+    if (newProfile.is_default) {
+        allProfiles.forEach(p => p.is_default = false);
+    }
+
+    if (existingId) {
+        const idx = allProfiles.findIndex(p => p.id === existingId);
+        if (idx >= 0) allProfiles[idx] = newProfile;
+    } else {
+        allProfiles.push(newProfile);
+    }
+
+    await saveProfiles();
+    hideModal('profile-edit-modal');
+    renderProfilesList();
+    showNotification(existingId ? 'Profile updated' : 'Profile added');
+}
+
+async function saveProfiles() {
+    const cfg = await (await fetch('/api/config')).json();
+    cfg.template_profiles = allProfiles;
+    await fetch('/api/config', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(cfg)
+    });
 }
 
 // ─── @ Mention Autocomplete ───
@@ -985,18 +1222,59 @@ function setupMentionAutocomplete() {
     }
 
     function insertMention(contact) {
-        let tpl = contact.template || '[{{first_name}} {{last_name}}](mailto:{{email}})';
-        tpl = tpl.replace(/\{\{first_name\}\}/g, contact.first_name || '');
-        tpl = tpl.replace(/\{\{last_name\}\}/g, contact.last_name || '');
-        tpl = tpl.replace(/\{\{email\}\}/g, contact.email || '');
-        tpl = tpl.replace(/\{\{company\}\}/g, contact.company || '');
-        tpl = tpl.replace(/\{\{id\}\}/g, contact.id || '');
+        // Find the profile for this contact
+        const profile = allProfiles.find(p => p.id === contact.profile_id) ||
+                       allProfiles.find(p => p.is_default) ||
+                       allProfiles[0];
+
+        // Helper function to substitute variables in templates
+        function substitute(template) {
+            if (!template) return '';
+            return template
+                .replace(/\{\{first_name\}\}/g, contact.first_name || '')
+                .replace(/\{\{last_name\}\}/g, contact.last_name || '')
+                .replace(/\{\{email\}\}/g, contact.email || '')
+                .replace(/\{\{phone\}\}/g, contact.phone || '')
+                .replace(/\{\{zoom_id\}\}/g, contact.zoom_id || '')
+                .replace(/\{\{company\}\}/g, contact.company || '')
+                .replace(/\{\{id\}\}/g, contact.id || '');
+        }
+
+        // Build contact name using profile's name template
+        const nameTemplate = profile && profile.name_template ? profile.name_template : '{{first_name}} {{last_name}}';
+        const contactName = substitute(nameTemplate);
+
+        // Build the mention text with icons for enabled templates
+        let mentionText = contactName;
+
+        if (profile) {
+            const icons = [];
+
+            if (profile.email_enabled && contact.email) {
+                const url = substitute(profile.email_template);
+                icons.push(`[<i class="fas fa-envelope"></i>](${url})`);
+            }
+
+            if (profile.phone_enabled && contact.phone) {
+                const url = substitute(profile.phone_template);
+                icons.push(`[<i class="fas fa-phone"></i>](${url})`);
+            }
+
+            if (profile.zoom_enabled && contact.zoom_id) {
+                const url = substitute(profile.zoom_template);
+                icons.push(`[<i class="fas fa-video"></i>](${url})`);
+            }
+
+            if (icons.length > 0) {
+                mentionText += ' ' + icons.join(' ');
+            }
+        }
 
         const text = editor.value;
         const before = text.substring(0, mentionStart);
         const after = text.substring(editor.selectionStart);
-        editor.value = before + tpl + after;
-        const newPos = before.length + tpl.length;
+        editor.value = before + mentionText + after;
+        const newPos = before.length + mentionText.length;
         editor.selectionStart = editor.selectionEnd = newPos;
         editor.focus();
         closeMention();
@@ -1031,7 +1309,7 @@ function setupMentionAutocomplete() {
         if (atPos >= 0) {
             const query = text.substring(atPos + 1, pos).toLowerCase();
             filtered = allContacts.filter(c => {
-                const full = ((c.first_name || '') + ' ' + (c.last_name || '') + ' ' + (c.email || '') + ' ' + (c.company || '')).toLowerCase();
+                const full = ((c.first_name || '') + ' ' + (c.last_name || '') + ' ' + (c.email || '') + ' ' + (c.company || '') + ' ' + (c.note || '')).toLowerCase();
                 return full.includes(query);
             }).slice(0, 8);
 
@@ -1594,9 +1872,6 @@ function setupEventListeners() {
     // Sync preview scroll with editor scroll (split view)
     editorEl.addEventListener('scroll', handleEditorScrollSync);
     
-    // Delete button
-    document.getElementById('delete-btn').addEventListener('click', deleteNote);
-    
     // Rename button
     document.getElementById('rename-btn').addEventListener('click', renameNote);
     
@@ -1654,6 +1929,12 @@ function setupEventListeners() {
         window.location.href = '/api/vaults/export';
     });
 
+    // Delete folder modal
+    const confirmDeleteFolderBtn = document.getElementById('confirm-delete-folder-btn');
+    if (confirmDeleteFolderBtn) confirmDeleteFolderBtn.addEventListener('click', confirmDeleteFolder);
+    const cancelDeleteFolderBtn = document.getElementById('cancel-delete-folder-btn');
+    if (cancelDeleteFolderBtn) cancelDeleteFolderBtn.addEventListener('click', () => hideModal('delete-folder-modal'));
+
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
     document.getElementById('new-template-btn').addEventListener('click', createNewTemplate);
@@ -1703,6 +1984,16 @@ function setupEventListeners() {
     document.getElementById('import-contacts-btn').addEventListener('click', importContactsPrompt);
     document.getElementById('save-contact-btn').addEventListener('click', saveContactFromModal);
     document.getElementById('cancel-contact-btn').addEventListener('click', () => hideModal('contact-edit-modal'));
+    document.getElementById('contacts-search').addEventListener('input', (e) => {
+        renderContactsList(e.target.value);
+    });
+
+    // Template Profiles
+    document.getElementById('manage-profiles-btn').addEventListener('click', openProfilesModal);
+    document.getElementById('close-profiles-btn').addEventListener('click', () => hideModal('profiles-modal'));
+    document.getElementById('add-profile-btn').addEventListener('click', () => openProfileEdit(null));
+    document.getElementById('save-profile-btn').addEventListener('click', saveProfileFromModal);
+    document.getElementById('cancel-profile-btn').addEventListener('click', () => hideModal('profile-edit-modal'));
 
     // @ mention autocomplete
     setupMentionAutocomplete();
@@ -1712,7 +2003,23 @@ function setupEventListeners() {
     // Frontmatter preview (read-only)
     document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
     document.getElementById('close-frontmatter-btn').addEventListener('click', () => hideModal('frontmatter-modal'));
-    
+
+    // Image preview modal
+    const closeImagePreviewBtn = document.getElementById('close-image-preview-btn');
+    if (closeImagePreviewBtn) {
+        closeImagePreviewBtn.addEventListener('click', () => hideModal('image-preview-modal'));
+    }
+    const copyImageMarkdownBtn = document.getElementById('copy-image-markdown-btn');
+    if (copyImageMarkdownBtn) {
+        copyImageMarkdownBtn.addEventListener('click', () => {
+            const modal = document.getElementById('image-preview-modal');
+            const url = modal.dataset.imageUrl;
+            const name = modal.dataset.imageName;
+            const md = `![${name}](${url})`;
+            navigator.clipboard.writeText(md).then(() => showNotification('Image markdown copied to clipboard'));
+        });
+    }
+
     // Tags management
     document.getElementById('tags-btn').addEventListener('click', openTagsModal);
     document.getElementById('close-tags-btn').addEventListener('click', () => {
@@ -2114,6 +2421,68 @@ function hideModal(id) {
     document.getElementById(id).classList.remove('show');
 }
 
+// Image preview modal
+function openImagePreview(url, name, path) {
+    console.log('openImagePreview called:', url, name, path);
+    const modal = document.getElementById('image-preview-modal');
+    const img = document.getElementById('image-preview-img');
+    const title = document.getElementById('image-preview-title');
+    const modalContent = document.getElementById('image-modal-content');
+    const imageContainer = document.getElementById('image-container');
+
+    console.log('Elements found:', { modal: !!modal, img: !!img, title: !!title, modalContent: !!modalContent, imageContainer: !!imageContainer });
+
+    if (!modal || !img || !title || !modalContent || !imageContainer) {
+        console.error('Modal elements not found:', { modal, img, title, modalContent, imageContainer });
+        return;
+    }
+
+    title.textContent = name;
+
+    // Store path for markdown copy
+    modal.dataset.imagePath = path;
+    modal.dataset.imageUrl = url;
+    modal.dataset.imageName = name;
+
+    // Reset styles
+    modalContent.style.width = 'auto';
+    imageContainer.style.width = 'auto';
+    imageContainer.style.height = 'auto';
+    img.style.width = 'auto';
+    img.style.height = 'auto';
+
+    // Load image and adjust container
+    img.onload = function() {
+        const imgWidth = img.naturalWidth;
+        const imgHeight = img.naturalHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Calculate max dimensions (leaving room for header/buttons)
+        const maxWidth = Math.floor(viewportWidth * 0.85);
+        const maxHeight = Math.floor(viewportHeight * 0.7);
+
+        // Scale if needed
+        if (imgWidth > maxWidth || imgHeight > maxHeight) {
+            const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+            img.style.width = `${Math.floor(imgWidth * scale)}px`;
+            img.style.height = `${Math.floor(imgHeight * scale)}px`;
+        } else {
+            // Use natural size for small images
+            img.style.width = `${imgWidth}px`;
+            img.style.height = `${imgHeight}px`;
+        }
+
+        // Let modal content wrap the image
+        modalContent.style.width = 'fit-content';
+    };
+
+    img.src = url;
+    img.alt = name;
+
+    showModal('image-preview-modal');
+}
+
 // Notification helper - toast notification
 function showNotification(message, persistent = false) {
     const existing = document.querySelector('.toast-notification');
@@ -2202,14 +2571,30 @@ async function saveNoteUpdated(isAutoSave = false) {
 }
 
 // Delete note
+let pendingDeleteNote = null;
+
 function deleteNote() {
     if (!currentNote) return;
+    pendingDeleteNote = null; // Clear any context menu delete
+    const noteName = document.getElementById('note-title').textContent || 'this note';
+    document.getElementById('delete-note-name').textContent = noteName;
+    showModal('delete-modal');
+}
+
+function showFileContextMenu(e, filePath, fileName) {
+    console.log('showFileContextMenu called:', filePath, fileName);
+    pendingDeleteNote = { path: filePath, name: fileName };
+    const displayName = fileName.replace(/\.md$/, '');
+    document.getElementById('delete-note-name').textContent = displayName;
     showModal('delete-modal');
 }
 
 async function confirmDeleteNote() {
     hideModal('delete-modal');
-    const toRemove = currentNote; // capture before clearing
+    // Use pendingDeleteNote if from context menu, otherwise use currentNote
+    const toRemove = pendingDeleteNote ? pendingDeleteNote.path : currentNote;
+    if (!toRemove) return;
+
     const response = await fetch(`/api/note/${toRemove}`, {
         method: 'DELETE'
     });
@@ -2217,35 +2602,81 @@ async function confirmDeleteNote() {
     if (response.ok) {
         wikilinkMap = null; // Invalidate cache
         showNotification('Note deleted');
-        currentNote = null;
-        currentNoteTags = [];
-        currentNoteFrontmatter = '';
-        document.getElementById('note-title').textContent = 'Select a note...';
-        document.getElementById('tags-display').innerHTML = '';
-        document.getElementById('editor').value = '';
-        document.getElementById('editor').disabled = true;
-        document.getElementById('tags-btn').disabled = true;
-        const fmToggle = document.getElementById('frontmatter-toggle');
-        if (fmToggle) fmToggle.disabled = true;
-        document.getElementById('preview-toggle').disabled = true;
-        document.getElementById('delete-btn').disabled = true;
-        document.getElementById('rename-btn').disabled = true;
-        document.getElementById('share-btn').disabled = true;
-        document.getElementById('frontmatter-preview').disabled = true;
+
+        // Only clear editor if the deleted note was currently open
+        const wasCurrentNote = (toRemove === currentNote);
+
+        if (wasCurrentNote) {
+            currentNote = null;
+            currentNoteTags = [];
+            currentNoteFrontmatter = '';
+            document.getElementById('note-title').textContent = 'Select a note...';
+            document.getElementById('tags-display').innerHTML = '';
+            document.getElementById('editor').value = '';
+            document.getElementById('editor').disabled = true;
+            document.getElementById('tags-btn').disabled = true;
+            const fmToggle = document.getElementById('frontmatter-toggle');
+            if (fmToggle) fmToggle.disabled = true;
+            document.getElementById('preview-toggle').disabled = true;
+            document.getElementById('rename-btn').disabled = true;
+            document.getElementById('share-btn').disabled = true;
+            document.getElementById('frontmatter-preview').disabled = true;
+            updateBreadcrumbs();
+            // Clear preview and show splash to avoid leftover content rendering
+            const preview = document.getElementById('preview');
+            if (preview) preview.innerHTML = '';
+            showSplash(true);
+            // Reset preview state for next open
+            previewMode = 'preview';
+            const editorContainer = document.getElementById('drop-zone');
+            if (editorContainer) {
+                editorContainer.classList.remove('split-view');
+                editorContainer.classList.add('preview-only');
+            }
+        }
+
         loadTree();
         removeFromRecent(toRemove);
-        updateBreadcrumbs();
-        // Clear preview and show splash to avoid leftover content rendering
-        const preview = document.getElementById('preview');
-        if (preview) preview.innerHTML = '';
-        showSplash(true);
-        // Reset preview state for next open
-        previewMode = 'preview';
-        const editorContainer = document.getElementById('drop-zone');
-        if (editorContainer) {
-            editorContainer.classList.remove('split-view');
-            editorContainer.classList.add('preview-only');
+        pendingDeleteNote = null;
+    }
+}
+
+// Delete folder
+let pendingDeleteFolder = null;
+
+function showFolderContextMenu(e, folderPath, folderName) {
+    console.log('showFolderContextMenu called:', folderPath, folderName);
+    // For now, directly show delete confirmation modal
+    // In the future, could show a proper context menu with multiple options
+    pendingDeleteFolder = { path: folderPath, name: folderName };
+    document.getElementById('delete-folder-name').textContent = folderName;
+    showModal('delete-folder-modal');
+}
+
+async function confirmDeleteFolder() {
+    if (!pendingDeleteFolder) {
+        hideModal('delete-folder-modal');
+        return;
+    }
+
+    const folderPath = pendingDeleteFolder.path;
+    hideModal('delete-folder-modal');
+
+    try {
+        const response = await fetch(`/api/folder/${folderPath}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showNotification('Folder deleted');
+            await loadTree();
+            pendingDeleteFolder = null;
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to delete folder', true);
         }
+    } catch (e) {
+        showNotification('Failed to delete folder: ' + e.message, true);
     }
 }
 
@@ -3078,10 +3509,9 @@ async function performUpload() {
         const result = await response.json();
         
         if (result.uploaded && result.uploaded.length > 0) {
-            showNotification(`Uploaded ${result.uploaded.length} file(s)`);
             await loadTree();
-            
-            // Show markdown references for uploaded files
+
+            // Generate markdown references for uploaded files
             // Use relative path if in same folder as current note, otherwise full path
             const currentDir = currentNote ? currentNote.split('/').slice(0, -1).join('/') : '';
             const refs = result.uploaded.map(path => {
@@ -3090,25 +3520,27 @@ async function performUpload() {
                 const ext = path.split('.').pop().toLowerCase();
                 const fileDir = path.split('/').slice(0, -1).join('/');
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
-                
+
                 // Use relative path if same directory
                 const ref = (fileDir === currentDir) ? filename : `/api/file/${path}`;
-                
+
                 if (isImage) {
                     return `![${name}](${ref})`;
                 } else {
                     return `[${name}](${ref})`;
                 }
             });
-            
-            preview.innerHTML = `
-                <div style="margin-bottom: 8px; color: var(--text-primary);"><strong>✓ Uploaded!</strong> Copy markdown:</div>
-                <textarea readonly style="width: 100%; height: 80px; font-family: monospace; font-size: 12px; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">${refs.join('\n')}</textarea>
-                <button class="btn-secondary" style="margin-top: 8px; width: 100%;" onclick="this.previousElementSibling.select(); document.execCommand('copy'); showNotification('Copied!');">
-                    <i class="fas fa-copy"></i> Copy to Clipboard
-                </button>
-            `;
-            confirmBtn.style.display = 'none';
+
+            // Copy markdown references to clipboard
+            try {
+                await navigator.clipboard.writeText(refs.join('\n'));
+                showNotification(`Uploaded ${result.uploaded.length} file(s) - markdown copied to clipboard`);
+            } catch (e) {
+                showNotification(`Uploaded ${result.uploaded.length} file(s)`);
+            }
+
+            // Close the modal
+            hideModal('upload-modal');
         } else {
             hideModal('upload-modal');
         }
@@ -3248,6 +3680,18 @@ function setupKeyboardShortcuts() {
             createDailyNote();
         }
         
+        // Ctrl+C (without Cmd) - Open contacts modal (only when nothing is selected)
+        if (e.ctrlKey && !e.metaKey && e.key === 'c') {
+            const tag = e.target.tagName;
+            const hasSelection = (tag === 'INPUT' || tag === 'TEXTAREA')
+                ? (e.target.selectionEnd - e.target.selectionStart) > 0
+                : window.getSelection().toString().length > 0;
+            if (!hasSelection) {
+                e.preventDefault();
+                openContactsModal();
+            }
+        }
+
         // F2 - Rename
         if (e.key === 'F2' && currentNote) {
             e.preventDefault();
