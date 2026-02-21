@@ -1,5 +1,6 @@
 // Grove - Markdown Notes App
 
+
 let currentNote = null;
 let currentFolder = '';
 let previewMode = 'edit'; // 'edit', 'split', 'preview'
@@ -935,11 +936,16 @@ function renderContactsList(filterText = '') {
         const row = document.createElement('div');
         row.className = 'contact-row';
 
-        // Build contact methods icons
+        // Build clickable contact method icons
         const methods = [];
-        if (c.email) methods.push('<i class="fas fa-envelope"></i>');
-        if (c.phone) methods.push('<i class="fas fa-phone"></i>');
-        if (c.zoom_id) methods.push('<i class="fas fa-video"></i>');
+        if (c.email) methods.push(`<a href="mailto:${escapeHtml(c.email)}" title="${escapeHtml(c.email)}" style="color:inherit;"><i class="fas fa-envelope"></i></a>`);
+        const anyPhone = c.mobile_phone || c.phone || c.office_phone;
+        if (anyPhone) methods.push(`<a href="tel:${escapeHtml(anyPhone)}" title="${escapeHtml(anyPhone)}" style="color:inherit;"><i class="fas fa-phone"></i></a>`);
+        if (c.office_phone && c.office_phone !== anyPhone) methods.push(`<a href="tel:${escapeHtml(c.office_phone)}" title="Office: ${escapeHtml(c.office_phone)}" style="color:inherit;"><i class="fas fa-building"></i></a>`);
+        if (c.zoom_id) {
+            const zoomUrl = c.zoom_id.startsWith('http') ? c.zoom_id : `https://zoom.us/j/${c.zoom_id}`;
+            methods.push(`<a href="${escapeHtml(zoomUrl)}" target="_blank" title="Zoom: ${escapeHtml(c.zoom_id)}" style="color:inherit;"><i class="fas fa-video"></i></a>`);
+        }
         const methodsHtml = methods.length > 0 ? ' · ' + methods.join(' ') : '';
 
         row.innerHTML = `
