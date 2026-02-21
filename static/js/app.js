@@ -902,16 +902,26 @@ function renderContactsList(filterText = '') {
         const lastName = (c.last_name || '').toLowerCase();
         const email = (c.email || '').toLowerCase();
         const phone = (c.phone || '').toLowerCase();
+        const officePhone = (c.office_phone || '').toLowerCase();
+        const mobilePhone = (c.mobile_phone || '').toLowerCase();
         const zoomId = (c.zoom_id || '').toLowerCase();
         const company = (c.company || '').toLowerCase();
+        const title = (c.title || '').toLowerCase();
+        const department = (c.department || '').toLowerCase();
+        const note = (c.note || '').toLowerCase();
         const id = (c.id || '').toLowerCase();
 
         return firstName.includes(filter) ||
                lastName.includes(filter) ||
                email.includes(filter) ||
                phone.includes(filter) ||
+               officePhone.includes(filter) ||
+               mobilePhone.includes(filter) ||
                zoomId.includes(filter) ||
                company.includes(filter) ||
+               title.includes(filter) ||
+               department.includes(filter) ||
+               note.includes(filter) ||
                id.includes(filter);
     }) : allContacts;
 
@@ -958,12 +968,17 @@ async function openContactEdit(contact) {
     const idField = document.getElementById('contact-edit-id');
     idField.value = contact ? contact.id : '';
     idField.dataset.existing = contact ? contact.id : '';
-    document.getElementById('contact-first-name').value = contact ? contact.first_name : '';
-    document.getElementById('contact-last-name').value = contact ? contact.last_name : '';
-    document.getElementById('contact-email').value = contact ? contact.email : '';
+    document.getElementById('contact-first-name').value = contact ? (contact.first_name || '') : '';
+    document.getElementById('contact-last-name').value = contact ? (contact.last_name || '') : '';
+    document.getElementById('contact-title').value = contact ? (contact.title || '') : '';
+    document.getElementById('contact-department').value = contact ? (contact.department || '') : '';
+    document.getElementById('contact-company').value = contact ? (contact.company || '') : '';
+    document.getElementById('contact-email').value = contact ? (contact.email || '') : '';
     document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
+    document.getElementById('contact-office-phone').value = contact ? (contact.office_phone || '') : '';
+    document.getElementById('contact-mobile-phone').value = contact ? (contact.mobile_phone || '') : '';
     document.getElementById('contact-zoom-id').value = contact ? (contact.zoom_id || '') : '';
-    document.getElementById('contact-company').value = contact ? contact.company : '';
+    document.getElementById('contact-note').value = contact ? (contact.note || '') : '';
 
     // Populate profile dropdown
     const profileSelect = document.getElementById('contact-profile');
@@ -992,10 +1007,15 @@ async function saveContactFromModal() {
         id: newId || undefined,
         first_name: document.getElementById('contact-first-name').value.trim(),
         last_name: document.getElementById('contact-last-name').value.trim(),
+        title: document.getElementById('contact-title').value.trim(),
+        department: document.getElementById('contact-department').value.trim(),
+        company: document.getElementById('contact-company').value.trim(),
         email: document.getElementById('contact-email').value.trim(),
         phone: document.getElementById('contact-phone').value.trim(),
+        office_phone: document.getElementById('contact-office-phone').value.trim(),
+        mobile_phone: document.getElementById('contact-mobile-phone').value.trim(),
         zoom_id: document.getElementById('contact-zoom-id').value.trim(),
-        company: document.getElementById('contact-company').value.trim(),
+        note: document.getElementById('contact-note').value.trim(),
         profile_id: profileValue ? profileValue : null
     };
     if (!data.first_name && !data.last_name) { showNotification('Name required'); return; }
@@ -1283,7 +1303,7 @@ function setupMentionAutocomplete() {
         if (atPos >= 0) {
             const query = text.substring(atPos + 1, pos).toLowerCase();
             filtered = allContacts.filter(c => {
-                const full = ((c.first_name || '') + ' ' + (c.last_name || '') + ' ' + (c.email || '') + ' ' + (c.company || '')).toLowerCase();
+                const full = ((c.first_name || '') + ' ' + (c.last_name || '') + ' ' + (c.email || '') + ' ' + (c.company || '') + ' ' + (c.note || '')).toLowerCase();
                 return full.includes(query);
             }).slice(0, 8);
 
@@ -3654,6 +3674,18 @@ function setupKeyboardShortcuts() {
             createDailyNote();
         }
         
+        // Ctrl+C (without Cmd) - Open contacts modal (only when nothing is selected)
+        if (e.ctrlKey && !e.metaKey && e.key === 'c') {
+            const tag = e.target.tagName;
+            const hasSelection = (tag === 'INPUT' || tag === 'TEXTAREA')
+                ? (e.target.selectionEnd - e.target.selectionStart) > 0
+                : window.getSelection().toString().length > 0;
+            if (!hasSelection) {
+                e.preventDefault();
+                openContactsModal();
+            }
+        }
+
         // F2 - Rename
         if (e.key === 'F2' && currentNote) {
             e.preventDefault();

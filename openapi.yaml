@@ -1272,15 +1272,27 @@ components:
           type: string
         last_name:
           type: string
+        title:
+          type: string
+          description: Job title
+        department:
+          type: string
+        company:
+          type: string
         email:
           type: string
         phone:
           type: string
+        office_phone:
+          type: string
+        mobile_phone:
+          type: string
         zoom_id:
           type: string
           description: Zoom personal meeting ID or link
-        company:
+        note:
           type: string
+          description: Free-form notes about the contact
         profile_id:
           type: string
           description: ID of the contact's profile note (template profile)
@@ -1297,15 +1309,27 @@ components:
           type: string
         last_name:
           type: string
+        title:
+          type: string
+          description: Job title
+        department:
+          type: string
+        company:
+          type: string
         email:
           type: string
         phone:
           type: string
+        office_phone:
+          type: string
+        mobile_phone:
+          type: string
         zoom_id:
           type: string
           description: Zoom personal meeting ID or link
-        company:
+        note:
           type: string
+          description: Free-form notes about the contact
         profile_id:
           type: string
           description: ID of the contact's profile note (template profile)

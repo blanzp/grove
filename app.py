@@ -1442,8 +1442,13 @@ def add_contact():
         'last_name': data.get('last_name', ''),
         'email': data.get('email', ''),
         'phone': data.get('phone', ''),
+        'office_phone': data.get('office_phone', ''),
+        'mobile_phone': data.get('mobile_phone', ''),
         'zoom_id': data.get('zoom_id', ''),
         'company': data.get('company', ''),
+        'title': data.get('title', ''),
+        'department': data.get('department', ''),
+        'note': data.get('note', ''),
         'profile_id': data.get('profile_id'),
         'template': data.get('template', _default_contact_template())
     }
@@ -1458,7 +1463,7 @@ def update_contact(contact_id):
     contacts = _read_contacts()
     for c in contacts:
         if str(c.get('id')) == str(contact_id):
-            for field in ['id', 'first_name', 'last_name', 'email', 'phone', 'zoom_id', 'company', 'profile_id', 'template']:
+            for field in ['id', 'first_name', 'last_name', 'email', 'phone', 'office_phone', 'mobile_phone', 'zoom_id', 'company', 'title', 'department', 'note', 'profile_id', 'template']:
                 if field in data:
                     c[field] = data[field]
             _write_contacts(contacts)

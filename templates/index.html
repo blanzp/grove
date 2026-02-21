@@ -121,7 +121,7 @@
                     </div>
                 </div>
                 
-                <p class="splash-hint">Tip: Ctrl+N new note · Ctrl+D daily note · Ctrl+M new meeting · Ctrl+P preview · Ctrl+E edit · Ctrl+K search · F11 fullscreen · @ contacts</p>
+                <p class="splash-hint">Tip: Ctrl+N new note · Ctrl+D daily note · Ctrl+M new meeting · Ctrl+P preview · Ctrl+E edit · Ctrl+K search · Ctrl+C contacts · F11 fullscreen · @ contacts</p>
             </div>
             
             <div class="editor-header">
@@ -226,7 +226,7 @@
     <div class="modal" id="contacts-modal">
         <div class="modal-content modal-large">
             <h2>Contacts</h2>
-            <input type="text" id="contacts-search" placeholder="Search contacts by name, email, or company..." style="margin-bottom: 12px;">
+            <input type="text" id="contacts-search" placeholder="Search contacts by name, email, company, or notes..." style="margin-bottom: 12px;">
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button class="btn-primary" id="add-contact-btn"><i class="fas fa-plus"></i> Add Contact</button>
                 <button class="btn-secondary" id="import-contacts-btn"><i class="fas fa-file-import"></i> Import JSON</button>
@@ -246,10 +246,15 @@
             <input type="text" id="contact-edit-id" placeholder="ID (e.g., employee number, phone ext)">
             <input type="text" id="contact-first-name" placeholder="First Name">
             <input type="text" id="contact-last-name" placeholder="Last Name">
-            <input type="text" id="contact-email" placeholder="Email">
-            <input type="text" id="contact-phone" placeholder="Phone (e.g., +1234567890)">
-            <input type="text" id="contact-zoom-id" placeholder="Zoom ID">
+            <input type="text" id="contact-title" placeholder="Job Title">
+            <input type="text" id="contact-department" placeholder="Department">
             <input type="text" id="contact-company" placeholder="Company">
+            <input type="text" id="contact-email" placeholder="Email">
+            <input type="text" id="contact-phone" placeholder="Phone">
+            <input type="text" id="contact-office-phone" placeholder="Office Phone">
+            <input type="text" id="contact-mobile-phone" placeholder="Mobile Phone">
+            <input type="text" id="contact-zoom-id" placeholder="Zoom ID">
+            <textarea id="contact-note" placeholder="Notes" rows="3" style="margin-bottom: 12px; width: 100%; resize: vertical;"></textarea>
             <select id="contact-profile" style="margin-bottom: 12px;">
                 <option value="">Select Profile...</option>
             </select>
