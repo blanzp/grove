@@ -758,6 +758,39 @@ html, body, .app-container, .main-content {
     padding: 0;
 }
 
+/* highlight.js integration — .hljs-pre is added by applyHljs() */
+.preview-container pre.hljs-pre {
+    padding: 16px;
+    position: relative;
+    /* background/color come from the loaded hljs theme stylesheet */
+}
+
+/* Override the generic .preview-container code rule so hljs controls colors.
+   Higher specificity (0,3,2) beats .preview-container code (0,1,1). */
+.preview-container pre.hljs-pre code.hljs {
+    background: transparent !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    font-size: 0.875em;
+    line-height: 1.6;
+    font-family: 'Courier New', monospace;
+    display: block;
+    white-space: pre;
+    overflow-x: auto;
+    /* color intentionally NOT set — let the hljs theme stylesheet set it */
+}
+
+.hljs-lang-label {
+    display: block;
+    font-size: 0.7em;
+    font-family: 'Courier New', monospace;
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    user-select: none;
+}
+
 .preview-container ul,
 .preview-container ol {
     margin-left: 24px;

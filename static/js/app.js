@@ -10,23 +10,105 @@ let allContacts = [];
 let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
 let wikilinkMap = null; // Cache for wikilink title-to-path mapping
 
+// Token colors sourced directly from atom-one-dark / atom-one-light themes.
+// Applied as inline styles so browser extensions (e.g. Dark Reader) can't override them.
+const HLJS_COLORS = {
+    dark: {
+        _base: '#abb2bf', _bg: '#282c34', _border: '#3e4451',
+        keyword: '#c678dd', doctag: '#c678dd', formula: '#c678dd',
+        comment: '#5c6370', quote: '#5c6370',
+        deletion: '#e06c75', name: '#e06c75', section: '#e06c75',
+        'selector-tag': '#e06c75', subst: '#e06c75',
+        literal: '#56b6c2',
+        addition: '#98c379', attribute: '#98c379', regexp: '#98c379', string: '#98c379',
+        attr: '#d19a66', number: '#d19a66', 'selector-attr': '#d19a66',
+        'selector-class': '#d19a66', 'selector-pseudo': '#d19a66',
+        'template-variable': '#d19a66', type: '#d19a66', variable: '#d19a66',
+        bullet: '#61aeee', link: '#61aeee', meta: '#61aeee',
+        'selector-id': '#61aeee', symbol: '#61aeee', title: '#61aeee',
+        'built_in': '#e6c07b',
+    },
+    light: {
+        _base: '#383a42', _bg: '#fafafa', _border: '#e0e0e0',
+        keyword: '#a626a4', doctag: '#a626a4', formula: '#a626a4',
+        comment: '#a0a1a7', quote: '#a0a1a7',
+        deletion: '#e45649', name: '#e45649', section: '#e45649',
+        'selector-tag': '#e45649', subst: '#e45649',
+        literal: '#0184bb',
+        addition: '#50a14f', attribute: '#50a14f', regexp: '#50a14f', string: '#50a14f',
+        attr: '#986801', number: '#986801', 'selector-attr': '#986801',
+        'selector-class': '#986801', 'selector-pseudo': '#986801',
+        'template-variable': '#986801', type: '#986801', variable: '#986801',
+        bullet: '#4078f2', link: '#4078f2', meta: '#4078f2',
+        'selector-id': '#4078f2', symbol: '#4078f2', title: '#4078f2',
+        'built_in': '#c18401',
+    }
+};
+
+// Highlight code blocks inside a container using highlight.js.
+// If hljs isn't loaded yet, inject it lazily then re-render.
+function applyHljs(container) {
+    const hjs = window.hljs;
+    if (!hjs) {
+        if (!window._hljsInjected) {
+            window._hljsInjected = true;
+            const s = document.createElement('script');
+            s.src = '/static/js/highlight.min.js';
+            s.onload = () => renderPreview();
+            document.head.appendChild(s);
+        }
+        return;
+    }
+    const isLight = document.body.classList.contains('light-theme');
+    const palette = HLJS_COLORS[isLight ? 'light' : 'dark'];
+
+    container.querySelectorAll('pre code').forEach(el => {
+        hjs.highlightElement(el);
+        const pre = el.parentElement;
+        pre.classList.add('hljs-pre');
+
+        // Force background and base text color via inline styles (beats browser extensions)
+        pre.style.setProperty('background', palette._bg, 'important');
+        pre.style.setProperty('border-color', palette._border, 'important');
+        el.style.setProperty('color', palette._base, 'important');
+        el.style.setProperty('background', 'transparent', 'important');
+
+        // Force token colors via inline styles
+        el.querySelectorAll('[class]').forEach(span => {
+            for (const cls of span.classList) {
+                if (cls.startsWith('hljs-')) {
+                    const token = cls.slice(5); // strip 'hljs-'
+                    const color = palette[token];
+                    if (color) { span.style.setProperty('color', color, 'important'); break; }
+                }
+            }
+        });
+
+        // Language label
+        const langClass = [...el.classList].find(c => c.startsWith('language-'));
+        if (langClass) {
+            const lang = langClass.replace('language-', '');
+            if (lang && lang !== 'plaintext' && !pre.querySelector('.hljs-lang-label')) {
+                const label = document.createElement('span');
+                label.className = 'hljs-lang-label';
+                label.textContent = lang;
+                pre.insertBefore(label, el);
+            }
+        }
+    });
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     // Clear wikilink cache on page load to ensure fresh data
     wikilinkMap = null;
     
-    // Configure marked for proper fenced code handling
+    // Configure marked options
     if (typeof marked !== 'undefined') {
         try {
-            if (typeof marked.setOptions === 'function') {
-                marked.setOptions({
-                    gfm: true,
-                    breaks: false,
-                    headerIds: true,
-                    mangle: false,
-                    smartLists: true,
-                });
-            }
+            const opts = { gfm: true, breaks: false, mangle: false, smartLists: true };
+            if (typeof marked.use === 'function') marked.use(opts);
+            else if (typeof marked.setOptions === 'function') marked.setOptions(opts);
         } catch (e) { /* ignore */ }
     }
 
@@ -1827,6 +1909,9 @@ function renderPreview() {
             try { mermaid.run({ nodes: preview.querySelectorAll('.mermaid') }); } catch(e) { console.warn('Mermaid:', e); }
         }
 
+        // Syntax highlight remaining code blocks with highlight.js
+        applyHljs(preview);
+
         // After rendering, if in split mode, preserve approximate scroll position
         if (previewMode === 'split') {
             const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
@@ -2935,26 +3020,36 @@ async function searchAndLoadNote(noteName) {
     }
 }
 
+function applyHljsTheme(isLight) {
+    const dark  = document.getElementById('hljs-theme-dark');
+    const light = document.getElementById('hljs-theme-light');
+    if (dark)  dark.disabled  = isLight;
+    if (light) light.disabled = !isLight;
+}
+
 // Theme toggle
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
     localStorage.setItem('grove-theme', isLight ? 'light' : 'dark');
-    
+
     const icon = document.querySelector('#theme-toggle i');
     icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+    applyHljsTheme(isLight);
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: isLight ? 'default' : 'dark' });
-        renderPreview();
     }
+    renderPreview();
 }
 
 function loadTheme() {
     const theme = localStorage.getItem('grove-theme') || 'dark';
-    if (theme === 'light') {
+    const isLight = theme === 'light';
+    if (isLight) {
         document.body.classList.add('light-theme');
         document.querySelector('#theme-toggle i').className = 'fas fa-sun';
     }
+    applyHljsTheme(isLight);
 }
 
 // Full-screen toggle
