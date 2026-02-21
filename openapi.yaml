@@ -16,9 +16,13 @@ tags:
   - name: Notes
     description: Create, read, update, delete notes
   - name: Folders
-    description: Create, move, rename folders
+    description: Create, move, rename, delete folders
   - name: Search & Tags
     description: Search notes and manage tags
+  - name: Graph & Links
+    description: Wikilink graph, backlinks, and wikilink resolution map
+  - name: Calendar
+    description: Calendar view of dated notes
   - name: Templates
     description: Manage note templates
   - name: Daily & Meeting
@@ -35,6 +39,8 @@ tags:
     description: File uploads, serving, and attachments
   - name: Export
     description: JSONL/JSON export for LLM pipelines
+  - name: LLM
+    description: Optional LLM integration for AI-assisted writing
 paths:
   /api/tree:
     get:
@@ -911,6 +917,271 @@ paths:
                 type: string
                 description: Concatenated markdown with headers and metadata
 
+  /api/folder/{path}:
+    delete:
+      tags: [Folders]
+      summary: Delete a folder
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Folder path relative to vault root
+      responses:
+        '200':
+          description: Folder deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Folder not empty or invalid path
+        '404':
+          description: Folder not found
+
+  /api/folders:
+    get:
+      tags: [Folders]
+      summary: List all folders in the vault
+      description: Returns a sorted list of all folder paths relative to the vault root, excluding hidden directories.
+      responses:
+        '200':
+          description: List of folder paths
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/backlinks/{path}:
+    get:
+      tags: [Graph & Links]
+      summary: Get backlinks for a note
+      description: Returns all notes that contain a wikilink pointing to this note (by title, filename, or path).
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Note path relative to vault root
+      responses:
+        '200':
+          description: Backlink results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  note:
+                    type: string
+                  title:
+                    type: string
+                  backlinks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        title:
+                          type: string
+                  count:
+                    type: integer
+        '404':
+          description: Note not found
+
+  /api/wikilink-map:
+    get:
+      tags: [Graph & Links]
+      summary: Get wikilink resolution map
+      description: Returns a flat object mapping lowercased titles, filename stems, and paths to their vault-relative file paths. Used for resolving `[[wikilinks]]` to actual notes.
+      responses:
+        '200':
+          description: Title/name to path map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                description: Keys are lowercased title/filename variants; values are vault-relative paths
+
+  /api/graph:
+    get:
+      tags: [Graph & Links]
+      summary: Get note graph data
+      description: Returns all notes as nodes and all wikilink connections as edges for graph visualisation.
+      responses:
+        '200':
+          description: Graph nodes and edges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Vault-relative path
+                        label:
+                          type: string
+                        title:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                        to:
+                          type: string
+
+  /api/calendar:
+    get:
+      tags: [Calendar]
+      summary: Get calendar data
+      description: |
+        Returns all notes that have a date (`YYYY-MM-DD`) or week (`YYYY-WNN`) in their filename,
+        grouped by date string. Weekly planners are mapped to their Monday date.
+      responses:
+        '200':
+          description: Date-keyed map of notes
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      path:
+                        type: string
+                      title:
+                        type: string
+                      type:
+                        type: string
+                        enum: [daily, meeting, planner, note]
+
+  /api/upload/bulk:
+    post:
+      tags: [Files & Images]
+      summary: Bulk upload files
+      description: Upload multiple files to a specified vault folder in a single request.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: One or more files to upload
+                folder:
+                  type: string
+                  description: Target folder path relative to vault root (empty for vault root)
+      responses:
+        '200':
+          description: Upload results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  uploaded:
+                    type: array
+                    items:
+                      type: string
+                    description: Paths of successfully uploaded files
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                    description: Error messages for any failed uploads
+
+  /api/llm/status:
+    get:
+      tags: [LLM]
+      summary: Get LLM configuration status
+      description: Returns whether the LLM integration is enabled and configured. Never exposes the API key.
+      responses:
+        '200':
+          description: LLM status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    description: Whether GROVE_LLM_ENABLED=true
+                  effective:
+                    type: boolean
+                    description: Whether the LLM is fully configured and usable
+                  provider:
+                    type: string
+                    description: LLM provider (openai, anthropic, ollama, or custom)
+                  needs_api_key:
+                    type: boolean
+                    description: True when provider requires an API key but none is set
+
+  /api/llm:
+    post:
+      tags: [LLM]
+      summary: Generate text via LLM
+      description: |
+        Sends a prompt (and optional selected text) to the configured LLM and returns the generated text.
+        Returns 403 if LLM is disabled or not fully configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  description: Instruction or prompt text
+                selection:
+                  type: string
+                  description: Selected text from the editor to pass as context
+      responses:
+        '200':
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: Generated text from the LLM
+                  model:
+                    type: string
+                    description: Model identifier used
+        '400':
+          description: Missing prompt
+        '403':
+          description: LLM disabled or not configured
+
 components:
   parameters:
     NotePath:
@@ -1003,10 +1274,19 @@ components:
           type: string
         email:
           type: string
+        phone:
+          type: string
+        zoom_id:
+          type: string
+          description: Zoom personal meeting ID or link
         company:
           type: string
+        profile_id:
+          type: string
+          description: ID of the contact's profile note (template profile)
         template:
           type: string
+          description: Template name used for the contact's note page
 
     ContactInput:
       type: object
@@ -1019,10 +1299,19 @@ components:
           type: string
         email:
           type: string
+        phone:
+          type: string
+        zoom_id:
+          type: string
+          description: Zoom personal meeting ID or link
         company:
           type: string
+        profile_id:
+          type: string
+          description: ID of the contact's profile note (template profile)
         template:
           type: string
+          description: Template name used for the contact's note page
 
     UploadResponse:
       type: object
