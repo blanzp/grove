@@ -499,6 +499,7 @@ function setHashOpen(path) {
 }
 
 async function loadNote(path, forceEditMode = false) {
+    closeMobileMenu(); // close sidebar on mobile whenever a note is opened
     const response = await fetch(`/api/note/${path}`);
     const note = await response.json();
     
@@ -2843,6 +2844,11 @@ async function confirmDeleteFolder() {
 
         if (response.ok) {
             showNotification('Folder deleted');
+            // If the currently open note was inside the deleted folder, reset to splash
+            if (currentNote && currentNote.startsWith(folderPath + '/')) {
+                currentNote = null;
+                showSplash(true);
+            }
             await loadTree();
             pendingDeleteFolder = null;
         } else {
@@ -3147,6 +3153,17 @@ function toggleFullscreen() {
     const icon = document.querySelector('#fullscreen-toggle i');
     const isFullscreen = document.body.classList.contains('fullscreen');
     icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+}
+
+function closeMobileMenu() {
+    if (window.innerWidth > 768) return;
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    sidebar.classList.remove('mobile-open');
+    const btn = document.getElementById('sidebar-collapse');
+    if (btn) btn.textContent = '☰';
+    const editor = document.getElementById('editor');
+    if (editor) editor.focus();
 }
 
 function toggleSidebar() {
