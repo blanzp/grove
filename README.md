@@ -69,7 +69,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Tag filter** — filter notes by tag from the sidebar dropdown
 - **Daily notes** — one-click daily log creation using customizable template
 - **Templates** — create, edit, and delete body-only note templates (Grove manages frontmatter)
-- **Document types** — auto-set `type` in frontmatter based on template (meeting, decision, research, reflection, execution, daily, note)
+- **Document types** — auto-set `type` in frontmatter based on template (`note`, `meeting`, `decision`, `research`, `reflection`, `execution`, `daily`)
 - **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
 - **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
 
@@ -81,7 +81,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Wikilink detection** — automatically detects `[[wikilinks]]` to build connections
 
 ### 👥 Contacts
-- **Contact management** — full CRUD with fields: ID, first name, last name, email, phone, zoom ID, company
+- **Contact management** — full CRUD with fields: ID, first name, last name, email, phone, office phone, mobile phone, zoom ID, company, title, department, note
 - **@ mention autocomplete** — type `@` in the editor to search and insert contacts
 - **Template profiles** — create multiple contact templates with customizable name format, email, phone, and zoom URL patterns
 - **Smart icons** — Font Awesome icons (📧 email, 📞 phone, 🎥 zoom) appear as clickable links in mentions
@@ -128,16 +128,17 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+S` | Save note |
 | `Ctrl+N` | New note |
 | `Ctrl+D` | New daily note |
-| `Ctrl+P` | Toggle preview |
+| `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
-| `Ctrl+K` | Focus search |
+| `Ctrl+K` | Open search modal |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+L` | Insert link |
 | `Ctrl+M` | New meeting note |
+| `Ctrl+C` | Open contacts (when no text selected) |
 | `Ctrl+V` | Paste image from clipboard |
 | `F2` | Rename note |
-| `Delete` | Delete note |
+| `Delete` | Delete note (when not in text field) |
 | `F11` | Toggle fullscreen |
 | `Escape` | Exit fullscreen |
 | `@` | Trigger contact autocomplete |
@@ -183,6 +184,7 @@ Grove uses [Marked.js](https://marked.js.org/) v4.3.0 with GitHub Flavored Markd
 | `@name` | Contact mention (autocomplete in editor) |
 | TOC button | Generates linked Table of Contents from H2–H4 |
 | ` ```mermaid ` | Mermaid diagrams (flowcharts, sequence, Gantt, pie, ER, git graphs) |
+| ` ```js `, ` ```python `, etc. | Syntax-highlighted code blocks (Highlight.js, lazy-loaded) |
 
 ### HTML Passthrough
 
@@ -201,7 +203,6 @@ Marked.js passes raw HTML through to the preview. These all work:
 
 | Feature | Notes |
 |---------|-------|
-| Syntax highlighting | No Prism.js/Highlight.js (code blocks render unstyled) |
 | LaTeX / Math | `$x^2$` renders as plain text |
 | Admonitions / Callouts | Obsidian-style `> [!note]` not supported |
 | Multi-paragraph footnotes | Single-line footnote bodies only |
@@ -237,12 +238,13 @@ Your notes are stored at `~/.grove/vaults/` (e.g., `/home/you/.grove/vaults/defa
 
 ### Running on a Network
 
-By default, Grove binds to `0.0.0.0:5000`, so it's accessible from other devices on your network. Open `http://<your-ip>:5000` on your phone or tablet.
+By default, Grove binds to `127.0.0.1:5000` (localhost only). To make it accessible from other devices on your network:
 
-To restrict to local-only access (recommended for agent/API use):
 ```bash
-GROVE_HOST=127.0.0.1 python app.py
+GROVE_HOST=0.0.0.0 python app.py
 ```
+
+Then open `http://<your-ip>:5000` on your phone or tablet.
 
 ### Optional: Run as a systemd service (Linux)
 
@@ -325,7 +327,7 @@ Grove exclusively manages YAML frontmatter. You cannot edit it directly — use 
 ### Contacts
 Click the **📒 address book icon** to manage contacts.
 
-**Fields:** ID, first name, last name, email, phone, zoom ID, company, profile selection
+**Fields:** ID, first name, last name, email, phone, office phone, mobile phone, zoom ID, company, title, department, note, profile selection
 
 **Template Profiles:** Create custom templates for how contacts are rendered. Each profile has:
 - **Name template** — format for displaying the name (e.g., `{{first_name}} {{last_name}}`)
@@ -446,6 +448,13 @@ Returns concatenated markdown with title/date headers and bodies only.
 
 ## Configuration
 
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GROVE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for network access) |
+| `GROVE_PORT` | `5000` | Server port |
+
 ### Per-Vault Config (`vault/.grove/config.json`)
 ```json
 {
@@ -526,6 +535,8 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | `POST` | `/api/note/<path>/star` | Toggle `starred` in frontmatter |
 | **Folders** | | |
 | `POST` | `/api/folder` | Create new folder |
+| `GET` | `/api/folders` | List all folders in vault |
+| `DELETE` | `/api/folder/<path>` | Delete a folder and contents |
 | `POST` | `/api/move` | Move a file |
 | `POST` | `/api/move-folder` | Move a folder |
 | `POST` | `/api/rename` | Rename a file |
@@ -544,6 +555,7 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | **Files & Images** | | |
 | `GET` | `/api/file/<path>` | Serve any file from vault |
 | `POST` | `/api/upload` | Upload file (multipart form) |
+| `POST` | `/api/upload/bulk` | Upload multiple files |
 | `POST` | `/api/upload/paste` | Upload pasted image (base64) |
 | **Contacts** | | |
 | `GET` | `/api/contacts` | List all contacts |
@@ -557,6 +569,11 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | `POST` | `/api/vaults/switch` | Switch active vault |
 | `POST` | `/api/vaults/delete` | Delete a vault |
 | `GET` | `/api/vaults/export` | Export active vault as ZIP |
+| **Graph & Backlinks** | | |
+| `GET` | `/api/backlinks/<path>` | Get notes linking to this note |
+| `GET` | `/api/graph` | Get graph data (nodes + edges) |
+| `GET` | `/api/wikilink-map` | Get title/filename → path mapping |
+| `GET` | `/api/calendar` | Get dated notes for calendar view |
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
@@ -569,6 +586,9 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 - **Backend:** Flask (Python) — single dependency
 - **Frontend:** Vanilla JavaScript (no frameworks)
 - **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0 (GFM enabled)
+- **Syntax Highlighting:** [Highlight.js](https://highlightjs.org/) (lazy-loaded)
+- **Diagrams:** [Mermaid.js](https://mermaid.js.org/) v10 (flowcharts, sequence, Gantt, pie, ER, C4, etc.)
+- **Graph View:** [Vis.js Network](https://visjs.github.io/vis-network/)
 - **Icons:** [Font Awesome](https://fontawesome.com/) 6.4.0
 - **Styling:** CSS custom properties for theming
 - **Storage:** Flat markdown files — no database
