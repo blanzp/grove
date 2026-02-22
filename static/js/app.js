@@ -426,7 +426,7 @@ function renderTree(items, container, level = 0) {
 
             // Add context menu for folders (right-click to delete)
             itemDiv.addEventListener('contextmenu', (e) => {
-                console.log('Context menu triggered for folder:', item.name);
+
                 e.preventDefault();
                 e.stopPropagation();
                 showFolderContextMenu(e, item.path, item.name);
@@ -450,7 +450,7 @@ function renderTree(items, container, level = 0) {
 
             // Add context menu for assets (right-click to delete)
             itemDiv.addEventListener('contextmenu', (e) => {
-                console.log('Context menu triggered for asset:', item.name);
+
                 e.preventDefault();
                 e.stopPropagation();
                 showFileContextMenu(e, item.path, item.name);
@@ -470,7 +470,7 @@ function renderTree(items, container, level = 0) {
 
             // Add context menu for files (right-click to delete)
             itemDiv.addEventListener('contextmenu', (e) => {
-                console.log('Context menu triggered for file:', item.name);
+
                 e.preventDefault();
                 e.stopPropagation();
                 showFileContextMenu(e, item.path, item.name);
@@ -2836,14 +2836,14 @@ function hideModal(id) {
 
 // Image preview modal
 function openImagePreview(url, name, path) {
-    console.log('openImagePreview called:', url, name, path);
+
     const modal = document.getElementById('image-preview-modal');
     const img = document.getElementById('image-preview-img');
     const title = document.getElementById('image-preview-title');
     const modalContent = document.getElementById('image-modal-content');
     const imageContainer = document.getElementById('image-container');
 
-    console.log('Elements found:', { modal: !!modal, img: !!img, title: !!title, modalContent: !!modalContent, imageContainer: !!imageContainer });
+
 
     if (!modal || !img || !title || !modalContent || !imageContainer) {
         console.error('Modal elements not found:', { modal, img, title, modalContent, imageContainer });
@@ -2995,7 +2995,7 @@ function deleteNote() {
 }
 
 function showFileContextMenu(e, filePath, fileName) {
-    console.log('showFileContextMenu called:', filePath, fileName);
+
     pendingDeleteNote = { path: filePath, name: fileName };
     const displayName = fileName.replace(/\.md$/, '');
     document.getElementById('delete-note-name').textContent = displayName;
@@ -3058,7 +3058,7 @@ async function confirmDeleteNote() {
 let pendingDeleteFolder = null;
 
 function showFolderContextMenu(e, folderPath, folderName) {
-    console.log('showFolderContextMenu called:', folderPath, folderName);
+
     // For now, directly show delete confirmation modal
     // In the future, could show a proper context menu with multiple options
     pendingDeleteFolder = { path: folderPath, name: folderName };
@@ -3332,14 +3332,14 @@ async function searchAndLoadNote(noteName) {
                 throw new Error(`Failed to load wikilink map: ${response.status}`);
             }
             wikilinkMap = await response.json();
-            console.log('Wikilink map loaded:', Object.keys(wikilinkMap).length, 'notes');
+
         }
         
         // Try exact match (case-insensitive)
         const normalizedName = noteName.toLowerCase().trim();
         const path = wikilinkMap[normalizedName];
         
-        console.log('Resolving wikilink:', noteName, '→', path);
+
         
         if (path) {
             loadNote(path);
