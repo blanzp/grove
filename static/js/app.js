@@ -3213,6 +3213,52 @@ function setupMarkdownToolbar() {
     });
 }
 
+// Apply a line prefix (bullet, number, checkbox) to selected lines, or toggle it off.
+function applyLinePrefix(action, editor, start, end, text) {
+    // Expand selection to full lines
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = end === text.length || text[end] === '\n' ? end : text.indexOf('\n', end);
+    const actualEnd = lineEnd === -1 ? text.length : lineEnd;
+
+    const selectedText = text.substring(lineStart, actualEnd);
+    const lines = selectedText.split('\n');
+
+    // Determine the prefix pattern for this action
+    const prefixPatterns = {
+        'ul':       /^- /,
+        'ol':       /^\d+\. /,
+        'checkbox': /^- \[[ x]\] /
+    };
+    const pattern = prefixPatterns[action];
+
+    // Check if ALL non-empty lines already have the prefix (toggle off)
+    const nonEmpty = lines.filter(l => l.trim().length > 0);
+    const allHavePrefix = nonEmpty.length > 0 && nonEmpty.every(l => pattern.test(l));
+
+    let result;
+    if (allHavePrefix) {
+        // Remove prefix from each line
+        result = lines.map(l => l.replace(pattern, '')).join('\n');
+    } else {
+        // Add prefix to each non-empty line
+        result = lines.map((l, i) => {
+            if (l.trim().length === 0) return l;
+            // Remove existing list prefixes before adding new one
+            const cleaned = l.replace(/^(- \[[ x]\] |- |\d+\. )/, '');
+            if (action === 'ul') return '- ' + cleaned;
+            if (action === 'ol') return (i + 1) + '. ' + cleaned;
+            if (action === 'checkbox') return '- [ ] ' + cleaned;
+            return l;
+        }).join('\n');
+    }
+
+    editor.value = text.substring(0, lineStart) + result + text.substring(actualEnd);
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + result.length;
+    editor.focus();
+    editor.dispatchEvent(new Event('input'));
+}
+
 function applyMarkdownAction(action, editor) {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
@@ -3248,18 +3294,10 @@ function applyMarkdownAction(action, editor) {
             insert = selected || 'Heading 3';
             break;
         case 'ul':
-            before = getLinePrefix(text, start) + '- '; after = '';
-            insert = selected || 'list item';
-            break;
         case 'ol':
-            before = getLinePrefix(text, start) + '1. '; after = '';
-            insert = selected || 'list item';
-            break;
         case 'checkbox':
-            // Insert with leading dash; preview will hide bullets for task items
-            before = getLinePrefix(text, start) + '- [ ] '; after = '';
-            insert = selected || 'task';
-            break;
+            applyLinePrefix(action, editor, start, end, text);
+            return;
         case 'link':
             if (selected) {
                 before = '['; after = '](url)';
