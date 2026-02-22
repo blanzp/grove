@@ -758,6 +758,37 @@ html, body, .app-container, .main-content {
     padding: 0;
 }
 
+/* Mermaid copy button */
+.mermaid {
+    position: relative;
+}
+
+.mermaid-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.mermaid:hover .mermaid-copy-btn {
+    opacity: 1;
+}
+
+.mermaid-copy-btn:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
 /* highlight.js integration — .hljs-pre is added by applyHljs() */
 .preview-container pre.hljs-pre {
     padding: 16px;

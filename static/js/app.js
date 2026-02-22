@@ -10,6 +10,92 @@ let allContacts = [];
 let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
 let wikilinkMap = null; // Cache for wikilink title-to-path mapping
 
+// Convert a mermaid SVG element to a PNG Blob (2× resolution).
+async function svgToPngBlob(svgEl) {
+    const rect = svgEl.getBoundingClientRect();
+    const width  = rect.width  || svgEl.viewBox.baseVal.width  || 800;
+    const height = rect.height || svgEl.viewBox.baseVal.height || 600;
+
+    const cloned = svgEl.cloneNode(true);
+    cloned.setAttribute('width',  width);
+    cloned.setAttribute('height', height);
+    // White background rectangle so PNG isn't transparent
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%');
+    bg.setAttribute('fill', 'white');
+    cloned.insertBefore(bg, cloned.firstChild);
+
+    const svgData = new XMLSerializer().serializeToString(cloned);
+    const url = URL.createObjectURL(new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' }));
+
+    const img = new Image();
+    img.src = url;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width  = width  * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    URL.revokeObjectURL(url);
+
+    return new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+}
+
+async function copyMermaidAsPng(svgEl, btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳';
+
+    const reset = (label) => {
+        btn.innerHTML = '<i class="fas fa-copy"></i> Copy PNG';
+        btn.disabled = false;
+        if (label) { btn.textContent = label; setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy PNG'; }, 2000); }
+    };
+
+    // Fallback: download as PNG file
+    const downloadFallback = async () => {
+        try {
+            const blob = await svgToPngBlob(svgEl);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'diagram.png'; a.click();
+            URL.revokeObjectURL(url);
+            reset('✓ Downloaded');
+        } catch (e) { reset('✗ Failed'); }
+    };
+
+    if (navigator.clipboard && window.ClipboardItem) {
+        try {
+            // Pass Promise directly — required to preserve user-gesture in Safari
+            await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': svgToPngBlob(svgEl) })
+            ]);
+            reset('✓ Copied');
+        } catch (e) {
+            console.warn('Clipboard write failed, trying download:', e);
+            await downloadFallback();
+        }
+    } else {
+        await downloadFallback();
+    }
+}
+
+function addMermaidCopyButtons(container) {
+    container.querySelectorAll('.mermaid svg').forEach(svg => {
+        const wrapper = svg.closest('.mermaid');
+        if (!wrapper || wrapper.querySelector('.mermaid-copy-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'mermaid-copy-btn';
+        btn.innerHTML = '<i class="fas fa-copy"></i> Copy PNG';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); copyMermaidAsPng(svg, btn); });
+        wrapper.appendChild(btn);
+    });
+}
+
 // Token colors sourced directly from atom-one-dark / atom-one-light themes.
 // Applied as inline styles so browser extensions (e.g. Dark Reader) can't override them.
 const HLJS_COLORS = {
@@ -1906,7 +1992,10 @@ function renderPreview() {
                 div.textContent = block.textContent;
                 pre.replaceWith(div);
             });
-            try { mermaid.run({ nodes: preview.querySelectorAll('.mermaid') }); } catch(e) { console.warn('Mermaid:', e); }
+            (async () => {
+                try { await mermaid.run({ nodes: preview.querySelectorAll('.mermaid') }); } catch(e) { console.warn('Mermaid:', e); }
+                addMermaidCopyButtons(preview);
+            })();
         }
 
         // Syntax highlight remaining code blocks with highlight.js
