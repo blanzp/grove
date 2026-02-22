@@ -1906,18 +1906,83 @@ function togglePreview() {
 let lastEditorScrollRatio = 0;
 let suppressPreviewScroll = false;
 
-function handleEditorScrollSync() {
-    if (previewMode === 'split') {
-        const editor = document.getElementById('editor');
-        const preview = document.getElementById('preview');
-        const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
-        lastEditorScrollRatio = editor.scrollTop / maxEditor;
-        const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
-        suppressPreviewScroll = true;
-        preview.scrollTop = lastEditorScrollRatio * maxPrev;
-        // small timeout to avoid feedback loops if we later add reverse sync
-        setTimeout(() => suppressPreviewScroll = false, 10);
+// Get an element's top position relative to a scrollable container's content.
+function getTopRelativeTo(el, container) {
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    return elRect.top - containerRect.top + container.scrollTop;
+}
+
+// Build a section map pairing editor heading line indices with preview heading elements.
+function buildSectionMap(editorText, preview) {
+    const lines = editorText.split('\n');
+    const editorHeadingLines = [];
+    lines.forEach((line, i) => {
+        if (/^#{1,6}\s/.test(line)) editorHeadingLines.push(i);
+    });
+
+    const previewHeadings = Array.from(preview.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    const count = Math.min(editorHeadingLines.length, previewHeadings.length);
+    const map = [];
+    for (let i = 0; i < count; i++) {
+        map.push({ lineIndex: editorHeadingLines[i], el: previewHeadings[i] });
     }
+    return map;
+}
+
+function handleEditorScrollSync() {
+    if (previewMode !== 'split') return;
+
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+
+    const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
+    lastEditorScrollRatio = editor.scrollTop / maxEditor;
+
+    const text = editor.value || '';
+    const map = buildSectionMap(text, preview);
+
+    if (map.length < 2) {
+        // Fewer than 2 headings — fall back to ratio sync
+        suppressPreviewScroll = true;
+        preview.scrollTop = lastEditorScrollRatio * Math.max(1, preview.scrollHeight - preview.clientHeight);
+        setTimeout(() => suppressPreviewScroll = false, 10);
+        return;
+    }
+
+    // Average pixel height per line in the editor
+    const totalLines = Math.max(1, text.split('\n').length);
+    const lineHeight = editor.scrollHeight / totalLines;
+    const topLine = editor.scrollTop / lineHeight;
+
+    // Find the section whose start is <= topLine (last such heading)
+    let sectionIdx = 0;
+    for (let i = 0; i < map.length; i++) {
+        if (topLine >= map[i].lineIndex) sectionIdx = i;
+        else break;
+    }
+
+    const secStart = map[sectionIdx];
+    const secEnd   = map[sectionIdx + 1]; // undefined for the last section
+
+    // Editor pixel bounds for this section
+    const editorSecTop    = secStart.lineIndex * lineHeight;
+    const editorSecBottom = secEnd ? secEnd.lineIndex * lineHeight : editor.scrollHeight;
+
+    // Progress through the editor section (0–1)
+    const progress = Math.max(0, Math.min(1,
+        (editor.scrollTop - editorSecTop) / Math.max(1, editorSecBottom - editorSecTop)
+    ));
+
+    // Preview pixel bounds for this section (relative to preview scroll content)
+    const previewSecTop    = getTopRelativeTo(secStart.el, preview);
+    const previewSecBottom = secEnd ? getTopRelativeTo(secEnd.el, preview) : preview.scrollHeight;
+
+    const targetScrollTop = previewSecTop + progress * (previewSecBottom - previewSecTop);
+
+    suppressPreviewScroll = true;
+    preview.scrollTop = Math.max(0, targetScrollTop);
+    setTimeout(() => suppressPreviewScroll = false, 10);
 }
 
 function renderPreview() {
@@ -2002,10 +2067,9 @@ function renderPreview() {
         // Syntax highlight remaining code blocks with highlight.js
         applyHljs(preview);
 
-        // After rendering, if in split mode, preserve approximate scroll position
+        // After rendering, re-sync scroll position using section-based sync
         if (previewMode === 'split') {
-            const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
-            preview.scrollTop = lastEditorScrollRatio * maxPrev;
+            handleEditorScrollSync();
         }
     } catch (error) {
         preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Error rendering markdown:<br>' + error.message + '</div>';
