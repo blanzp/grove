@@ -568,7 +568,7 @@ body.light-theme .editor-actions button {
 
 .editor-container.split-view #editor {
     width: 50%;
-    flex: 1;
+    flex: none;
     border: 1px solid var(--border-color);
 }
 
@@ -627,9 +627,29 @@ body.light-theme .editor-actions button {
     box-sizing: border-box;
 }
 
+/* Draggable split divider */
+.split-divider {
+    display: none;
+}
+
+.editor-container.split-view .split-divider {
+    display: block;
+    width: 5px;
+    cursor: col-resize;
+    background: var(--border-color);
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.editor-container.split-view .split-divider:hover,
+.editor-container.split-view .split-divider.dragging {
+    background: var(--accent-color, #007acc);
+}
+
 .editor-container.split-view .preview-container {
     display: block !important;
-    width: 50%;
+    flex: 1;
+    min-width: 150px;
     height: 100%;
     overflow-y: auto;
 }
