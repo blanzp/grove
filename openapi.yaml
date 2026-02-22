@@ -1139,6 +1139,14 @@ paths:
                   provider:
                     type: string
                     description: LLM provider (openai, anthropic, ollama, or custom)
+                  model:
+                    type: string
+                    description: Currently configured default model
+                  models:
+                    type: array
+                    items:
+                      type: string
+                    description: List of available models for the model selector
                   needs_api_key:
                     type: boolean
                     description: True when provider requires an API key but none is set
@@ -1163,6 +1171,9 @@ paths:
                 selection:
                   type: string
                   description: Selected text from the editor to pass as context
+                model:
+                  type: string
+                  description: Override the default model for this request
       responses:
         '200':
           description: Generated text
@@ -1181,6 +1192,37 @@ paths:
           description: Missing prompt
         '403':
           description: LLM disabled or not configured
+
+  /share:
+    get:
+      tags: [Notes]
+      summary: Web Share Target endpoint
+      description: |
+        Receives shared content from the Web Share Target API (Android PWA) or iOS Shortcuts.
+        Serves the main app; JavaScript detects the query params and shows a share modal.
+      parameters:
+        - name: url
+          in: query
+          schema:
+            type: string
+          description: Shared URL
+        - name: title
+          in: query
+          schema:
+            type: string
+          description: Shared page title
+        - name: text
+          in: query
+          schema:
+            type: string
+          description: Shared text content
+      responses:
+        '200':
+          description: Main app HTML (share modal auto-opens via JS)
+          content:
+            text/html:
+              schema:
+                type: string
 
 components:
   parameters:
