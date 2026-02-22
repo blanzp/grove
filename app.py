@@ -142,6 +142,13 @@ def llm_generate():
     except Exception as ex:
         return jsonify({'error': 'LLM request failed'}), 502
 
+@app.route('/sw.js')
+def serve_sw():
+    response = send_from_directory(str(PROJECT_ROOT / 'static'), 'sw.js', mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
 @app.route('/openapi.yaml')
 def serve_openapi():
     try:
