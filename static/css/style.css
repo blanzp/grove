@@ -866,48 +866,26 @@ html, body, .app-container, .main-content {
 }
 
 /* LLM modal layout tweaks */
-#llm-modal .modal-content { 
-    padding: 14px 16px 8px 16px; 
-    height: auto !important; 
+#llm-modal .modal-content {
+    padding: 16px;
+    height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
     overflow: visible;
 }
-#llm-modal h2 { margin-bottom: 8px; font-size: 18px; }
-#llm-modal .llm-form { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 6px; 
-    height: auto;
-    flex-shrink: 0;
-}
-#llm-modal .modal-actions { margin: 0; padding: 0; }
-#llm-modal #llm-status-note:empty { display: none; }
+#llm-modal h2 { margin-bottom: 10px; font-size: 18px; }
+#llm-modal .llm-form { display: flex; flex-direction: column; gap: 10px; }
 #llm-modal .form-group { width: 100%; margin: 0; }
-#llm-modal .form-row { display: flex; align-items: center; gap: 8px; }
-#llm-modal .llm-textarea { width: 100%; min-height: 60px; resize: vertical; margin: 0; font-size: 15px; line-height: 1.5; }
-#llm-modal .llm-select { width: 100%; max-width: 280px; }
-#llm-modal .checkbox-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-#llm-modal .block-label { display: block; margin-bottom: 4px; }
-#llm-modal .inline-label { margin-right: 8px; margin-left: 8px; white-space: nowrap; }
-#llm-modal .form-inline { display: flex; align-items: center; white-space: nowrap; }
-#llm-modal .llm-controls { 
-    display: flex; 
-    align-items: center; 
-    gap: 16px; 
-    flex-wrap: wrap; 
-    margin: 0;
-    height: auto;
-    flex-shrink: 0;
-    row-gap: 10px;
-}
-#llm-modal .checkbox-label { flex-shrink: 0; min-width: fit-content; }
-#llm-modal .form-inline { flex-shrink: 0; min-width: fit-content; }
-#llm-modal .llm-controls .spacer { flex: 1; min-width: 0; }
-#llm-modal .modal-actions.right { justify-content: flex-end; }
-#llm-modal .modal-actions.compact { margin-top: 0; }
-#llm-modal .small-text { font-size: 12px; }
-#llm-modal .muted { color: var(--text-secondary); }
+#llm-modal .llm-textarea { width: 100%; min-height: 60px; resize: vertical; margin: 0; font-size: 15px; line-height: 1.5; box-sizing: border-box; }
+#llm-modal .llm-controls { display: flex; flex-direction: column; gap: 10px; }
+#llm-modal .llm-options-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#llm-modal .llm-options-row label.checkbox-label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px; }
+#llm-modal .llm-options-row .inline-label { white-space: nowrap; font-size: 14px; margin: 0; }
+#llm-modal .llm-options-row select { font-size: 14px; padding: 4px 6px; }
+#llm-modal .llm-actions-row { display: flex; align-items: center; gap: 8px; }
+#llm-modal .llm-actions-row .spacer { flex: 1; }
+#llm-modal #llm-status-note { font-size: 12px; color: var(--text-secondary); }
+#llm-modal #llm-status-note:empty { display: none; }
 
 /* Modals */
 .modal {

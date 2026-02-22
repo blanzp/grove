@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#1a2318">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260221p">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260222a">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link id="hljs-theme-dark"  rel="stylesheet" href="/static/css/atom-one-dark.min.css">
@@ -353,18 +353,18 @@
                     <textarea id="llm-prompt" class="llm-textarea" placeholder="Enter your prompt (e.g., Rewrite to be concise, Summarize, Expand)..."></textarea>
                 </div>
                 <div class="llm-controls">
-                    <label class="checkbox-label"><input type="checkbox" id="llm-include-selection" checked> <span>Include current selection</span></label>
-                    <div class="form-inline">
-                        <label for="llm-insert-mode" class="inline-label">Insert mode:</label>
+                    <div class="llm-options-row">
+                        <label class="checkbox-label"><input type="checkbox" id="llm-include-selection" checked> <span>Include selection</span></label>
+                        <select id="llm-model-select" class="llm-select"></select>
                         <select id="llm-insert-mode" class="llm-select">
                             <option value="below">Below selection</option>
                             <option value="replace">Replace selection</option>
                             <option value="cursor">At cursor</option>
                         </select>
                     </div>
-                    <div class="spacer"></div>
-                    <div id="llm-status-note" class="muted small-text"></div>
-                    <div class="modal-actions right compact">
+                    <div class="llm-actions-row">
+                        <div id="llm-status-note" class="muted small-text"></div>
+                        <div class="spacer"></div>
                         <button class="btn-primary" id="llm-run-btn"><i class="fas fa-magic"></i> Run</button>
                         <button class="btn-secondary" id="llm-close-btn">Close</button>
                     </div>
@@ -784,7 +784,7 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260221aa"></script>
+    <script src="/static/js/app.js?v=20260222c"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

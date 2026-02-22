@@ -11,6 +11,15 @@ if sys.platform == 'win32':
 from flask import Flask, render_template, request, jsonify, send_file
 from pathlib import Path
 import os
+
+# Load .env file if present (no extra dependency needed)
+_env_path = Path(__file__).parent / '.env'
+if _env_path.exists():
+    for line in _env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            key, _, val = line.partition('=')
+            os.environ.setdefault(key.strip(), val.strip())
 import json
 import re
 import uuid
@@ -26,12 +35,20 @@ PROJECT_ROOT = Path(__file__).parent
 # ─── LLM Config Helpers ───
 
 def _llm_config():
+    provider = os.environ.get('GROVE_LLM_PROVIDER', 'openai').lower()
+    model = os.environ.get('GROVE_LLM_MODEL', '')
+    models_env = os.environ.get('GROVE_LLM_MODELS', '')
+    models = [m.strip() for m in models_env.split(',') if m.strip()] if models_env else []
+    # Ensure the configured default model is in the list
+    if model and model not in models:
+        models.insert(0, model)
     cfg = {
         'enabled': os.environ.get('GROVE_LLM_ENABLED', 'false').lower() == 'true',
-        'provider': os.environ.get('GROVE_LLM_PROVIDER', 'openai').lower(),
+        'provider': provider,
         'endpoint': os.environ.get('GROVE_LLM_ENDPOINT', ''),
         'api_key': os.environ.get('GROVE_LLM_API_KEY', ''),
-        'model': os.environ.get('GROVE_LLM_MODEL', ''),
+        'model': model,
+        'models': models,
         'max_tokens': int(os.environ.get('GROVE_LLM_MAX_TOKENS', '800') or '800'),
         'temperature': float(os.environ.get('GROVE_LLM_TEMPERATURE', '0.3') or '0.3'),
     }
@@ -48,6 +65,8 @@ def llm_status():
         'enabled': cfg['enabled'],
         'effective': cfg['effective'],
         'provider': cfg['provider'],
+        'model': cfg['model'],
+        'models': cfg['models'],
         'needs_api_key': cfg['provider'] != 'ollama' and not bool(os.environ.get('GROVE_LLM_API_KEY', '')),
     })
 
@@ -62,6 +81,10 @@ def llm_generate():
     data = request.json or {}
     prompt = (data.get('prompt') or '').strip()
     selection = (data.get('selection') or '').strip()
+    # Allow model override from request
+    req_model = (data.get('model') or '').strip()
+    if req_model:
+        cfg['model'] = req_model
     # Build final prompt: prefer selection if provided, else prompt only; simple concat when both
     final_prompt = prompt
     if selection:
@@ -69,11 +92,18 @@ def llm_generate():
     if not final_prompt:
         return jsonify({'error': 'prompt required'}), 400
 
+    sys_prompt = ('You are a writing assistant for markdown notes. '
+                  'Always respond in valid markdown. Use full markdown formatting '
+                  'including headings, lists, bold, italic, code blocks, and links '
+                  'where appropriate. Do not include image markdown unless the user '
+                  'explicitly asks for images.')
+
     try:
         if cfg['provider'] == 'ollama':
             url = cfg['endpoint'].rstrip('/') + '/api/generate'
             payload = {
                 'model': cfg['model'],
+                'system': sys_prompt,
                 'prompt': final_prompt,
                 'options': {
                     'temperature': cfg['temperature']
@@ -87,6 +117,7 @@ def llm_generate():
                 'model': cfg['model'],
                 'max_tokens': cfg['max_tokens'],
                 'temperature': cfg['temperature'],
+                'system': sys_prompt,
                 'messages': [
                     { 'role': 'user', 'content': final_prompt }
                 ]
@@ -102,7 +133,7 @@ def llm_generate():
             payload = {
                 'model': cfg['model'],
                 'messages': [
-                    { 'role': 'system', 'content': 'You are a concise writing assistant for markdown notes.' },
+                    { 'role': 'system', 'content': sys_prompt },
                     { 'role': 'user', 'content': final_prompt }
                 ],
                 'temperature': cfg['temperature'],
@@ -138,7 +169,12 @@ def llm_generate():
             out_text = txt
         return jsonify({'text': out_text.strip(), 'model': cfg['model']})
     except urllib.error.HTTPError as e:
-        return jsonify({'error': f'HTTP {e.code}'}), 502
+        body = ''
+        try:
+            body = e.read().decode('utf-8', errors='replace')
+        except Exception:
+            pass
+        return jsonify({'error': f'HTTP {e.code}', 'detail': body}), 502
     except Exception as ex:
         return jsonify({'error': 'LLM request failed'}), 502
 

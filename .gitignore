@@ -15,3 +15,4 @@ vault/*.md
 vault/daily/
 !vault/.templates/
 grove.log
+.env

@@ -701,7 +701,19 @@ function openLlmModal() {
     fetch('/api/llm/status').then(r=>r.json()).then(s => {
         const note = document.getElementById('llm-status-note');
         if (note) {
-            note.textContent = s && s.effective ? `Provider: ${s.provider}` : 'LLM disabled or not configured';
+            note.textContent = s && s.effective ? '' : 'LLM disabled or not configured';
+        }
+        // Populate model dropdown
+        const sel = document.getElementById('llm-model-select');
+        if (sel && s && s.models) {
+            sel.innerHTML = '';
+            s.models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m === s.model) opt.selected = true;
+                sel.appendChild(opt);
+            });
         }
         showModal('llm-modal');
         setTimeout(()=>document.getElementById('llm-prompt').focus(),0);
@@ -717,7 +729,8 @@ async function runLlm() {
     const editor = document.getElementById('editor');
     const runBtn = document.getElementById('llm-run-btn');
     const sel = includeSel ? editor.value.substring(editor.selectionStart, editor.selectionEnd) : '';
-    const payload = { prompt: ta.value, selection: sel };
+    const modelSel = document.getElementById('llm-model-select');
+    const payload = { prompt: ta.value, selection: sel, model: modelSel ? modelSel.value : '' };
     
     // Create abort controller for timeout
     const abortController = new AbortController();
@@ -725,7 +738,8 @@ async function runLlm() {
     
     let loadingToast = null;
     try {
-        // Disable button and show persistent progress toast
+        // Close modal immediately and show progress toast
+        hideModal('llm-modal');
         if (runBtn) runBtn.disabled = true;
         loadingToast = showNotification('LLM thinking...', true); // persistent toast
         
@@ -745,10 +759,12 @@ async function runLlm() {
         
         const text = data.text || '';
         insertLlmText(editor, text, mode);
-        hideModal('llm-modal');
         hideNotification(loadingToast);
         showNotification('✓ Inserted AI output');
-        
+
+        // Re-render preview if visible
+        if (previewMode !== 'edit') renderPreview();
+
         // Trigger autosave soon
         saveNoteUpdated();
     } catch (e) {
