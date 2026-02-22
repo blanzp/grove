@@ -6,9 +6,15 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ## Recent Updates
 
-**Extended Contacts (`extended-contacts` branch)** — Advanced contact management with template profiles, customizable name/email/phone/zoom templates, and Font Awesome icons in @ mentions.
+**Multi-line Lists (`lists` branch)** — Select multiple lines and click the bullet, numbered, or checkbox toolbar button to prefix each line. Toggles off if already applied, switches type if a different prefix exists.
 
-**Bug Fixes (`bugfixes` branch)** — Image preview modal, folder/file deletion via right-click context menu, contacts search/filter, auto-closing upload modal, and formatted email sharing.
+**Split Pane Improvements (`split-panes` branch)** — Draggable split divider to resize editor/preview panes. Accurate section-based scroll sync using a mirror div for word-wrap-aware heading positions, with code fence boundaries as additional anchor points.
+
+**Syntax Highlighting (`highlight-js` branch)** — Code blocks in preview now have syntax highlighting via highlight.js with dark/light theme support. Inline `!important` styles ensure colors aren't overridden by browser extensions.
+
+**Mermaid Copy PNG (`mermaid-copy` branch)** — Hover over a rendered mermaid diagram to reveal a "Copy PNG" button that copies the diagram as a 2x resolution PNG to clipboard.
+
+**Mobile Fixes (`mobile` branch)** — Sidebar closes on file select, search closes modal and opens file tree, folder deletion resets editor if open note was in deleted folder.
 
 ## Table of Contents
 
@@ -40,7 +46,10 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 📝 Editor
 - **Markdown editor** with live preview (edit, split, or preview mode)
+- **Draggable split divider** — resize editor/preview panes by dragging the divider bar
+- **Section-based scroll sync** — split view keeps editor and preview aligned by headings and code blocks, scrolling at different speeds per section
 - **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks, TOC, **tables**
+- **Multi-line list actions** — select multiple lines and apply bullet list, numbered list, or checkbox prefix with toggle support
 - **Table generator** — toolbar button opens dimension picker to insert markdown tables
 - **Auto-save** with 2-second debounce — never lose work
 - **Frontmatter preview** — read-only view of YAML frontmatter (managed by Grove)
@@ -116,6 +125,8 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 ### 🎨 Appearance
 - **Soft green theme** — dark and light modes with CSS variables
 - **Theme toggle** — top-right button to switch between dark and light
+- **Syntax highlighting** — code blocks in preview highlighted via highlight.js (Atom One Dark/Light themes)
+- **Mermaid copy PNG** — hover over rendered mermaid diagrams to copy as 2x PNG to clipboard
 - **Fullscreen mode** — distraction-free writing (F11 or Escape to exit)
 - **Collapsible sidebar** — more room for writing
 - **Welcome splash** — quick actions when no note is selected
@@ -201,7 +212,6 @@ Marked.js passes raw HTML through to the preview. These all work:
 
 | Feature | Notes |
 |---------|-------|
-| Syntax highlighting | No Prism.js/Highlight.js (code blocks render unstyled) |
 | LaTeX / Math | `$x^2$` renders as plain text |
 | Admonitions / Callouts | Obsidian-style `> [!note]` not supported |
 | Multi-paragraph footnotes | Single-line footnote bodies only |
@@ -480,12 +490,15 @@ grove/
 │       └── weekly-planner.md
 ├── static/
 │   ├── css/
-│   │   ├── style.css       # Main styles + CSS variables
-│   │   └── theme.css       # Theme-specific overrides
+│   │   ├── style.css              # Main styles + CSS variables
+│   │   ├── theme.css              # Theme-specific overrides
+│   │   ├── atom-one-dark.min.css  # highlight.js dark theme
+│   │   └── atom-one-light.min.css # highlight.js light theme
 │   ├── js/
-│   │   └── app.js          # Frontend application
-│   ├── grove-logo.png      # App logo
-│   └── favicon.ico         # Browser favicon
+│   │   ├── app.js                 # Frontend application
+│   │   └── highlight.min.js       # highlight.js 11.9.0
+│   ├── grove-logo.png             # App logo
+│   └── favicon.ico                # Browser favicon
 └── templates/
     └── index.html          # Main HTML template
 ```
@@ -569,6 +582,9 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 - **Backend:** Flask (Python) — single dependency
 - **Frontend:** Vanilla JavaScript (no frameworks)
 - **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0 (GFM enabled)
+- **Syntax Highlighting:** [highlight.js](https://highlightjs.org/) 11.9.0 (Atom One Dark/Light)
+- **Diagrams:** [Mermaid.js](https://mermaid.js.org/) 10 (flowcharts, sequence, Gantt, pie, ER, git graphs)
+- **Graph View:** [vis-network](https://visjs.github.io/vis-network/) (interactive knowledge graph)
 - **Icons:** [Font Awesome](https://fontawesome.com/) 6.4.0
 - **Styling:** CSS custom properties for theming
 - **Storage:** Flat markdown files — no database
