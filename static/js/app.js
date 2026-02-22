@@ -1906,18 +1906,191 @@ function togglePreview() {
 let lastEditorScrollRatio = 0;
 let suppressPreviewScroll = false;
 
-function handleEditorScrollSync() {
-    if (previewMode === 'split') {
-        const editor = document.getElementById('editor');
-        const preview = document.getElementById('preview');
-        const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
-        lastEditorScrollRatio = editor.scrollTop / maxEditor;
-        const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
-        suppressPreviewScroll = true;
-        preview.scrollTop = lastEditorScrollRatio * maxPrev;
-        // small timeout to avoid feedback loops if we later add reverse sync
-        setTimeout(() => suppressPreviewScroll = false, 10);
+// --- Section-based scroll sync ---
+// Cached section map: array of { es: editorScrollTop, ps: previewScrollTop } anchor points.
+// Maps editor.scrollTop values directly to preview.scrollTop values.
+// Rebuilt only when preview content changes (in renderPreview).
+let cachedSectionMap = null;
+let scrollSyncRAF = null;
+
+// Measure the pixel offset of each heading line in the textarea using a mirror div.
+// This accounts for word wrapping, unlike lineIndex * avgLineHeight.
+function measureEditorLineOffsets(editor, headingLines) {
+    const text = editor.value;
+    const lines = text.split('\n');
+
+    // Create a hidden div mirroring the textarea's styling
+    const mirror = document.createElement('div');
+    const cs = getComputedStyle(editor);
+    mirror.style.position = 'absolute';
+    mirror.style.top = '-9999px';
+    mirror.style.left = '-9999px';
+    mirror.style.visibility = 'hidden';
+    mirror.style.height = 'auto';
+    mirror.style.overflow = 'hidden';
+    // Copy all properties that affect text layout
+    mirror.style.width = cs.width;
+    mirror.style.font = cs.font;
+    mirror.style.letterSpacing = cs.letterSpacing;
+    mirror.style.wordSpacing = cs.wordSpacing;
+    mirror.style.lineHeight = cs.lineHeight;
+    mirror.style.padding = cs.padding;
+    mirror.style.border = cs.border;
+    mirror.style.boxSizing = cs.boxSizing;
+    mirror.style.tabSize = cs.tabSize;
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+    mirror.style.overflowWrap = 'break-word';
+    document.body.appendChild(mirror);
+
+    const offsets = [];
+    for (const lineIdx of headingLines) {
+        // Put text up to the heading line into the mirror, then a marker span
+        const textBefore = lines.slice(0, lineIdx).join('\n');
+        mirror.textContent = '';
+        const pre = document.createTextNode(textBefore + (lineIdx > 0 ? '\n' : ''));
+        const marker = document.createElement('span');
+        marker.textContent = '\u200b';
+        mirror.appendChild(pre);
+        mirror.appendChild(marker);
+        offsets.push(marker.offsetTop);
     }
+
+    document.body.removeChild(mirror);
+    return offsets;
+}
+
+// Rebuild the cached section map. Call after renderPreview() finishes layout.
+// Anchors headings AND code fence boundaries for accurate sync through code blocks.
+function rebuildSectionMap() {
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    if (!editor || !preview) { cachedSectionMap = null; return; }
+
+    const text = editor.value || '';
+    const lines = text.split('\n');
+    const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
+    const maxPreview = Math.max(1, preview.scrollHeight - preview.clientHeight);
+
+    // --- Collect anchor lines from the editor ---
+    // Each anchor: { line, type, index }
+    // type: 'heading', 'code-start', 'code-end'
+    const anchors = [];
+    let headingIdx = 0;
+    let codeBlockIdx = 0;
+    let inCodeBlock = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (/^```/.test(lines[i])) {
+            if (!inCodeBlock) {
+                anchors.push({ line: i, type: 'code-start', index: codeBlockIdx });
+                inCodeBlock = true;
+            } else {
+                anchors.push({ line: i, type: 'code-end', index: codeBlockIdx });
+                codeBlockIdx++;
+                inCodeBlock = false;
+            }
+        } else if (!inCodeBlock && /^#{1,6}\s/.test(lines[i])) {
+            anchors.push({ line: i, type: 'heading', index: headingIdx });
+            headingIdx++;
+        }
+    }
+
+    // --- Collect corresponding preview elements ---
+    const previewHeadings = Array.from(preview.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    const previewCodeBlocks = Array.from(preview.querySelectorAll('pre'));
+
+    // --- Measure editor pixel offsets for all anchor lines ---
+    const anchorLines = anchors.map(a => a.line);
+    const editorOffsets = measureEditorLineOffsets(editor, anchorLines);
+
+    // --- Build the map ---
+    const containerRect = preview.getBoundingClientRect();
+    const curScrollTop = preview.scrollTop;
+    const map = [{ es: 0, ps: 0 }];
+
+    for (let i = 0; i < anchors.length; i++) {
+        const a = anchors[i];
+        const es = editorOffsets[i];
+        let ps = null;
+
+        if (a.type === 'heading') {
+            const el = previewHeadings[a.index];
+            if (!el) continue;
+            const r = el.getBoundingClientRect();
+            ps = r.top - containerRect.top + curScrollTop;
+        } else if (a.type === 'code-start') {
+            const el = previewCodeBlocks[a.index];
+            if (!el) continue;
+            const r = el.getBoundingClientRect();
+            ps = r.top - containerRect.top + curScrollTop;
+        } else if (a.type === 'code-end') {
+            const el = previewCodeBlocks[a.index];
+            if (!el) continue;
+            const r = el.getBoundingClientRect();
+            ps = r.bottom - containerRect.top + curScrollTop;
+        }
+
+        if (ps === null) continue;
+
+        // Only add if it advances beyond the previous anchor
+        if (es > map[map.length - 1].es + 1) {
+            map.push({ es: Math.min(es, maxEditor), ps: Math.min(ps, maxPreview) });
+        }
+    }
+
+    // End at (maxEditor, maxPreview) — both panels at bottom
+    map.push({ es: maxEditor, ps: maxPreview });
+
+    cachedSectionMap = map;
+}
+
+function handleEditorScrollSync() {
+    if (previewMode !== 'split') return;
+    if (scrollSyncRAF) return;
+    scrollSyncRAF = requestAnimationFrame(() => {
+        scrollSyncRAF = null;
+        doEditorScrollSync();
+    });
+}
+
+function doEditorScrollSync() {
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    if (!editor || !preview) return;
+
+    const maxEditor = Math.max(1, editor.scrollHeight - editor.clientHeight);
+    const maxPreview = Math.max(1, preview.scrollHeight - preview.clientHeight);
+    const es = editor.scrollTop;
+    lastEditorScrollRatio = es / maxEditor;
+
+    const map = cachedSectionMap;
+    if (!map || map.length < 3) {
+        // No headings — fall back to ratio sync
+        suppressPreviewScroll = true;
+        preview.scrollTop = (es / maxEditor) * maxPreview;
+        setTimeout(() => suppressPreviewScroll = false, 10);
+        return;
+    }
+
+    // Find the two anchors bracketing the current editor.scrollTop
+    let idx = 0;
+    for (let i = 0; i < map.length - 1; i++) {
+        if (es >= map[i].es) idx = i;
+        else break;
+    }
+
+    const a = map[idx];
+    const b = map[idx + 1];
+
+    // Linear interpolation between the two anchors
+    const span = b.es - a.es;
+    const t = span > 1 ? (es - a.es) / span : 0;
+    const targetPS = a.ps + t * (b.ps - a.ps);
+
+    suppressPreviewScroll = true;
+    preview.scrollTop = Math.max(0, Math.min(maxPreview, targetPS));
+    setTimeout(() => suppressPreviewScroll = false, 10);
 }
 
 function renderPreview() {
@@ -2002,10 +2175,16 @@ function renderPreview() {
         // Syntax highlight remaining code blocks with highlight.js
         applyHljs(preview);
 
-        // After rendering, if in split mode, preserve approximate scroll position
+        // Rebuild section map and re-sync scroll position
         if (previewMode === 'split') {
-            const maxPrev = Math.max(1, preview.scrollHeight - preview.clientHeight);
-            preview.scrollTop = lastEditorScrollRatio * maxPrev;
+            rebuildSectionMap();
+            doEditorScrollSync();
+            // Also rebuild after images finish loading (they shift layout)
+            preview.querySelectorAll('img').forEach(img => {
+                if (!img.complete) {
+                    img.addEventListener('load', () => { rebuildSectionMap(); }, { once: true });
+                }
+            });
         }
     } catch (error) {
         preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Error rendering markdown:<br>' + error.message + '</div>';
@@ -2028,6 +2207,44 @@ function setupPreviewAnchorLinks() {
     });
 }
 
+// Draggable split divider
+function setupSplitDivider() {
+    const divider = document.getElementById('split-divider');
+    const container = document.getElementById('drop-zone');
+    const editor = document.getElementById('editor');
+    if (!divider || !container || !editor) return;
+
+    let dragging = false;
+
+    divider.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        divider.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const pct = Math.max(20, Math.min(80, (x / rect.width) * 100));
+        editor.style.width = pct + '%';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        divider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        // Rebuild scroll sync map since editor width changed (affects word wrap)
+        if (previewMode === 'split') {
+            rebuildSectionMap();
+        }
+    });
+}
+
 // Setup event listeners
 function setupEventListeners() {
     // Preview toggle button
@@ -2046,7 +2263,10 @@ function setupEventListeners() {
 
     // Sync preview scroll with editor scroll (split view)
     editorEl.addEventListener('scroll', handleEditorScrollSync);
-    
+
+    // Draggable split divider
+    setupSplitDivider();
+
     // Rename button
     document.getElementById('rename-btn').addEventListener('click', renameNote);
     
