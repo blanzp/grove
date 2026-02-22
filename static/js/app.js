@@ -3434,6 +3434,52 @@ function setupMarkdownToolbar() {
 }
 
 // Apply a line prefix (bullet, number, checkbox) to selected lines, or toggle it off.
+function showLinkModal(editor, start, end, selected) {
+    const textInput = document.getElementById('link-modal-text');
+    const urlInput = document.getElementById('link-modal-url');
+    textInput.value = selected || '';
+    urlInput.value = '';
+    showModal('link-modal');
+    // Focus URL if text is pre-filled from selection, otherwise focus text
+    setTimeout(() => (selected ? urlInput : textInput).focus(), 50);
+
+    function insertLink() {
+        cleanup();
+        const linkText = textInput.value || 'link text';
+        const linkUrl = urlInput.value || 'url';
+        const replacement = '[' + linkText + '](' + linkUrl + ')';
+        editor.value = editor.value.substring(0, start) + replacement + editor.value.substring(end);
+        const cursorPos = start + replacement.length;
+        editor.selectionStart = cursorPos;
+        editor.selectionEnd = cursorPos;
+        editor.focus();
+        editor.dispatchEvent(new Event('input'));
+    }
+
+    function cancel() {
+        cleanup();
+        editor.focus();
+    }
+
+    function onKeydown(e) {
+        if (e.key === 'Enter') { e.preventDefault(); insertLink(); }
+        if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    }
+
+    function cleanup() {
+        hideModal('link-modal');
+        document.getElementById('link-modal-insert').removeEventListener('click', insertLink);
+        document.getElementById('link-modal-cancel').removeEventListener('click', cancel);
+        textInput.removeEventListener('keydown', onKeydown);
+        urlInput.removeEventListener('keydown', onKeydown);
+    }
+
+    document.getElementById('link-modal-insert').addEventListener('click', insertLink);
+    document.getElementById('link-modal-cancel').addEventListener('click', cancel);
+    textInput.addEventListener('keydown', onKeydown);
+    urlInput.addEventListener('keydown', onKeydown);
+}
+
 function applyLinePrefix(action, editor, start, end, text) {
     // Expand selection to full lines
     const lineStart = text.lastIndexOf('\n', start - 1) + 1;
@@ -3519,13 +3565,8 @@ function applyMarkdownAction(action, editor) {
             applyLinePrefix(action, editor, start, end, text);
             return;
         case 'link':
-            if (selected) {
-                before = '['; after = '](url)';
-                insert = selected;
-            } else {
-                insert = '[link text](url)';
-            }
-            break;
+            showLinkModal(editor, start, end, selected);
+            return;
         case 'image':
             // Trigger file upload dialog
             uploadImageForEditor(editor);

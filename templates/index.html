@@ -389,6 +389,18 @@
     </div>
 
     <!-- Create Vault Modal -->
+    <div class="modal" id="link-modal">
+        <div class="modal-content modal-small">
+            <h2>Insert Link</h2>
+            <input type="text" id="link-modal-text" placeholder="Link text">
+            <input type="text" id="link-modal-url" placeholder="https://...">
+            <div class="modal-actions">
+                <button class="btn-primary" id="link-modal-insert">Insert</button>
+                <button class="btn-secondary" id="link-modal-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="new-vault-modal">
         <div class="modal-content modal-small">
             <h2>Create Vault</h2>
@@ -770,6 +782,6 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260221z"></script>
+    <script src="/static/js/app.js?v=20260221aa"></script>
 </body>
 </html>
