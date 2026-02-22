@@ -2423,9 +2423,10 @@ function setupEventListeners() {
         if (query) {
             searchNotes(query, '');
             hideModal('search-modal');
+            openMobileSidebar();
         }
     });
-    
+
     // Search modal - Enter key
     document.getElementById('search-modal-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -2434,6 +2435,7 @@ function setupEventListeners() {
             if (query) {
                 searchNotes(query, '');
                 hideModal('search-modal');
+                openMobileSidebar();
             }
         }
     });
@@ -3164,6 +3166,15 @@ function closeMobileMenu() {
     if (btn) btn.textContent = '☰';
     const editor = document.getElementById('editor');
     if (editor) editor.focus();
+}
+
+function openMobileSidebar() {
+    if (window.innerWidth > 768) return;
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    sidebar.classList.add('mobile-open');
+    const btn = document.getElementById('sidebar-collapse');
+    if (btn) btn.textContent = '✕';
 }
 
 function toggleSidebar() {
