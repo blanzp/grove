@@ -994,6 +994,16 @@ html, body, .app-container, .main-content {
     color: white;
     cursor: pointer;
     font-size: 14px;
+    transition: filter 0.15s, transform 0.1s;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.15);
+}
+
+.btn-primary:active {
+    filter: brightness(0.9);
+    transform: scale(0.97);
 }
 
 .btn-secondary {
@@ -1004,6 +1014,15 @@ html, body, .app-container, .main-content {
     color: var(--text-secondary);
     cursor: pointer;
     font-size: 14px;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.btn-secondary:hover {
+    background: var(--hover-color);
+}
+
+.btn-secondary:active {
+    transform: scale(0.97);
 }
 
 /* Scrollbar */
