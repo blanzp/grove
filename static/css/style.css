@@ -330,20 +330,109 @@ body.light-theme .sidebar-logo {
     background: var(--text-disabled);
 }
 
-.tags-bar {
+/* Inline sidebar search */
+.sidebar-search {
     padding: 8px 16px;
-    border: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
-.tags-bar select {
+.search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrap .search-icon {
+    position: absolute;
+    left: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-input-wrap input {
     width: 100%;
-    padding: 8px;
+    padding: 7px 30px 7px 30px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
 }
+
+.search-input-wrap input:focus {
+    border-color: var(--accent-color);
+}
+
+.search-input-wrap input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.search-clear-btn:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+/* Tag autocomplete dropdown */
+.tag-autocomplete {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    margin-top: 4px;
+}
+
+.tag-autocomplete-item {
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-primary);
+}
+
+.tag-autocomplete-item:hover,
+.tag-autocomplete-item.active {
+    background: var(--hover-color);
+}
+
+.tag-autocomplete-item .tag-count {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.sidebar-search {
+    position: relative;
+}
+
 
 .file-tree {
     flex: 1;

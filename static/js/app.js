@@ -1840,7 +1840,7 @@ async function searchNotes(query, tag) {
     container.innerHTML = '';
     
     if (results.length === 0) {
-        container.innerHTML = '<div style="padding: 16px; color: #888;">No results found</div>';
+        container.innerHTML = '<div style="padding: 16px; color: var(--text-muted);">No results found</div>';
         return;
     }
     
@@ -1853,20 +1853,11 @@ async function searchNotes(query, tag) {
     });
 }
 
-// Load tags for filter
+// Load tags for autocomplete
+let cachedTags = {};
 async function loadTags() {
     const response = await fetch('/api/tags');
-    const tags = await response.json();
-    
-    const select = document.getElementById('tag-filter');
-    select.innerHTML = '<option value="__all__">All Tags</option>';
-    
-    Object.keys(tags).sort().forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = `${tag} (${tags[tag]})`;
-        select.appendChild(option);
-    });
+    cachedTags = await response.json();
 }
 
 // Load templates
@@ -2646,61 +2637,110 @@ function setupEventListeners() {
         hideModal('new-folder-modal');
     });
     
-    // Search
-    // Search button opens modal
-    document.getElementById('search-btn').addEventListener('click', () => {
-        showModal('search-modal');
-        setTimeout(() => document.getElementById('search-modal-input').focus(), 0);
+    // Unified inline sidebar search with #tag support
+    const sidebarSearchInput = document.getElementById('sidebar-search-input');
+    const searchClearBtn = document.getElementById('sidebar-search-clear');
+    const tagAutocomplete = document.getElementById('tag-autocomplete');
+    let searchDebounce = null;
+    let activeAutocompleteIdx = -1;
+
+    function parseSearchInput(value) {
+        const tagMatch = value.match(/#(\S*)/);
+        const tag = tagMatch ? tagMatch[1] : '';
+        const query = value.replace(/#\S*/g, '').trim();
+        return { query, tag };
+    }
+
+    function runSearch() {
+        const value = sidebarSearchInput.value.trim();
+        searchClearBtn.style.display = value ? 'flex' : 'none';
+        if (!value) {
+            loadTree();
+            return;
+        }
+        const { query, tag } = parseSearchInput(value);
+        if (query || tag) {
+            searchNotes(query, tag);
+        } else {
+            loadTree();
+        }
+    }
+
+    function showTagAutocomplete(fragment) {
+        const tags = Object.keys(cachedTags).sort();
+        const filtered = fragment ? tags.filter(t => t.toLowerCase().startsWith(fragment.toLowerCase())) : tags;
+        if (filtered.length === 0) {
+            tagAutocomplete.style.display = 'none';
+            return;
+        }
+        activeAutocompleteIdx = -1;
+        tagAutocomplete.innerHTML = filtered.map(t =>
+            `<div class="tag-autocomplete-item" data-tag="${t}"><span>#${t}</span><span class="tag-count">${cachedTags[t]}</span></div>`
+        ).join('');
+        tagAutocomplete.style.display = 'block';
+
+        tagAutocomplete.querySelectorAll('.tag-autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => {
+                insertTag(item.dataset.tag);
+            });
+        });
+    }
+
+    function insertTag(tag) {
+        const val = sidebarSearchInput.value;
+        sidebarSearchInput.value = val.replace(/#\S*/, '#' + tag + ' ').trimStart();
+        tagAutocomplete.style.display = 'none';
+        sidebarSearchInput.focus();
+        runSearch();
+    }
+
+    sidebarSearchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        const val = sidebarSearchInput.value;
+        const cursorPos = sidebarSearchInput.selectionStart;
+        const beforeCursor = val.slice(0, cursorPos);
+        const hashMatch = beforeCursor.match(/#(\S*)$/);
+
+        if (hashMatch) {
+            showTagAutocomplete(hashMatch[1]);
+        } else {
+            tagAutocomplete.style.display = 'none';
+        }
+        searchDebounce = setTimeout(runSearch, 200);
     });
-    
-    // Search modal - search button
-    document.getElementById('search-modal-btn').addEventListener('click', () => {
-        const query = document.getElementById('search-modal-input').value;
-        if (query) {
-            searchNotes(query, '');
-            hideModal('search-modal');
-            openMobileSidebar();
+
+    sidebarSearchInput.addEventListener('keydown', (e) => {
+        if (tagAutocomplete.style.display === 'none') return;
+        const items = tagAutocomplete.querySelectorAll('.tag-autocomplete-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeAutocompleteIdx = Math.min(activeAutocompleteIdx + 1, items.length - 1);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeAutocompleteIdx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeAutocompleteIdx = Math.max(activeAutocompleteIdx - 1, 0);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeAutocompleteIdx));
+        } else if (e.key === 'Enter' && activeAutocompleteIdx >= 0) {
+            e.preventDefault();
+            insertTag(items[activeAutocompleteIdx].dataset.tag);
+        } else if (e.key === 'Escape') {
+            tagAutocomplete.style.display = 'none';
         }
     });
 
-    // Search modal - Enter key
-    document.getElementById('search-modal-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const query = document.getElementById('search-modal-input').value;
-            if (query) {
-                searchNotes(query, '');
-                hideModal('search-modal');
-                openMobileSidebar();
-            }
+    // Close autocomplete on outside click
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.sidebar-search')) {
+            tagAutocomplete.style.display = 'none';
         }
     });
-    
-    // Search modal - clear button
-    document.getElementById('clear-search-modal-btn').addEventListener('click', () => {
-        document.getElementById('search-modal-input').value = '';
-        document.getElementById('tag-filter').value = '';
+
+    searchClearBtn.addEventListener('click', () => {
+        sidebarSearchInput.value = '';
+        searchClearBtn.style.display = 'none';
+        tagAutocomplete.style.display = 'none';
         loadTree();
-        hideModal('search-modal');
-    });
-    
-    // Search modal - cancel button
-    document.getElementById('cancel-search-btn').addEventListener('click', () => {
-        hideModal('search-modal');
-    });
-    
-    // Tag filter
-    document.getElementById('tag-filter').addEventListener('change', async (e) => {
-        const tag = e.target.value;
-        if (tag && tag !== '__all__') {
-            await searchNotes('', tag);
-        } else {
-            // Reset to full tree
-            e.target.value = '__all__';
-            const container = document.getElementById('file-tree');
-            container.innerHTML = '';
-            await loadTree();
-        }
+        sidebarSearchInput.focus();
     });
 }
 
@@ -4188,11 +4228,13 @@ function setupKeyboardShortcuts() {
             if (editor && !editor.disabled) editor.focus();
         }
         
-        // Ctrl+K or Cmd+K - Open search modal
+        // Ctrl+K or Cmd+K - Focus sidebar search
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            showModal('search-modal');
-            setTimeout(() => document.getElementById('search-modal-input').focus(), 0);
+            openMobileSidebar();
+            const searchInput = document.getElementById('sidebar-search-input');
+            searchInput.focus();
+            searchInput.select();
         }
         
         // Ctrl+M - New meeting note

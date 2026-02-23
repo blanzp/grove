@@ -37,7 +37,6 @@
             <button id="contacts-btn" title="Manage Contacts"><i class="fas fa-address-book"></i></button>
             <button id="extract-btn" title="Extract Notes"><i class="fas fa-file-export"></i></button>
             <button id="upload-btn" title="Upload Files"><i class="fas fa-cloud-upload-alt"></i></button>
-            <button id="search-btn" title="Search Notes (Ctrl+K)"><i class="fas fa-search"></i></button>
             <button id="graph-btn" title="Graph View"><i class="fas fa-project-diagram"></i></button>
             <button id="calendar-btn" title="Calendar View"><i class="fas fa-calendar"></i></button>
             <div class="action-bar-spacer"></div>
@@ -52,10 +51,13 @@
                 </div>
             </div>
             
-            <div class="tags-bar">
-                <select id="tag-filter">
-                    <option value="">All Tags</option>
-                </select>
+            <div class="sidebar-search">
+                <div class="search-input-wrap">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="sidebar-search-input" placeholder="Search or #tag..." autocomplete="off">
+                    <button id="sidebar-search-clear" class="search-clear-btn" style="display:none;" title="Clear search"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="tag-autocomplete" class="tag-autocomplete" style="display:none;"></div>
             </div>
             
             <div class="recent-files collapsed">
@@ -665,21 +667,6 @@ Use placeholders:
             </div>
             <div class="modal-actions" style="margin-top: 12px;">
                 <button class="btn-secondary" id="cancel-planner-btn">Cancel</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Search Modal -->
-    <div class="modal" id="search-modal">
-        <div class="modal-content modal-small">
-            <h2>Search Notes</h2>
-            <div style="margin-bottom: 12px;">
-                <input type="text" id="search-modal-input" placeholder="Search notes..." style="width: 100%; padding: 10px; font-size: 15px;">
-            </div>
-            <div class="modal-actions">
-                <button class="btn-primary" id="search-modal-btn">Search</button>
-                <button class="btn-secondary" id="clear-search-modal-btn">Clear</button>
-                <button class="btn-secondary" id="cancel-search-btn">Cancel</button>
             </div>
         </div>
     </div>

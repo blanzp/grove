@@ -21,8 +21,7 @@
     background: var(--hover-color);
 }
 
-.search-bar input,
-.tags-bar select {
+.search-bar input {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
