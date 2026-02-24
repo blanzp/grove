@@ -13,12 +13,36 @@ let wikilinkMap = null; // Cache for wikilink title-to-path mapping
 // Convert a mermaid SVG element to a PNG Blob (2× resolution).
 async function svgToPngBlob(svgEl) {
     const rect = svgEl.getBoundingClientRect();
-    const width  = rect.width  || svgEl.viewBox.baseVal.width  || 800;
-    const height = rect.height || svgEl.viewBox.baseVal.height || 600;
+    const width  = rect.width  || svgEl.viewBox?.baseVal?.width  || 800;
+    const height = rect.height || svgEl.viewBox?.baseVal?.height || 600;
 
     const cloned = svgEl.cloneNode(true);
+
+    // Ensure xmlns is set (required for standalone SVG rendering)
+    cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    cloned.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
     cloned.setAttribute('width',  width);
     cloned.setAttribute('height', height);
+
+    // Remove foreignObject elements that cause canvas tainting
+    cloned.querySelectorAll('foreignObject').forEach(fo => fo.remove());
+
+    // Inline computed styles on all elements so the PNG renders correctly
+    // without external stylesheets
+    const srcEls = svgEl.querySelectorAll('*');
+    const clonedEls = cloned.querySelectorAll('*');
+    const styleProps = ['fill', 'stroke', 'stroke-width', 'font-family', 'font-size',
+        'font-weight', 'opacity', 'color', 'text-anchor', 'dominant-baseline',
+        'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'marker-end',
+        'marker-start', 'rx', 'ry'];
+    for (let i = 0; i < srcEls.length && i < clonedEls.length; i++) {
+        const computed = window.getComputedStyle(srcEls[i]);
+        styleProps.forEach(p => {
+            const v = computed.getPropertyValue(p);
+            if (v) clonedEls[i].style.setProperty(p, v);
+        });
+    }
+
     // White background rectangle so PNG isn't transparent
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%');
@@ -30,7 +54,7 @@ async function svgToPngBlob(svgEl) {
 
     const img = new Image();
     img.src = url;
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('SVG image failed to load')); });
 
     const scale = 2;
     const canvas = document.createElement('canvas');
