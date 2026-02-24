@@ -6,9 +6,13 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ## Recent Updates
 
-**Extended Contacts (`extended-contacts` branch)** — Advanced contact management with template profiles, customizable name/email/phone/zoom templates, and Font Awesome icons in @ mentions.
+**Inline Search with #tag Filtering** — Search moved from modal to inline sidebar bar. Live results as you type. Type `#` for tag autocomplete. Combines text search + tag filter in one input (e.g., `#meeting standup`).
 
-**Bug Fixes (`bugfixes` branch)** — Image preview modal, folder/file deletion via right-click context menu, contacts search/filter, auto-closing upload modal, and formatted email sharing.
+**KaTeX Math Support** — Render LaTeX math in preview: `$E=mc^2$` for inline, `$$\sum_{i=1}^{n}$$` for block equations.
+
+**UI Polish** — DM Sans + JetBrains Mono typography, animated modal transitions, fully themed color system (no hardcoded hex), button hover/active states.
+
+**Mermaid Copy Fix** — Copy-to-PNG now inlines computed styles and adds proper SVG namespaces for reliable rendering.
 
 ## Table of Contents
 
@@ -29,6 +33,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
   - [Search](#search)
   - [Footnotes](#footnotes)
   - [Table of Contents](#table-of-contents-1)
+- [LLM Assist](#llm-assist-optional)
 - [Extracting Notes for LLM Summaries](#extracting-notes-for-llm-summaries)
 - [Configuration](#configuration)
 - [File Structure](#file-structure)
@@ -51,13 +56,14 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Image paste** — paste images from clipboard directly into the editor
 - **Image upload** — upload via toolbar button or drag & drop
 - **New notes open in edit mode** — start writing immediately after creation
+- **LLM Assist** — optional AI writing assistant (rewrite, summarize, expand) with model selector and insert/replace modes
 
 ### 📂 File Management
 - **File tree** sidebar with folder navigation — shows all files (markdown, images, PDFs, etc.)
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault
 - **Recent files** panel (collapsed by default) for quick access
-- **Search modal** — toolbar button opens search popup (Ctrl+K)
+- **Inline search** — live search bar in sidebar with `#tag` autocomplete (Ctrl+K)
 - **Create, rename, delete** notes and folders
 - **Right-click context menu** — delete files, folders, and images via right-click
 - **Image preview** — click images in tree to open preview modal with proper sizing
@@ -66,7 +72,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 🏷️ Organization
 - **Tag management** — add/remove tags via modal, stored as YAML frontmatter
-- **Tag filter** — filter notes by tag from the sidebar dropdown
+- **Tag filter** — type `#tagname` in the search bar to filter by tag
 - **Daily notes** — one-click daily log creation using customizable template
 - **Templates** — create, edit, and delete body-only note templates (Grove manages frontmatter)
 - **Document types** — auto-set `type` in frontmatter based on template (`note`, `meeting`, `decision`, `research`, `reflection`, `execution`, `daily`)
@@ -130,7 +136,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+D` | New daily note |
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
-| `Ctrl+K` | Open search modal |
+| `Ctrl+K` | Focus sidebar search |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+L` | Insert link |
@@ -182,8 +188,10 @@ Grove uses [Marked.js](https://marked.js.org/) v4.3.0 with GitHub Flavored Markd
 | `[[note name]]` | Clickable wikilink (with typeahead) |
 | `[^1]` + `[^1]: text` | Footnote with back-link |
 | `@name` | Contact mention (autocomplete in editor) |
+| `$x^2$` | Inline math (KaTeX) |
+| `$$\sum_{i=1}^{n}$$` | Block/display math (KaTeX) |
 | TOC button | Generates linked Table of Contents from H2–H4 |
-| ` ```mermaid ` | Mermaid diagrams (flowcharts, sequence, Gantt, pie, ER, git graphs) |
+| ` ```mermaid ` | Mermaid diagrams with copy-to-PNG (flowcharts, sequence, Gantt, pie, ER, etc.) |
 | ` ```js `, ` ```python `, etc. | Syntax-highlighted code blocks (Highlight.js, lazy-loaded) |
 
 ### HTML Passthrough
@@ -203,7 +211,6 @@ Marked.js passes raw HTML through to the preview. These all work:
 
 | Feature | Notes |
 |---------|-------|
-| LaTeX / Math | `$x^2$` renders as plain text |
 | Admonitions / Callouts | Obsidian-style `> [!note]` not supported |
 | Multi-paragraph footnotes | Single-line footnote bodies only |
 
@@ -384,10 +391,11 @@ Click the **✅ tasks icon** to see all checkboxes across your vault. Toggle com
 - Excludes `.templates/` from scans
 
 ### Search
-- `Ctrl+K` to focus the search bar
-- Type and press Enter to search
-- Use the tag dropdown to filter by tag
-- Click the **✕** button to clear search
+- `Ctrl+K` to focus the inline search bar in the sidebar
+- Live results as you type (200ms debounce)
+- Type `#` to trigger tag autocomplete — arrow keys to select, Enter to insert
+- Combine text + tag: `#meeting standup` searches for "standup" in notes tagged `meeting`
+- Click the **✕** button to clear search and restore the full file tree
 - Excludes `.templates/` from search
 
 ### Footnotes
@@ -410,6 +418,51 @@ Click the **📋 TOC button** in the markdown toolbar to generate a Table of Con
 - Inserts a linked bullet list at the cursor position
 - Click again to update the existing TOC in place
 - In preview, clicking a TOC link smooth-scrolls to that heading
+
+## LLM Assist (Optional)
+
+Grove includes an optional AI writing assistant. Click the **🤖 robot icon** in the editor toolbar to open the LLM modal.
+
+### Features
+- Enter a prompt (e.g., "Rewrite to be concise", "Summarize", "Expand")
+- Optionally include the current text selection as context
+- Choose between **Insert** (paste at cursor) and **Replace** (overwrite selection) modes
+- Model selector dropdown when multiple models are configured
+
+### Setup
+
+Create a `.env` file in the Grove root directory:
+
+**OpenAI:**
+```env
+GROVE_LLM_ENABLED=true
+GROVE_LLM_PROVIDER=openai
+GROVE_LLM_ENDPOINT=https://api.openai.com
+GROVE_LLM_API_KEY=sk-...
+GROVE_LLM_MODEL=gpt-4o
+GROVE_LLM_MODELS=gpt-4o,gpt-4o-mini,gpt-3.5-turbo
+```
+
+**Anthropic:**
+```env
+GROVE_LLM_ENABLED=true
+GROVE_LLM_PROVIDER=anthropic
+GROVE_LLM_ENDPOINT=https://api.anthropic.com
+GROVE_LLM_API_KEY=sk-ant-...
+GROVE_LLM_MODEL=claude-sonnet-4-20250514
+GROVE_LLM_MODELS=claude-sonnet-4-20250514,claude-haiku-4-5-20251001
+```
+
+**Ollama (local, no API key needed):**
+```env
+GROVE_LLM_ENABLED=true
+GROVE_LLM_PROVIDER=ollama
+GROVE_LLM_ENDPOINT=http://localhost:11434
+GROVE_LLM_MODEL=llama3
+GROVE_LLM_MODELS=llama3,mistral,codellama
+```
+
+See [Environment Variables](#environment-variables) for all `GROVE_LLM_*` options.
 
 ## Extracting Notes for LLM Summaries
 
@@ -454,6 +507,14 @@ Returns concatenated markdown with title/date headers and bodies only.
 |----------|---------|-------------|
 | `GROVE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for network access) |
 | `GROVE_PORT` | `5000` | Server port |
+| `GROVE_LLM_ENABLED` | `false` | Set to `true` to enable LLM Assist |
+| `GROVE_LLM_PROVIDER` | `openai` | Provider: `openai`, `anthropic`, or `ollama` |
+| `GROVE_LLM_ENDPOINT` | *(none)* | API base URL (e.g., `https://api.openai.com`, `https://api.anthropic.com`, `http://localhost:11434`) |
+| `GROVE_LLM_API_KEY` | *(none)* | API key (not required for Ollama) |
+| `GROVE_LLM_MODEL` | *(none)* | Default model (e.g., `gpt-4o`, `claude-sonnet-4-20250514`, `llama3`) |
+| `GROVE_LLM_MODELS` | *(none)* | Comma-separated list of models for the model selector dropdown |
+| `GROVE_LLM_MAX_TOKENS` | `800` | Maximum tokens in LLM response |
+| `GROVE_LLM_TEMPERATURE` | `0.3` | Sampling temperature (0.0–1.0) |
 
 ### Per-Vault Config (`vault/.grove/config.json`)
 ```json
@@ -574,6 +635,9 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | `GET` | `/api/graph` | Get graph data (nodes + edges) |
 | `GET` | `/api/wikilink-map` | Get title/filename → path mapping |
 | `GET` | `/api/calendar` | Get dated notes for calendar view |
+| **LLM** | | |
+| `GET` | `/api/llm/status` | Get LLM config status (enabled, provider, models) |
+| `POST` | `/api/llm` | Generate text (body: `prompt`, `selection`, `model`) |
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
@@ -586,10 +650,12 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 - **Backend:** Flask (Python) — single dependency
 - **Frontend:** Vanilla JavaScript (no frameworks)
 - **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0 (GFM enabled)
+- **Math Rendering:** [KaTeX](https://katex.org/) v0.16.9 (inline `$...$` and block `$$...$$`)
 - **Syntax Highlighting:** [Highlight.js](https://highlightjs.org/) (lazy-loaded)
 - **Diagrams:** [Mermaid.js](https://mermaid.js.org/) v10 (flowcharts, sequence, Gantt, pie, ER, C4, etc.)
 - **Graph View:** [Vis.js Network](https://visjs.github.io/vis-network/)
 - **Icons:** [Font Awesome](https://fontawesome.com/) 6.4.0
+- **Typography:** [DM Sans](https://fonts.google.com/specimen/DM+Sans) (UI) + [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono) (editor/code)
 - **Styling:** CSS custom properties for theming
 - **Storage:** Flat markdown files — no database
 

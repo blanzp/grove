@@ -10,6 +10,45 @@ let allContacts = [];
 let defaultContactTemplate = '[{{first_name}} {{last_name}}](mailto:{{email}})';
 let wikilinkMap = null; // Cache for wikilink title-to-path mapping
 
+// KaTeX math rendering helpers
+const mathPlaceholders = [];
+
+function escapeMathBlocks(text) {
+    mathPlaceholders.length = 0;
+    // Block math: $$...$$ (must come first)
+    text = text.replace(/\$\$([\s\S]+?)\$\$/g, (match, tex) => {
+        const id = mathPlaceholders.length;
+        mathPlaceholders.push({ tex: tex.trim(), display: true });
+        return `<div class="math-placeholder" data-math-id="${id}"></div>`;
+    });
+    // Inline math: $...$ (not preceded/followed by $ or space-dollar)
+    text = text.replace(/(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)/g, (match, tex) => {
+        const id = mathPlaceholders.length;
+        mathPlaceholders.push({ tex: tex.trim(), display: false });
+        return `<span class="math-placeholder" data-math-id="${id}"></span>`;
+    });
+    return text;
+}
+
+function renderMathInPreview(container) {
+    if (typeof katex === 'undefined') return;
+    container.querySelectorAll('.math-placeholder').forEach(el => {
+        const id = parseInt(el.dataset.mathId);
+        const entry = mathPlaceholders[id];
+        if (!entry) return;
+        try {
+            katex.render(entry.tex, el, {
+                displayMode: entry.display,
+                throwOnError: false,
+                output: 'html'
+            });
+        } catch (e) {
+            el.textContent = entry.tex;
+            el.style.color = 'var(--danger-color)';
+        }
+    });
+}
+
 // Convert a mermaid SVG element to a PNG Blob (2× resolution).
 async function svgToPngBlob(svgEl) {
     const rect = svgEl.getBoundingClientRect();
@@ -2134,6 +2173,9 @@ function renderPreview() {
         content = body;
     }
 
+    // Escape math blocks before markdown rendering
+    content = escapeMathBlocks(content);
+
     // Convert wikilinks to HTML before markdown rendering
     content = content.replace(/\[\[([^\]]+)\]\]/g, (match, noteName) => {
         return `<a href="#" class="wikilink" data-note="${noteName}">${noteName}</a>`;
@@ -2187,7 +2229,10 @@ function renderPreview() {
         
         // Resolve relative paths for images and links
         resolveRelativePaths(preview);
-        
+
+        // Render KaTeX math expressions
+        renderMathInPreview(preview);
+
         // Render mermaid diagrams
         if (typeof mermaid !== 'undefined') {
             preview.querySelectorAll('code.language-mermaid').forEach((block, i) => {
