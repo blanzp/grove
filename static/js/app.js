@@ -2163,27 +2163,49 @@ function renderPreview() {
     
     try {
         // Handle both old and new marked.js API
+        let html;
         if (typeof marked === 'function') {
-            const html = marked(content);
-            preview.innerHTML = html;
-            preview.querySelectorAll('li').forEach(li => {
-                const el = li.firstElementChild;
-                if (el && el.tagName === 'INPUT' && el.type === 'checkbox') {
-                    li.style.listStyle = 'none';
-                }
-            });
+            html = marked(content);
         } else if (typeof marked === 'object' && typeof marked.parse === 'function') {
-            const html = marked.parse(content);
-            preview.innerHTML = html;
-            preview.querySelectorAll('li').forEach(li => {
-                const el = li.firstElementChild;
-                if (el && el.tagName === 'INPUT' && el.type === 'checkbox') {
-                    li.style.listStyle = 'none';
-                }
-            });
+            html = marked.parse(content);
         } else {
             preview.innerHTML = '<div style="padding: 20px; color: #ff6b6b; background: #2d2d30; border-radius: 4px;">⚠️ Markdown library not loaded properly</div>';
+            return;
         }
+        preview.innerHTML = html;
+
+        // Make preview checkboxes interactive — clicking toggles in the source file
+        const editorContent = document.getElementById('editor').value;
+        // Build a list of line numbers (0-based in the body) that contain checkboxes
+        const bodyLines = editorContent.split('\n');
+        const checkboxLineNums = [];
+        bodyLines.forEach((line, i) => {
+            if (/^\s*[-*]\s+\[[ xX]\]/.test(line)) {
+                checkboxLineNums.push(i);
+            }
+        });
+        // Calculate frontmatter line offset for the full-file line number
+        const fmOffset = currentNoteFrontmatter
+            ? currentNoteFrontmatter.split('\n').length + 1  // +1 for blank line after ---
+            : 0;
+
+        let cbIndex = 0;
+        preview.querySelectorAll('li').forEach(li => {
+            const el = li.firstElementChild;
+            if (el && el.tagName === 'INPUT' && el.type === 'checkbox') {
+                li.style.listStyle = 'none';
+                if (currentNote && cbIndex < checkboxLineNums.length) {
+                    el.disabled = false;
+                    el.style.cursor = 'pointer';
+                    const fileLine = checkboxLineNums[cbIndex] + fmOffset;
+                    el.addEventListener('change', async (e) => {
+                        e.preventDefault();
+                        await toggleTodo(currentNote, fileLine);
+                    });
+                }
+                cbIndex++;
+            }
+        });
         
         // Resolve relative paths for images and links
         resolveRelativePaths(preview);

@@ -1529,6 +1529,17 @@ body.light-theme .splash-logo { filter: none; }
     }
 }
 
+/* Interactive preview checkboxes */
+#preview input[type="checkbox"] {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent-color);
+}
+#preview input[type="checkbox"]:hover {
+    transform: scale(1.15);
+}
+
 /* Contact mention icons */
 #preview a .fa-envelope,
 #preview a .fa-phone,

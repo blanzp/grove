@@ -71,6 +71,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Templates** — create, edit, and delete body-only note templates (Grove manages frontmatter)
 - **Document types** — auto-set `type` in frontmatter based on template (`note`, `meeting`, `decision`, `research`, `reflection`, `execution`, `daily`)
 - **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
+- **Interactive checkboxes** — click checkboxes in preview to toggle completion (syncs to source markdown)
 - **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
 
 ### 🔗 Graph View & Backlinks
@@ -382,6 +383,8 @@ Click the **✅ tasks icon** to see all checkboxes across your vault. Toggle com
 - Two-column layout: Incomplete (left) and Complete (right)
 - Checkboxes use standard markdown format: `- [ ] Task` / `- [x] Done`
 - Excludes `.templates/` from scans
+
+**Preview checkboxes:** You can also click checkboxes directly in the preview pane to toggle them. The change saves to the source file and refreshes the note automatically.
 
 ### Search
 - `Ctrl+K` to focus the search bar
