@@ -4,12 +4,6 @@ A self-hosted markdown knowledge base that runs anywhere Python does — no clou
 
 Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal knowledge grove.
 
-## Recent Updates
-
-**Extended Contacts (`extended-contacts` branch)** — Advanced contact management with template profiles, customizable name/email/phone/zoom templates, and Font Awesome icons in @ mentions.
-
-**Bug Fixes (`bugfixes` branch)** — Image preview modal, folder/file deletion via right-click context menu, contacts search/filter, auto-closing upload modal, and formatted email sharing.
-
 ## Table of Contents
 
 - [Features](#features)
@@ -31,6 +25,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
   - [Table of Contents](#table-of-contents-1)
 - [Extracting Notes for LLM Summaries](#extracting-notes-for-llm-summaries)
 - [Configuration](#configuration)
+- [MCP Server](#mcp-server)
 - [File Structure](#file-structure)
 - [API](#api)
 - [Tech Stack](#tech-stack)
@@ -472,12 +467,134 @@ Returns concatenated markdown with title/date headers and bodies only.
 }
 ```
 
+## MCP Server
+
+Grove includes an MCP (Model Context Protocol) server that lets LLM clients like Claude Desktop and Claude Code search, read, and create notes in your vault.
+
+The MCP server runs as a separate process and communicates with Grove's REST API over HTTP — it can run on the same machine or a different host.
+
+### Setup
+
+```bash
+# Install dependencies (includes mcp package)
+pip install -r requirements.txt
+```
+
+### Configuration
+
+Set the `GROVE_URL` environment variable to point to your running Grove server:
+
+```bash
+# Default (same machine)
+export GROVE_URL=http://localhost:5000
+
+# Remote Grove server
+export GROVE_URL=http://192.168.1.5:5000
+```
+
+### Claude Desktop
+
+Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "grove": {
+      "command": "python",
+      "args": ["/path/to/grove/mcp_server.py"],
+      "env": {
+        "GROVE_URL": "http://localhost:5000"
+      }
+    }
+  }
+}
+```
+
+### Claude Code
+
+Add this to `.mcp.json` in your project or home directory:
+
+```json
+{
+  "mcpServers": {
+    "grove": {
+      "command": "python",
+      "args": ["/path/to/grove/mcp_server.py"],
+      "env": {
+        "GROVE_URL": "http://localhost:5000"
+      }
+    }
+  }
+}
+```
+
+### GitHub Copilot (VS Code)
+
+Add this to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "grove": {
+      "command": "python",
+      "args": ["/path/to/grove/mcp_server.py"],
+      "env": {
+        "GROVE_URL": "http://localhost:5000"
+      }
+    }
+  }
+}
+```
+
+### OpenAI Codex CLI
+
+Add this to `~/.codex/config.toml` (global) or `.codex/config.toml` (project-scoped):
+
+```toml
+[mcp_servers.grove]
+command = "python"
+args = ["/path/to/grove/mcp_server.py"]
+
+[mcp_servers.grove.env]
+GROVE_URL = "http://localhost:5000"
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_notes` | Search notes by text query and/or tag |
+| `read_note` | Read a note's full content and metadata |
+| `create_note` | Create a new note with title, content, folder, and tags |
+| `list_notes` | List all notes in the active vault |
+| `get_tags` | Get all tags with their note counts |
+
+### Resources
+
+| URI | Description |
+|-----|-------------|
+| `grove://notes` | List of all notes in the active vault |
+| `grove://note/{path}` | Individual note content and metadata |
+
+### Testing
+
+```bash
+# 1. Start Grove
+python app.py
+
+# 2. Test with MCP Inspector
+npx @modelcontextprotocol/inspector python mcp_server.py
+```
+
+**Note:** The Grove Flask server must be running for the MCP server to work.
+
 ## File Structure
 
 ```
 grove/
 ├── app.py                  # Flask backend
-├── requirements.txt        # Python dependencies (Flask only)
+├── mcp_server.py           # MCP server (proxies Grove API)
+├── requirements.txt        # Python dependencies
 ├── openapi.yaml            # OpenAPI 3.0 spec
 ├── default-vault/          # Seed files for new vaults
 │   ├── .grove/
