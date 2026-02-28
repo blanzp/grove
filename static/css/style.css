@@ -1485,13 +1485,17 @@ body.light-theme .splash-logo { filter: none; }
         min-width: 0;
     }
     
+    .breadcrumbs {
+        padding-left: 16px !important;
+    }
+
     .editor-header {
         flex-direction: column;
         align-items: flex-start;
-        padding: 8px 12px;
+        padding: 8px 16px !important;
         gap: 8px;
     }
-    
+
     .title-tags-section {
         width: 100%;
     }
