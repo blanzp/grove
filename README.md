@@ -52,7 +52,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault
 - **Recent files** panel (collapsed by default) for quick access
-- **Search modal** — toolbar button opens search popup (Ctrl+K)
+- **Inline search bar** — search notes with unified #tag filtering (Ctrl+K)
 - **Create, rename, delete** notes and folders
 - **Right-click context menu** — delete files, folders, and images via right-click
 - **Image preview** — click images in tree to open preview modal with proper sizing
@@ -126,7 +126,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+D` | New daily note |
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
-| `Ctrl+K` | Open search modal |
+| `Ctrl+K` | Focus search bar |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+L` | Insert link |
@@ -241,6 +241,27 @@ GROVE_HOST=0.0.0.0 python app.py
 ```
 
 Then open `http://<your-ip>:5000` on your phone or tablet.
+
+### Accessing from Mobile via Tailscale
+
+[Tailscale](https://tailscale.com/) lets you securely access Grove from your phone without exposing it to the public internet. Grove stays bound to `127.0.0.1` and Tailscale handles authentication.
+
+1. **Install Tailscale** on your server and mobile device ([tailscale.com/download](https://tailscale.com/download))
+2. **Start Grove** normally (defaults to `127.0.0.1:5000`):
+   ```bash
+   python app.py
+   ```
+3. **Expose via Tailscale Serve:**
+   ```bash
+   tailscale serve 5000
+   ```
+   This proxies your machine's Tailscale HTTPS address to localhost:5000, accessible only to devices on your tailnet.
+4. **Open Grove** on your phone at `https://<machine-name>.<tailnet>.ts.net`
+
+To stop serving:
+```bash
+tailscale serve 5000 off
+```
 
 ### Optional: Run as a systemd service (Linux)
 

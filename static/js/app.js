@@ -3134,8 +3134,8 @@ async function confirmDeleteNote() {
             }
         }
 
-        loadTree();
         removeFromRecent(toRemove);
+        loadTree();
         pendingDeleteNote = null;
     }
 }
