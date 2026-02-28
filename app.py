@@ -390,6 +390,46 @@ def build_frontmatter(title, tags, doc_type=None):
     return fm
 
 
+def ensure_frontmatter(content, default_title='Untitled'):
+    """Ensure Grove's required frontmatter fields exist, preserving any custom fields.
+
+    Parses existing frontmatter (if any), fills in missing required fields
+    (title, created, type), and preserves all other fields as-is.
+    If no frontmatter exists, creates it with defaults.
+    """
+    fm_match = re.match(r'^---\n(.*?)\n---\n?(.*)', content, re.DOTALL)
+    if fm_match:
+        fm_text = fm_match.group(1)
+        body = fm_match.group(2)
+
+        # Check which required fields are already present
+        has_title = re.search(r'^title:\s', fm_text, re.MULTILINE)
+        has_created = re.search(r'^created:\s', fm_text, re.MULTILINE)
+        has_type = re.search(r'^type:\s', fm_text, re.MULTILINE)
+
+        # Append missing required fields
+        additions = ''
+        if not has_title:
+            additions += f'title: {default_title}\n'
+        if not has_created:
+            additions += f'created: {datetime.now().isoformat()}\n'
+        if not has_type:
+            additions += 'type: note\n'
+
+        if additions:
+            fm_text = fm_text.rstrip('\n') + '\n' + additions
+
+        # Ensure fm_text ends with newline before closing ---
+        if not fm_text.endswith('\n'):
+            fm_text += '\n'
+
+        return f'---\n{fm_text}---\n{body}'
+    else:
+        # No frontmatter — create it from scratch
+        fm = build_frontmatter(default_title, [], 'note')
+        return fm + content
+
+
 @app.route('/')
 def index():
     """Render the main application."""
@@ -1574,12 +1614,14 @@ def upload_file():
     target_dir = VAULT_PATH / folder
     target_dir.mkdir(parents=True, exist_ok=True)
 
+    MARKDOWN_EXTENSIONS = {'.md', '.markdown', '.txt'}
+
     if 'file' in request.files:
         f = request.files['file']
         if not f.filename:
             return jsonify({'error': 'No file selected'}), 400
         ext = Path(f.filename).suffix.lower()
-        if ext not in ALLOWED_EXTENSIONS:
+        if ext not in ALLOWED_EXTENSIONS and ext not in MARKDOWN_EXTENSIONS:
             return jsonify({'error': f'File type {ext} not allowed'}), 400
         # Sanitize filename, add uuid prefix to avoid collisions
         safe_name = re.sub(r'[^\w\s.-]', '', f.filename).strip()
@@ -1590,11 +1632,27 @@ def upload_file():
         if file_path.exists():
             stem = file_path.stem
             file_path = target_dir / f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
-        f.save(str(file_path))
+
+        if ext in MARKDOWN_EXTENSIONS:
+            # Save as text and ensure frontmatter
+            content = f.read().decode('utf-8')
+            default_title = Path(f.filename).stem
+            content = ensure_frontmatter(content, default_title=default_title)
+            file_path.write_text(content, encoding='utf-8')
+        else:
+            f.save(str(file_path))
     else:
         return jsonify({'error': 'No file provided'}), 400
 
     rel_path = str(file_path.relative_to(VAULT_PATH))
+
+    if ext in MARKDOWN_EXTENSIONS:
+        return jsonify({
+            'success': True,
+            'path': rel_path,
+            'type': 'note'
+        })
+
     return jsonify({
         'success': True,
         'path': rel_path,
@@ -1688,6 +1746,9 @@ def upload_bulk():
             ext = file_path.suffix.lower()
             if ext in ['.md', '.markdown', '.txt', '.json', '.yaml', '.yml', '.csv']:
                 content = f.read().decode('utf-8')
+                if ext in ['.md', '.markdown', '.txt']:
+                    default_title = Path(f.filename).stem
+                    content = ensure_frontmatter(content, default_title=default_title)
                 file_path.write_text(content, encoding='utf-8')
             else:
                 file_path.write_bytes(f.read())
