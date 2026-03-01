@@ -142,9 +142,10 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+M` | New meeting note |
 | `Ctrl+C` | Open contacts (when no text selected) |
 | `Ctrl+V` | Paste image from clipboard |
-| `F2` | Rename note |
-| `Delete` | Delete note (when not in text field) |
-| `F11` | Toggle fullscreen |
+| `Ctrl+R` | Rename note |
+| `Ctrl+X` | Delete note (when not in text field) |
+| `Ctrl+F` | Toggle fullscreen |
+| `Ctrl+T` | Todo dashboard |
 | `Escape` | Exit fullscreen |
 | `@` | Trigger contact autocomplete |
 | `[[` | Trigger wikilink autocomplete |

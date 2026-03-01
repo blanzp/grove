@@ -4231,8 +4231,8 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'daily-note',       label: 'New Daily Note',          icon: 'fa-calendar-day',     shortcut: 'Ctrl+D',       category: 'Notes',      action: () => createDailyNote() },
     { id: 'meeting-note',     label: 'New Meeting Note',        icon: 'fa-handshake',        shortcut: 'Ctrl+M',       category: 'Notes',      action: () => document.getElementById('meeting-note').click() },
     { id: 'planner-note',     label: 'New Planner',             icon: 'fa-calendar-alt',     shortcut: '',              category: 'Notes',      action: () => showModal('planner-modal') },
-    { id: 'rename-note',      label: 'Rename Note',             icon: 'fa-i-cursor',         shortcut: 'F2',            category: 'Notes',      action: () => { if (currentNote) renameNote(); }, needsNote: true },
-    { id: 'delete-note',      label: 'Delete Note',             icon: 'fa-trash',            shortcut: 'Delete',        category: 'Notes',      action: () => { if (currentNote) deleteNote(); }, needsNote: true },
+    { id: 'rename-note',      label: 'Rename Note',             icon: 'fa-i-cursor',         shortcut: 'Ctrl+R',       category: 'Notes',      action: () => { if (currentNote) renameNote(); }, needsNote: true },
+    { id: 'delete-note',      label: 'Delete Note',             icon: 'fa-trash',            shortcut: 'Ctrl+X',       category: 'Notes',      action: () => { if (currentNote) deleteNote(); }, needsNote: true },
     { id: 'star-note',        label: 'Toggle Star',             icon: 'fa-star',             shortcut: '',              category: 'Notes',      action: () => { if (currentNote) toggleStarNote(); }, needsNote: true },
     { id: 'save-note',        label: 'Save Note',               icon: 'fa-save',             shortcut: 'Ctrl+S',       category: 'Notes',      action: () => saveNoteUpdated(), needsNote: true },
 
@@ -4240,7 +4240,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'toggle-preview',   label: 'Toggle Preview Mode',     icon: 'fa-eye',              shortcut: 'Ctrl+P',       category: 'Editor',     action: () => { if (!document.getElementById('preview-toggle').disabled) togglePreview(); }, needsNote: true },
     { id: 'edit-mode',        label: 'Switch to Edit Mode',     icon: 'fa-edit',             shortcut: 'Ctrl+E',       category: 'Editor',     action: () => { const c=document.getElementById('drop-zone'); const b=document.getElementById('preview-toggle'); const el=document.getElementById('editor'); previewMode='edit'; c.classList.remove('split-view','preview-only'); if(el)el.style.width=''; if(b){b.innerHTML='<i class="fas fa-columns"></i>'; b.title='Split View (Ctrl+P)';} if(el&&!el.disabled)el.focus(); }, needsNote: true },
     { id: 'toggle-frontmatter',label: 'Toggle Frontmatter',     icon: 'fa-code',             shortcut: '',              category: 'Editor',     action: () => { if (currentNote) toggleFrontmatter(); }, needsNote: true },
-    { id: 'fullscreen',       label: 'Toggle Fullscreen',       icon: 'fa-expand',           shortcut: 'F11',           category: 'Editor',     action: () => toggleFullscreen() },
+    { id: 'fullscreen',       label: 'Toggle Fullscreen',       icon: 'fa-expand',           shortcut: 'Ctrl+F',       category: 'Editor',     action: () => toggleFullscreen() },
     { id: 'insert-bold',      label: 'Insert Bold',             icon: 'fa-bold',             shortcut: 'Ctrl+B',       category: 'Editor',     action: () => applyMarkdownAction('bold', document.getElementById('editor')), needsNote: true },
     { id: 'insert-italic',    label: 'Insert Italic',           icon: 'fa-italic',           shortcut: 'Ctrl+I',       category: 'Editor',     action: () => applyMarkdownAction('italic', document.getElementById('editor')), needsNote: true },
     { id: 'insert-link',      label: 'Insert Link',             icon: 'fa-link',             shortcut: 'Ctrl+L',       category: 'Editor',     action: () => applyMarkdownAction('link', document.getElementById('editor')), needsNote: true },
@@ -4254,7 +4254,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { openMobileSidebar(); const s=document.getElementById('sidebar-search-input'); s.focus(); s.select(); } },
     { id: 'graph-view',       label: 'Graph View',              icon: 'fa-project-diagram',  shortcut: '',              category: 'Navigate',   action: () => openGraphView() },
     { id: 'calendar-view',    label: 'Calendar View',           icon: 'fa-calendar',         shortcut: '',              category: 'Navigate',   action: () => openCalendarView() },
-    { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: '',              category: 'Navigate',   action: () => openTodosModal() },
+    { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: 'Ctrl+T',       category: 'Navigate',   action: () => openTodosModal() },
     { id: 'contacts',         label: 'Contacts',                icon: 'fa-address-book',     shortcut: 'Ctrl+C',       category: 'Navigate',   action: () => openContactsModal() },
     { id: 'templates',        label: 'Manage Templates',        icon: 'fa-clipboard-list',   shortcut: '',              category: 'Navigate',   action: () => { loadTemplatesModal(); showModal('templates-modal'); } },
     { id: 'extract',          label: 'Extract Notes for LLM',   icon: 'fa-file-export',      shortcut: '',              category: 'Navigate',   action: () => openExtractModal() },
@@ -4489,22 +4489,28 @@ function setupKeyboardShortcuts() {
             }
         }
 
-        // F2 - Rename
-        if (e.key === 'F2' && currentNote) {
+        // Ctrl+R or Cmd+R - Rename
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r' && currentNote) {
             e.preventDefault();
             renameNote();
         }
         
-        // Delete - Delete note
-        if (e.key === 'Delete' && currentNote && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        // Ctrl+X or Cmd+X - Delete note (only when not in a text field with selection)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x' && currentNote && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
             deleteNote();
         }
         
-        // F11 - Full screen
-        if (e.key === 'F11') {
+        // Ctrl+F or Cmd+F - Toggle fullscreen
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
             e.preventDefault();
             toggleFullscreen();
+        }
+
+        // Ctrl+T or Cmd+T - Toggle todo dashboard
+        if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+            e.preventDefault();
+            openTodosModal();
         }
         
         // Escape - Exit fullscreen
