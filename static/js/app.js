@@ -120,6 +120,32 @@ function addMermaidCopyButtons(container) {
     });
 }
 
+function addCodeCopyButtons(container) {
+    container.querySelectorAll('pre > code').forEach(code => {
+        const pre = code.parentElement;
+        if (pre.querySelector('.code-copy-btn')) return;
+        // Skip mermaid blocks (handled separately)
+        if (code.classList.contains('language-mermaid')) return;
+        pre.style.position = 'relative';
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.innerHTML = '<i class="fas fa-copy"></i>';
+        btn.title = 'Copy code';
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                await navigator.clipboard.writeText(code.textContent);
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 1500);
+            } catch (err) {
+                btn.innerHTML = '<i class="fas fa-times"></i>';
+                setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 1500);
+            }
+        });
+        pre.appendChild(btn);
+    });
+}
+
 // Token colors sourced directly from atom-one-dark / atom-one-light themes.
 // Applied as inline styles so browser extensions (e.g. Dark Reader) can't override them.
 const HLJS_COLORS = {
@@ -2392,6 +2418,9 @@ function renderPreview() {
 
         // Syntax highlight remaining code blocks with highlight.js
         applyHljs(preview);
+
+        // Add copy buttons to code blocks
+        addCodeCopyButtons(preview);
 
         // Rebuild section map and re-sync scroll position
         if (previewMode === 'split') {

@@ -912,6 +912,32 @@ html, body, .app-container, .main-content {
     color: var(--text-primary);
 }
 
+/* Code block copy button */
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
 /* highlight.js integration — .hljs-pre is added by applyHljs() */
 .preview-container pre.hljs-pre {
     padding: 16px;
