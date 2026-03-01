@@ -1560,6 +1560,58 @@ body.light-theme .splash-logo { filter: none; }
     color: var(--accent-color);
 }
 
+/* Keyboard Shortcuts Cheatsheet */
+.shortcuts-modal-content {
+    max-width: 640px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.shortcuts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 560px) {
+    .shortcuts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.shortcuts-category h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 0 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.shortcut-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.shortcut-label {
+    color: var(--text-primary);
+}
+
+.shortcut-row kbd {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 /* Command Palette */
 .command-palette {
     background: var(--bg-secondary);

@@ -2687,7 +2687,9 @@ function setupEventListeners() {
     // Graph view
     document.getElementById('graph-btn').addEventListener('click', openGraphView);
     document.getElementById('close-graph-btn').addEventListener('click', () => hideModal('graph-modal'));
-    
+    const closeShortcutsBtn = document.getElementById('close-shortcuts-btn');
+    if (closeShortcutsBtn) closeShortcutsBtn.addEventListener('click', () => hideModal('shortcuts-modal'));
+
     // Calendar view
     document.getElementById('calendar-btn').addEventListener('click', openCalendarView);
     document.getElementById('close-calendar-btn').addEventListener('click', () => hideModal('calendar-modal'));
@@ -4460,6 +4462,9 @@ const COMMAND_PALETTE_COMMANDS = [
 
     // Theme
     { id: 'toggle-theme',     label: 'Toggle Dark/Light Mode',  icon: 'fa-adjust',           shortcut: '',              category: 'Theme',      action: () => toggleTheme() },
+
+    // Help
+    { id: 'shortcuts',        label: 'Keyboard Shortcuts',      icon: 'fa-keyboard',         shortcut: '',              category: 'Navigate',   action: () => openShortcutsModal() },
 ];
 
 let commandPaletteActive = false;
@@ -4575,6 +4580,58 @@ function setupCommandPalette() {
     backdrop.addEventListener('click', (e) => {
         if (e.target === backdrop) closeCommandPalette();
     });
+}
+
+// ── Keyboard Shortcuts Cheatsheet (Ctrl+?) ──
+
+function openShortcutsModal() {
+    const body = document.getElementById('shortcuts-modal-body');
+    const isMac = navigator.platform.includes('Mac');
+
+    // Extra shortcuts not in the command palette
+    const extras = [
+        { label: 'Command Palette',       shortcut: 'Ctrl+/',  category: 'Navigate' },
+        { label: 'Quick Switcher',         shortcut: 'Ctrl+O',  category: 'Navigate' },
+        { label: 'Search Notes',           shortcut: 'Ctrl+K',  category: 'Navigate' },
+        { label: 'Wikilink autocomplete',  shortcut: '[[',       category: 'Editor' },
+        { label: 'Contact autocomplete',   shortcut: '@',        category: 'Editor' },
+        { label: 'Slash commands',         shortcut: '/',        category: 'Editor' },
+        { label: 'Exit fullscreen',        shortcut: 'Escape',   category: 'Editor' },
+    ];
+
+    // Collect all shortcuts from command palette + extras
+    const all = [
+        ...COMMAND_PALETTE_COMMANDS.filter(c => c.shortcut).map(c => ({
+            label: c.label, shortcut: c.shortcut, category: c.category
+        })),
+        ...extras
+    ];
+
+    // Group by category
+    const groups = {};
+    all.forEach(item => {
+        if (!groups[item.category]) groups[item.category] = [];
+        // Deduplicate by label
+        if (!groups[item.category].some(x => x.label === item.label)) {
+            groups[item.category].push(item);
+        }
+    });
+
+    const order = ['Notes', 'Editor', 'Navigate', 'Share', 'Theme'];
+    let html = '<div class="shortcuts-grid">';
+    order.forEach(cat => {
+        if (!groups[cat]) return;
+        html += `<div class="shortcuts-category"><h4>${cat}</h4>`;
+        groups[cat].forEach(item => {
+            const key = isMac ? item.shortcut.replace('Ctrl', '\u2318') : item.shortcut;
+            html += `<div class="shortcut-row"><span class="shortcut-label">${item.label}</span><kbd>${key}</kbd></div>`;
+        });
+        html += '</div>';
+    });
+    html += '</div>';
+
+    body.innerHTML = html;
+    showModal('shortcuts-modal');
 }
 
 // ── Search Modal (Ctrl+K) ──
