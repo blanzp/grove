@@ -235,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTreeDragAndDrop();
     setupKeyboardShortcuts();
     setupCommandPalette();
+    setupQuickSwitcher();
     setupMarkdownToolbar();
     loadTheme();
 
@@ -4391,7 +4392,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'daily-note',       label: 'New Daily Note',          icon: 'fa-calendar-day',     shortcut: 'Ctrl+D',       category: 'Notes',      action: () => createDailyNote() },
     { id: 'meeting-note',     label: 'New Meeting Note',        icon: 'fa-handshake',        shortcut: 'Ctrl+M',       category: 'Notes',      action: () => document.getElementById('meeting-note').click() },
     { id: 'planner-note',     label: 'New Planner',             icon: 'fa-calendar-alt',     shortcut: '',              category: 'Notes',      action: () => showModal('planner-modal') },
-    { id: 'rename-note',      label: 'Rename Note',             icon: 'fa-i-cursor',         shortcut: 'Ctrl+R',       category: 'Notes',      action: () => { if (currentNote) renameNote(); }, needsNote: true },
+    { id: 'rename-note',      label: 'Rename Note',             icon: 'fa-i-cursor',         shortcut: '',              category: 'Notes',      action: () => { if (currentNote) renameNote(); }, needsNote: true },
     { id: 'delete-note',      label: 'Delete Note',             icon: 'fa-trash',            shortcut: 'Ctrl+X',       category: 'Notes',      action: () => { if (currentNote) deleteNote(); }, needsNote: true },
     { id: 'star-note',        label: 'Toggle Star',             icon: 'fa-star',             shortcut: '',              category: 'Notes',      action: () => { if (currentNote) toggleStarNote(); }, needsNote: true },
     { id: 'save-note',        label: 'Save Note',               icon: 'fa-save',             shortcut: 'Ctrl+S',       category: 'Notes',      action: () => saveNoteUpdated(), needsNote: true },
@@ -4411,6 +4412,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'insert-image',     label: 'Upload Image',            icon: 'fa-image',            shortcut: '',              category: 'Editor',     action: () => showModal('upload-modal'), needsNote: true },
 
     // Navigation
+    { id: 'quick-switcher',   label: 'Quick Switcher',          icon: 'fa-file-alt',         shortcut: 'Ctrl+O',       category: 'Navigate',   action: () => { closeCommandPalette(); setTimeout(() => openQuickSwitcher(), 100); } },
     { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { openMobileSidebar(); const s=document.getElementById('sidebar-search-input'); s.focus(); s.select(); } },
     { id: 'graph-view',       label: 'Graph View',              icon: 'fa-project-diagram',  shortcut: '',              category: 'Navigate',   action: () => openGraphView() },
     { id: 'calendar-view',    label: 'Calendar View',           icon: 'fa-calendar',         shortcut: '',              category: 'Navigate',   action: () => openCalendarView() },
@@ -4545,6 +4547,180 @@ function setupCommandPalette() {
     });
 }
 
+// ── Quick Switcher (Ctrl+O) ──
+
+let quickSwitcherActive = false;
+let quickSwitcherIdx = 0;
+let quickSwitcherFiltered = [];
+let quickSwitcherNotes = [];
+
+async function fetchQuickSwitcherNotes() {
+    try {
+        const resp = await fetch('/api/tree');
+        const tree = await resp.json();
+        quickSwitcherNotes = [];
+        function flatten(items) {
+            for (const item of items) {
+                if (item.type === 'file') {
+                    const path = item.path;
+                    const title = item.title || item.name.replace(/\.md$/, '');
+                    const folder = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+                    quickSwitcherNotes.push({ path, title, folder, tags: item.tags || [] });
+                } else if (item.type === 'folder' && item.children) {
+                    flatten(item.children);
+                }
+            }
+        }
+        flatten(tree, '');
+    } catch (e) { /* ignore */ }
+}
+
+function openQuickSwitcher() {
+    const backdrop = document.getElementById('quick-switcher-backdrop');
+    const input = document.getElementById('quick-switcher-input');
+    if (!backdrop || !input) { console.error('Quick switcher elements not found'); return; }
+
+    // Refresh notes list each time we open
+    fetchQuickSwitcherNotes().then(() => {
+        filterQuickSwitcher('');
+    });
+
+    quickSwitcherActive = true;
+    input.value = '';
+    backdrop.style.visibility = 'visible';
+    backdrop.style.pointerEvents = 'auto';
+    backdrop.style.background = 'rgba(0,0,0,0.5)';
+    document.getElementById('quick-switcher').style.opacity = '1';
+    document.getElementById('quick-switcher').style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeQuickSwitcher() {
+    quickSwitcherActive = false;
+    const backdrop = document.getElementById('quick-switcher-backdrop');
+    if (!backdrop) return;
+    backdrop.style.visibility = 'hidden';
+    backdrop.style.pointerEvents = 'none';
+    backdrop.style.background = 'rgba(0,0,0,0)';
+    document.getElementById('quick-switcher').style.opacity = '0';
+    document.getElementById('quick-switcher').style.transform = 'translateX(-50%) translateY(8px)';
+}
+
+function fuzzyMatch(query, text) {
+    const q = query.toLowerCase();
+    const t = text.toLowerCase();
+    // Exact substring match scores highest
+    if (t.includes(q)) return 2;
+    // Fuzzy: every char in query appears in order in text
+    let qi = 0;
+    for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+        if (t[ti] === q[qi]) qi++;
+    }
+    return qi === q.length ? 1 : 0;
+}
+
+function filterQuickSwitcher(query) {
+    const list = document.getElementById('quick-switcher-list');
+    const q = query.trim();
+
+    if (!q) {
+        // Show recent files first, then all notes alphabetically
+        const recentPaths = new Set(recentFiles.map(f => f.path));
+        const recentNotes = recentFiles
+            .map(r => quickSwitcherNotes.find(n => n.path === r.path))
+            .filter(Boolean);
+        const rest = quickSwitcherNotes
+            .filter(n => !recentPaths.has(n.path))
+            .sort((a, b) => a.title.localeCompare(b.title));
+        quickSwitcherFiltered = [...recentNotes, ...rest].slice(0, 20);
+    } else {
+        // Score and sort by match quality
+        const scored = quickSwitcherNotes.map(n => {
+            const titleScore = fuzzyMatch(q, n.title);
+            const pathScore = fuzzyMatch(q, n.path);
+            const tagScore = n.tags.some(t => t.toLowerCase().includes(q.toLowerCase())) ? 1.5 : 0;
+            const score = Math.max(titleScore, pathScore, tagScore);
+            return { note: n, score };
+        }).filter(s => s.score > 0);
+        scored.sort((a, b) => b.score - a.score || a.note.title.localeCompare(b.note.title));
+        quickSwitcherFiltered = scored.map(s => s.note).slice(0, 20);
+    }
+
+    quickSwitcherIdx = 0;
+    renderQuickSwitcherList(list, q);
+}
+
+function renderQuickSwitcherList(list, query) {
+    if (quickSwitcherFiltered.length === 0) {
+        list.innerHTML = '<div class="command-palette-empty">No matching notes</div>';
+        return;
+    }
+
+    const q = query ? query.trim() : '';
+    const recentPaths = new Set(recentFiles.map(f => f.path));
+
+    list.innerHTML = '';
+    quickSwitcherFiltered.forEach((note, i) => {
+        const item = document.createElement('div');
+        item.className = 'command-palette-item' + (i === quickSwitcherIdx ? ' active' : '');
+
+        const isRecent = !q && recentPaths.has(note.path);
+        const iconClass = isRecent ? 'fa-clock' : 'fa-file-alt';
+        const folderHtml = note.folder ? `<span class="qs-folder">${escapeHtml(note.folder)}/</span>` : '';
+        const tagsHtml = note.tags.length > 0 ? `<span class="qs-tags">${note.tags.map(t => '#' + t).join(' ')}</span>` : '';
+
+        item.innerHTML = `<i class="fas ${iconClass}"></i><span class="cp-label">${folderHtml}${escapeHtml(note.title)}</span>${tagsHtml}`;
+        item.addEventListener('click', () => executeQuickSwitcherItem(i));
+        item.addEventListener('mouseenter', () => {
+            quickSwitcherIdx = i;
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === i));
+        });
+        list.appendChild(item);
+    });
+}
+
+function executeQuickSwitcherItem(idx) {
+    const note = quickSwitcherFiltered[idx];
+    if (!note) return;
+    closeQuickSwitcher();
+    setTimeout(() => loadNote(note.path), 50);
+}
+
+function setupQuickSwitcher() {
+    const input = document.getElementById('quick-switcher-input');
+    const backdrop = document.getElementById('quick-switcher-backdrop');
+    if (!input || !backdrop) return;
+
+    input.addEventListener('input', () => filterQuickSwitcher(input.value));
+
+    input.addEventListener('keydown', (e) => {
+        const list = document.getElementById('quick-switcher-list');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            quickSwitcherIdx = Math.min(quickSwitcherIdx + 1, quickSwitcherFiltered.length - 1);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === quickSwitcherIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            quickSwitcherIdx = Math.max(quickSwitcherIdx - 1, 0);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === quickSwitcherIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            executeQuickSwitcherItem(quickSwitcherIdx);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeQuickSwitcher();
+        }
+    });
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeQuickSwitcher();
+    });
+}
+
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         // Ctrl+/ or Cmd+/ - Command Palette (also Ctrl+Shift+P)
@@ -4558,8 +4734,19 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // Don't process other shortcuts while command palette is open
-        if (commandPaletteActive) return;
+        // Ctrl+O or Cmd+O - Quick Switcher
+        if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+            e.preventDefault();
+            if (quickSwitcherActive) {
+                closeQuickSwitcher();
+            } else {
+                openQuickSwitcher();
+            }
+            return;
+        }
+
+        // Don't process other shortcuts while command palette or quick switcher is open
+        if (commandPaletteActive || quickSwitcherActive) return;
 
         // Ctrl+S or Cmd+S - Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -4649,11 +4836,6 @@ function setupKeyboardShortcuts() {
             }
         }
 
-        // Ctrl+R or Cmd+R - Rename
-        if ((e.ctrlKey || e.metaKey) && e.key === 'r' && currentNote) {
-            e.preventDefault();
-            renameNote();
-        }
         
         // Ctrl+X or Cmd+X - Delete note (only when not in a text field with selection)
         if ((e.ctrlKey || e.metaKey) && e.key === 'x' && currentNote && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {

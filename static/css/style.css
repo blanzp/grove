@@ -1657,3 +1657,36 @@ body.light-theme .splash-logo { filter: none; }
     color: var(--text-secondary);
     font-size: 13px;
 }
+
+/* Quick Switcher */
+#quick-switcher-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-family: inherit;
+    padding: 6px 0;
+}
+
+#quick-switcher-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.quick-switcher .command-palette-input-wrap {
+    padding: 16px 20px;
+}
+.qs-folder {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.qs-tags {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-left: auto;
+    padding-left: 8px;
+    white-space: nowrap;
+}
