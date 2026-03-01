@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260222b">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260301a">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link id="hljs-theme-dark"  rel="stylesheet" href="/static/css/atom-one-dark.min.css">
@@ -770,11 +770,22 @@ Use placeholders:
         </div>
     </div>
 
+    <!-- Command Palette -->
+    <div id="command-palette-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;visibility:hidden;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.15s ease">
+        <div class="command-palette" id="command-palette" style="position:fixed;top:15vh;left:50%;transform:translateX(-50%) translateY(8px);width:90vw;max-width:560px;opacity:0;transition:opacity 0.15s ease,transform 0.15s ease">
+            <div class="command-palette-input-wrap">
+                <i class="fas fa-search command-palette-icon"></i>
+                <input type="text" id="command-palette-input" placeholder="Type a command..." autocomplete="off" spellcheck="false">
+            </div>
+            <div class="command-palette-list" id="command-palette-list"></div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260222c"></script>
+    <script src="/static/js/app.js?v=20260301a"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

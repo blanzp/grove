@@ -124,6 +124,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+S` | Save note |
 | `Ctrl+N` | New note |
 | `Ctrl+D` | New daily note |
+| `Ctrl+/` | Command Palette |
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
 | `Ctrl+K` | Focus search bar |

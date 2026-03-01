@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     setupTreeDragAndDrop();
     setupKeyboardShortcuts();
+    setupCommandPalette();
     setupMarkdownToolbar();
     loadTheme();
 
@@ -4223,8 +4224,183 @@ async function runExtract() {
     document.getElementById('extract-result-container').style.display = 'block';
 }
 
+// ---- Command Palette ----
+const COMMAND_PALETTE_COMMANDS = [
+    // Notes
+    { id: 'new-note',         label: 'New Note',                icon: 'fa-file-alt',         shortcut: 'Ctrl+N',       category: 'Notes',      action: () => document.getElementById('new-note').click() },
+    { id: 'daily-note',       label: 'New Daily Note',          icon: 'fa-calendar-day',     shortcut: 'Ctrl+D',       category: 'Notes',      action: () => createDailyNote() },
+    { id: 'meeting-note',     label: 'New Meeting Note',        icon: 'fa-handshake',        shortcut: 'Ctrl+M',       category: 'Notes',      action: () => document.getElementById('meeting-note').click() },
+    { id: 'planner-note',     label: 'New Planner',             icon: 'fa-calendar-alt',     shortcut: '',              category: 'Notes',      action: () => showModal('planner-modal') },
+    { id: 'rename-note',      label: 'Rename Note',             icon: 'fa-i-cursor',         shortcut: 'F2',            category: 'Notes',      action: () => { if (currentNote) renameNote(); }, needsNote: true },
+    { id: 'delete-note',      label: 'Delete Note',             icon: 'fa-trash',            shortcut: 'Delete',        category: 'Notes',      action: () => { if (currentNote) deleteNote(); }, needsNote: true },
+    { id: 'star-note',        label: 'Toggle Star',             icon: 'fa-star',             shortcut: '',              category: 'Notes',      action: () => { if (currentNote) toggleStarNote(); }, needsNote: true },
+    { id: 'save-note',        label: 'Save Note',               icon: 'fa-save',             shortcut: 'Ctrl+S',       category: 'Notes',      action: () => saveNoteUpdated(), needsNote: true },
+
+    // Editor
+    { id: 'toggle-preview',   label: 'Toggle Preview Mode',     icon: 'fa-eye',              shortcut: 'Ctrl+P',       category: 'Editor',     action: () => { if (!document.getElementById('preview-toggle').disabled) togglePreview(); }, needsNote: true },
+    { id: 'edit-mode',        label: 'Switch to Edit Mode',     icon: 'fa-edit',             shortcut: 'Ctrl+E',       category: 'Editor',     action: () => { const c=document.getElementById('drop-zone'); const b=document.getElementById('preview-toggle'); const el=document.getElementById('editor'); previewMode='edit'; c.classList.remove('split-view','preview-only'); if(el)el.style.width=''; if(b){b.innerHTML='<i class="fas fa-columns"></i>'; b.title='Split View (Ctrl+P)';} if(el&&!el.disabled)el.focus(); }, needsNote: true },
+    { id: 'toggle-frontmatter',label: 'Toggle Frontmatter',     icon: 'fa-code',             shortcut: '',              category: 'Editor',     action: () => { if (currentNote) toggleFrontmatter(); }, needsNote: true },
+    { id: 'fullscreen',       label: 'Toggle Fullscreen',       icon: 'fa-expand',           shortcut: 'F11',           category: 'Editor',     action: () => toggleFullscreen() },
+    { id: 'insert-bold',      label: 'Insert Bold',             icon: 'fa-bold',             shortcut: 'Ctrl+B',       category: 'Editor',     action: () => applyMarkdownAction('bold', document.getElementById('editor')), needsNote: true },
+    { id: 'insert-italic',    label: 'Insert Italic',           icon: 'fa-italic',           shortcut: 'Ctrl+I',       category: 'Editor',     action: () => applyMarkdownAction('italic', document.getElementById('editor')), needsNote: true },
+    { id: 'insert-link',      label: 'Insert Link',             icon: 'fa-link',             shortcut: 'Ctrl+L',       category: 'Editor',     action: () => applyMarkdownAction('link', document.getElementById('editor')), needsNote: true },
+    { id: 'insert-code',      label: 'Insert Code Block',       icon: 'fa-code',             shortcut: '',              category: 'Editor',     action: () => applyMarkdownAction('code', document.getElementById('editor')), needsNote: true },
+    { id: 'insert-table',     label: 'Insert Table',            icon: 'fa-table',            shortcut: '',              category: 'Editor',     action: () => showModal('table-modal'), needsNote: true },
+    { id: 'insert-toc',       label: 'Insert Table of Contents',icon: 'fa-list-ol',          shortcut: '',              category: 'Editor',     action: () => applyMarkdownAction('toc', document.getElementById('editor')), needsNote: true },
+    { id: 'insert-mermaid',   label: 'Insert Mermaid Diagram',  icon: 'fa-project-diagram',  shortcut: '',              category: 'Editor',     action: () => showModal('mermaid-modal'), needsNote: true },
+    { id: 'insert-image',     label: 'Upload Image',            icon: 'fa-image',            shortcut: '',              category: 'Editor',     action: () => showModal('upload-modal'), needsNote: true },
+
+    // Navigation
+    { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { openMobileSidebar(); const s=document.getElementById('sidebar-search-input'); s.focus(); s.select(); } },
+    { id: 'graph-view',       label: 'Graph View',              icon: 'fa-project-diagram',  shortcut: '',              category: 'Navigate',   action: () => openGraphView() },
+    { id: 'calendar-view',    label: 'Calendar View',           icon: 'fa-calendar',         shortcut: '',              category: 'Navigate',   action: () => openCalendarView() },
+    { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: '',              category: 'Navigate',   action: () => openTodosModal() },
+    { id: 'contacts',         label: 'Contacts',                icon: 'fa-address-book',     shortcut: 'Ctrl+C',       category: 'Navigate',   action: () => openContactsModal() },
+    { id: 'templates',        label: 'Manage Templates',        icon: 'fa-clipboard-list',   shortcut: '',              category: 'Navigate',   action: () => { loadTemplatesModal(); showModal('templates-modal'); } },
+    { id: 'extract',          label: 'Extract Notes for LLM',   icon: 'fa-file-export',      shortcut: '',              category: 'Navigate',   action: () => openExtractModal() },
+
+    // Share
+    { id: 'share-print',      label: 'Print / Save as PDF',     icon: 'fa-print',            shortcut: '',              category: 'Share',      action: () => shareViaPrint(), needsNote: true },
+    { id: 'share-email',      label: 'Email Note',              icon: 'fa-envelope',         shortcut: '',              category: 'Share',      action: () => shareViaEmail(), needsNote: true },
+    { id: 'share-copy-md',    label: 'Copy as Markdown',        icon: 'fa-copy',             shortcut: '',              category: 'Share',      action: () => shareViaCopyMarkdown(), needsNote: true },
+    { id: 'share-copy-html',  label: 'Copy as HTML',            icon: 'fa-code',             shortcut: '',              category: 'Share',      action: () => shareViaCopyHtml(), needsNote: true },
+    { id: 'share-copy-link',  label: 'Copy Link',               icon: 'fa-link',             shortcut: '',              category: 'Share',      action: () => shareViaCopyLink(), needsNote: true },
+
+    // Theme
+    { id: 'toggle-theme',     label: 'Toggle Dark/Light Mode',  icon: 'fa-adjust',           shortcut: '',              category: 'Theme',      action: () => toggleTheme() },
+];
+
+let commandPaletteActive = false;
+let commandPaletteIdx = 0;
+let commandPaletteFiltered = [];
+
+function openCommandPalette() {
+    const backdrop = document.getElementById('command-palette-backdrop');
+    const input = document.getElementById('command-palette-input');
+    if (!backdrop || !input) { console.error('Command palette elements not found'); return; }
+    commandPaletteActive = true;
+    input.value = '';
+    backdrop.style.visibility = 'visible';
+    backdrop.style.pointerEvents = 'auto';
+    backdrop.style.background = 'rgba(0,0,0,0.5)';
+    document.getElementById('command-palette').style.opacity = '1';
+    document.getElementById('command-palette').style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => input.focus(), 50);
+    filterCommandPalette('');
+}
+
+function closeCommandPalette() {
+    commandPaletteActive = false;
+    const backdrop = document.getElementById('command-palette-backdrop');
+    if (!backdrop) return;
+    backdrop.style.visibility = 'hidden';
+    backdrop.style.pointerEvents = 'none';
+    backdrop.style.background = 'rgba(0,0,0,0)';
+    document.getElementById('command-palette').style.opacity = '0';
+    document.getElementById('command-palette').style.transform = 'translateX(-50%) translateY(8px)';
+}
+
+function filterCommandPalette(query) {
+    const list = document.getElementById('command-palette-list');
+    const q = query.toLowerCase().trim();
+
+    commandPaletteFiltered = COMMAND_PALETTE_COMMANDS.filter(cmd => {
+        if (cmd.needsNote && !currentNote) return false;
+        if (!q) return true;
+        return cmd.label.toLowerCase().includes(q) ||
+               cmd.category.toLowerCase().includes(q) ||
+               cmd.id.includes(q);
+    });
+
+    commandPaletteIdx = 0;
+    renderCommandPaletteList(list);
+}
+
+function renderCommandPaletteList(list) {
+    if (commandPaletteFiltered.length === 0) {
+        list.innerHTML = '<div class="command-palette-empty">No matching commands</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    let lastCat = '';
+    commandPaletteFiltered.forEach((cmd, i) => {
+        if (cmd.category !== lastCat) {
+            lastCat = cmd.category;
+            // Category headers rendered inline via the badge
+        }
+        const item = document.createElement('div');
+        item.className = 'command-palette-item' + (i === commandPaletteIdx ? ' active' : '');
+        item.innerHTML = `<i class="fas ${cmd.icon}"></i><span class="cp-label">${cmd.label}</span>${cmd.shortcut ? `<span class="cp-shortcut">${cmd.shortcut.replace('Ctrl', navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl')}</span>` : ''}<span class="cp-category">${cmd.category}</span>`;
+        item.addEventListener('click', () => executeCommandPaletteItem(i));
+        item.addEventListener('mouseenter', () => {
+            commandPaletteIdx = i;
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === i));
+        });
+        list.appendChild(item);
+    });
+}
+
+function executeCommandPaletteItem(idx) {
+    const cmd = commandPaletteFiltered[idx];
+    if (!cmd) return;
+    closeCommandPalette();
+    // Defer action so modal closes first
+    setTimeout(() => cmd.action(), 50);
+}
+
+function setupCommandPalette() {
+    const input = document.getElementById('command-palette-input');
+    const modal = document.getElementById('command-palette-modal');
+
+    input.addEventListener('input', () => filterCommandPalette(input.value));
+
+    input.addEventListener('keydown', (e) => {
+        const list = document.getElementById('command-palette-list');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            commandPaletteIdx = Math.min(commandPaletteIdx + 1, commandPaletteFiltered.length - 1);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === commandPaletteIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            commandPaletteIdx = Math.max(commandPaletteIdx - 1, 0);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === commandPaletteIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            executeCommandPaletteItem(commandPaletteIdx);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeCommandPalette();
+        }
+    });
+
+    // Close on backdrop click
+    const backdrop = document.getElementById('command-palette-backdrop');
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeCommandPalette();
+    });
+}
+
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
+        // Ctrl+/ or Cmd+/ - Command Palette (also Ctrl+Shift+P)
+        if ((e.ctrlKey || e.metaKey) && (e.key === '/' || (e.shiftKey && e.code === 'KeyP'))) {
+            e.preventDefault();
+            if (commandPaletteActive) {
+                closeCommandPalette();
+            } else {
+                openCommandPalette();
+            }
+            return;
+        }
+
+        // Don't process other shortcuts while command palette is open
+        if (commandPaletteActive) return;
+
         // Ctrl+S or Cmd+S - Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();

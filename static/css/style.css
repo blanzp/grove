@@ -1559,3 +1559,101 @@ body.light-theme .splash-logo { filter: none; }
     opacity: 1;
     color: var(--accent-color);
 }
+
+/* Command Palette */
+.command-palette {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.command-palette-input-wrap {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    gap: 10px;
+}
+
+.command-palette-icon {
+    color: var(--text-secondary);
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+#command-palette-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-family: inherit;
+}
+
+#command-palette-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.command-palette-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.command-palette-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.command-palette-item:hover,
+.command-palette-item.active {
+    background: var(--bg-tertiary);
+}
+
+.command-palette-item.active {
+    outline: 1px solid var(--accent-color);
+}
+
+.command-palette-item i {
+    width: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.command-palette-item .cp-label {
+    flex: 1;
+}
+
+.command-palette-item .cp-shortcut {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+}
+
+.command-palette-item .cp-category {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.command-palette-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
