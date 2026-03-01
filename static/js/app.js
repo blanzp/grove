@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardShortcuts();
     setupCommandPalette();
     setupQuickSwitcher();
+    setupSearchModal();
     setupMarkdownToolbar();
     loadTheme();
 
@@ -4442,7 +4443,7 @@ const COMMAND_PALETTE_COMMANDS = [
 
     // Navigation
     { id: 'quick-switcher',   label: 'Quick Switcher',          icon: 'fa-file-alt',         shortcut: 'Ctrl+O',       category: 'Navigate',   action: () => { closeCommandPalette(); setTimeout(() => openQuickSwitcher(), 100); } },
-    { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { openMobileSidebar(); const s=document.getElementById('sidebar-search-input'); s.focus(); s.select(); } },
+    { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { closeCommandPalette(); setTimeout(() => openSearchModal(), 100); } },
     { id: 'graph-view',       label: 'Graph View',              icon: 'fa-project-diagram',  shortcut: '',              category: 'Navigate',   action: () => openGraphView() },
     { id: 'calendar-view',    label: 'Calendar View',           icon: 'fa-calendar',         shortcut: '',              category: 'Navigate',   action: () => openCalendarView() },
     { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: 'Ctrl+T',       category: 'Navigate',   action: () => openTodosModal() },
@@ -4573,6 +4574,151 @@ function setupCommandPalette() {
     const backdrop = document.getElementById('command-palette-backdrop');
     backdrop.addEventListener('click', (e) => {
         if (e.target === backdrop) closeCommandPalette();
+    });
+}
+
+// ── Search Modal (Ctrl+K) ──
+
+let searchModalActive = false;
+let searchModalIdx = 0;
+let searchModalFiltered = [];
+let searchModalDebounce = null;
+
+function openSearchModal() {
+    const backdrop = document.getElementById('search-modal-backdrop');
+    const input = document.getElementById('search-modal-input');
+    if (!backdrop || !input) { console.error('Search modal elements not found'); return; }
+    searchModalActive = true;
+    searchModalIdx = 0;
+    searchModalFiltered = [];
+    input.value = '';
+    document.getElementById('search-modal-list').innerHTML = '<div class="command-palette-empty">Type to search note contents...</div>';
+    backdrop.style.visibility = 'visible';
+    backdrop.style.pointerEvents = 'auto';
+    backdrop.style.background = 'rgba(0,0,0,0.5)';
+    document.getElementById('search-modal').style.opacity = '1';
+    document.getElementById('search-modal').style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeSearchModal() {
+    searchModalActive = false;
+    const backdrop = document.getElementById('search-modal-backdrop');
+    if (!backdrop) return;
+    backdrop.style.visibility = 'hidden';
+    backdrop.style.pointerEvents = 'none';
+    backdrop.style.background = 'rgba(0,0,0,0)';
+    document.getElementById('search-modal').style.opacity = '0';
+    document.getElementById('search-modal').style.transform = 'translateX(-50%) translateY(8px)';
+}
+
+async function performSearchModal(input) {
+    const list = document.getElementById('search-modal-list');
+    const raw = input.trim();
+    if (!raw) {
+        searchModalFiltered = [];
+        searchModalIdx = 0;
+        list.innerHTML = '<div class="command-palette-empty">Type to search note contents... Use #tag to filter by tag.</div>';
+        return;
+    }
+
+    // Parse #tag from input (reuse same pattern as sidebar search)
+    const tagMatch = raw.match(/#(\S*)/);
+    const tag = tagMatch ? tagMatch[1] : '';
+    const q = raw.replace(/#\S*/g, '').trim();
+
+    if (!q && !tag) {
+        searchModalFiltered = [];
+        searchModalIdx = 0;
+        list.innerHTML = '<div class="command-palette-empty">Type to search note contents... Use #tag to filter by tag.</div>';
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams();
+        if (q) params.append('q', q);
+        if (tag) params.append('tag', tag);
+        const resp = await fetch(`/api/search?${params}`);
+        searchModalFiltered = await resp.json();
+        searchModalIdx = 0;
+        renderSearchModalList(list, q);
+    } catch (e) {
+        list.innerHTML = '<div class="command-palette-empty">Search failed</div>';
+    }
+}
+
+function renderSearchModalList(list, query) {
+    if (searchModalFiltered.length === 0) {
+        list.innerHTML = '<div class="command-palette-empty">No results found</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    searchModalFiltered.forEach((result, i) => {
+        const item = document.createElement('div');
+        item.className = 'command-palette-item search-result-item' + (i === searchModalIdx ? ' active' : '');
+
+        const tagsHtml = (result.tags && result.tags.length > 0) ? `<span class="qs-tags">${result.tags.map(t => '#' + t).join(' ')}</span>` : '';
+        const snippetHtml = result.snippet ? `<div class="search-snippet">${highlightMatch(escapeHtml(result.snippet), query)}</div>` : '';
+
+        item.innerHTML = `<div class="search-result-main"><div class="search-result-top"><i class="fas fa-file-alt"></i><span class="cp-label">${escapeHtml(result.title)}</span>${tagsHtml}</div>${snippetHtml}</div>`;
+        item.addEventListener('click', () => executeSearchModalItem(i));
+        item.addEventListener('mouseenter', () => {
+            searchModalIdx = i;
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === i));
+        });
+        list.appendChild(item);
+    });
+}
+
+function highlightMatch(text, query) {
+    if (!query) return text;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
+}
+
+function executeSearchModalItem(idx) {
+    const result = searchModalFiltered[idx];
+    if (!result) return;
+    closeSearchModal();
+    setTimeout(() => loadNote(result.path), 50);
+}
+
+function setupSearchModal() {
+    const input = document.getElementById('search-modal-input');
+    const backdrop = document.getElementById('search-modal-backdrop');
+    if (!input || !backdrop) return;
+
+    input.addEventListener('input', () => {
+        clearTimeout(searchModalDebounce);
+        searchModalDebounce = setTimeout(() => performSearchModal(input.value), 250);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        const list = document.getElementById('search-modal-list');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            searchModalIdx = Math.min(searchModalIdx + 1, searchModalFiltered.length - 1);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === searchModalIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            searchModalIdx = Math.max(searchModalIdx - 1, 0);
+            list.querySelectorAll('.command-palette-item').forEach((el, j) => el.classList.toggle('active', j === searchModalIdx));
+            const active = list.querySelector('.command-palette-item.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            executeSearchModalItem(searchModalIdx);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeSearchModal();
+        }
+    });
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeSearchModal();
     });
 }
 
@@ -4785,8 +4931,8 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // Don't process other shortcuts while command palette or quick switcher is open
-        if (commandPaletteActive || quickSwitcherActive) return;
+        // Don't process other shortcuts while command palette, quick switcher, or search modal is open
+        if (commandPaletteActive || quickSwitcherActive || searchModalActive) return;
 
         // Ctrl+S or Cmd+S - Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -4843,13 +4989,15 @@ function setupKeyboardShortcuts() {
             if (editor && !editor.disabled) editor.focus();
         }
         
-        // Ctrl+K or Cmd+K - Focus sidebar search
+        // Ctrl+K or Cmd+K - Search modal
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            openMobileSidebar();
-            const searchInput = document.getElementById('sidebar-search-input');
-            searchInput.focus();
-            searchInput.select();
+            if (searchModalActive) {
+                closeSearchModal();
+            } else {
+                openSearchModal();
+            }
+            return;
         }
         
         // Ctrl+M - New meeting note

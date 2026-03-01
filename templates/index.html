@@ -771,6 +771,17 @@ Use placeholders:
         </div>
     </div>
 
+    <!-- Search Modal -->
+    <div id="search-modal-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10002;visibility:hidden;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.15s ease">
+        <div class="command-palette search-modal" id="search-modal" style="position:fixed;top:10vh;left:50%;transform:translateX(-50%) translateY(8px);width:90vw;max-width:640px;opacity:0;transition:opacity 0.15s ease,transform 0.15s ease">
+            <div class="command-palette-input-wrap">
+                <i class="fas fa-search command-palette-icon"></i>
+                <input type="text" id="search-modal-input" placeholder="Search notes..." autocomplete="off" spellcheck="false">
+            </div>
+            <div class="command-palette-list search-modal-list" id="search-modal-list"></div>
+        </div>
+    </div>
+
     <!-- Quick Switcher -->
     <div id="quick-switcher-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;visibility:hidden;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.15s ease">
         <div class="command-palette quick-switcher" id="quick-switcher" style="position:fixed;top:15vh;left:50%;transform:translateX(-50%) translateY(8px);width:90vw;max-width:560px;opacity:0;transition:opacity 0.15s ease,transform 0.15s ease">

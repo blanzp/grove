@@ -55,7 +55,8 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault
 - **Recent files** panel (collapsed by default) for quick access
-- **Inline search bar** — search notes with unified #tag filtering (Ctrl+K)
+- **Search modal** — full-text search across note contents with `#tag` filtering, context snippets with highlighted matches (Ctrl+K)
+- **Inline search bar** — search notes with unified #tag filtering in sidebar
 - **Create, rename, delete** notes and folders
 - **Right-click context menu** — delete files, folders, and images via right-click
 - **Image preview** — click images in tree to open preview modal with proper sizing
@@ -138,7 +139,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
 | `Ctrl+O` | Quick switcher (open note by name) |
-| `Ctrl+K` | Focus search bar |
+| `Ctrl+K` | Search notes (full-text with #tag filtering) |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+L` | Insert link |

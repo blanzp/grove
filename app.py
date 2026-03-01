@@ -849,10 +849,26 @@ def search_notes():
         if tag_filter and tag_filter not in [t.lower() for t in tags]:
             continue
         
+        # Build a context snippet around the match
+        snippet = ''
+        if query:
+            lower_body = body.lower()
+            idx = lower_body.find(query)
+            if idx >= 0:
+                start = max(0, idx - 60)
+                end = min(len(body), idx + len(query) + 60)
+                snippet = ('...' if start > 0 else '') + body[start:end].replace('\n', ' ').strip() + ('...' if end < len(body) else '')
+            else:
+                # Match was in title only
+                snippet = body[:120].replace('\n', ' ').strip() + ('...' if len(body) > 120 else '')
+        else:
+            snippet = body[:120].replace('\n', ' ').strip() + ('...' if len(body) > 120 else '')
+
         results.append({
             'path': str(md_file.relative_to(VAULT_PATH)),
             'title': title,
-            'tags': tags
+            'tags': tags,
+            'snippet': snippet
         })
     
     return jsonify(results)
