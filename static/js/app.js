@@ -1714,6 +1714,165 @@ function setupLinkAutocomplete() {
     });
 }
 
+// Slash command autocomplete — triggered by /
+function setupSlashCommands() {
+    const editor = document.getElementById('editor');
+    const dropdown = document.getElementById('slash-dropdown');
+    let slashStart = -1;
+    let activeIndex = 0;
+    let filtered = [];
+
+    const SLASH_COMMANDS = [
+        { name: 'date',      icon: 'fa-calendar-day',    desc: 'Insert today\'s date',        insert: () => new Date().toISOString().slice(0, 10) },
+        { name: 'time',      icon: 'fa-clock',           desc: 'Insert current time',         insert: () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+        { name: 'datetime',  icon: 'fa-calendar-check',  desc: 'Insert date and time',        insert: () => new Date().toISOString().slice(0, 16).replace('T', ' ') },
+        { name: 'divider',   icon: 'fa-minus',           desc: 'Horizontal rule',             insert: () => '\n---\n' },
+        { name: 'code',      icon: 'fa-code',            desc: 'Code block',                  insert: () => '```\n\n```', cursor: -4 },
+        { name: 'table',     icon: 'fa-table',           desc: 'Table (3x3)',                 insert: () => '| Header | Header | Header |\n| ------ | ------ | ------ |\n| Cell   | Cell   | Cell   |\n| Cell   | Cell   | Cell   |\n| Cell   | Cell   | Cell   |' },
+        { name: 'checkbox',  icon: 'fa-check-square',    desc: 'Checkbox item',               insert: () => '- [ ] ' },
+        { name: 'link',      icon: 'fa-link',            desc: 'Markdown link',               insert: () => '[text](url)', cursor: -6 },
+        { name: 'image',     icon: 'fa-image',           desc: 'Image embed',                 insert: () => '![alt](url)', cursor: -5 },
+        { name: 'toc',       icon: 'fa-list-ol',         desc: 'Table of contents',           insert: () => { applyMarkdownAction('toc', editor); return null; } },
+        { name: 'mermaid',   icon: 'fa-project-diagram', desc: 'Mermaid diagram',             insert: () => '```mermaid\nflowchart TD\n    A[Start] --> B[End]\n```', cursor: -4 },
+        { name: 'quote',     icon: 'fa-quote-left',      desc: 'Blockquote',                  insert: () => '> ' },
+        { name: 'h1',        icon: 'fa-heading',         desc: 'Heading 1',                   insert: () => '# ' },
+        { name: 'h2',        icon: 'fa-heading',         desc: 'Heading 2',                   insert: () => '## ' },
+        { name: 'h3',        icon: 'fa-heading',         desc: 'Heading 3',                   insert: () => '### ' },
+        { name: 'bold',      icon: 'fa-bold',            desc: 'Bold text',                   insert: () => '**text**', cursor: -2 },
+        { name: 'italic',    icon: 'fa-italic',          desc: 'Italic text',                 insert: () => '*text*', cursor: -1 },
+        { name: 'details',   icon: 'fa-caret-square-down', desc: 'Collapsible section',       insert: () => '<details>\n<summary>Click to expand</summary>\n\n</details>', cursor: -11 },
+    ];
+
+    function closeSlash() {
+        dropdown.style.display = 'none';
+        slashStart = -1;
+        filtered = [];
+        activeIndex = 0;
+    }
+
+    function renderDropdown() {
+        dropdown.innerHTML = '';
+        filtered.forEach((cmd, i) => {
+            const item = document.createElement('div');
+            item.className = 'mention-item' + (i === activeIndex ? ' active' : '');
+            item.innerHTML = `
+                <span class="mention-name"><i class="fas ${cmd.icon}" style="width:16px;margin-right:6px;color:var(--text-secondary)"></i>/${cmd.name}</span>
+                <span class="mention-detail">${cmd.desc}</span>
+            `;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                insertSlashCommand(cmd);
+            });
+            dropdown.appendChild(item);
+        });
+    }
+
+    function insertSlashCommand(cmd) {
+        const result = cmd.insert();
+        if (result === null) {
+            // Command handled itself (e.g. TOC)
+            // Remove the /command text
+            const text = editor.value;
+            const pos = editor.selectionStart;
+            const before = text.substring(0, slashStart);
+            const after = text.substring(pos);
+            editor.value = before + after;
+            editor.selectionStart = editor.selectionEnd = slashStart;
+            editor.focus();
+            closeSlash();
+            return;
+        }
+        const text = editor.value;
+        const pos = editor.selectionStart;
+        const before = text.substring(0, slashStart);
+        const after = text.substring(pos);
+        editor.value = before + result + after;
+        const newPos = before.length + result.length + (cmd.cursor || 0);
+        editor.selectionStart = editor.selectionEnd = newPos;
+        editor.focus();
+        closeSlash();
+        // Trigger input event for auto-save and preview update
+        editor.dispatchEvent(new Event('input'));
+    }
+
+    function positionDropdown() {
+        const rect = editor.getBoundingClientRect();
+        const lineHeight = 20;
+        const text = editor.value.substring(0, editor.selectionStart);
+        const lines = text.split('\n');
+        const currentLine = lines.length - 1;
+        const scrollTop = editor.scrollTop;
+        const top = rect.top + (currentLine * lineHeight) - scrollTop + lineHeight + 4;
+        const col = lines[lines.length - 1].length;
+        const left = rect.left + Math.min(col * 8, rect.width - 260);
+        dropdown.style.top = Math.min(top, rect.bottom - 40) + 'px';
+        dropdown.style.left = Math.max(left, rect.left) + 'px';
+    }
+
+    editor.addEventListener('input', () => {
+        const pos = editor.selectionStart;
+        const text = editor.value;
+
+        // Look back for / trigger at start of line or after whitespace
+        let slashPos = -1;
+        for (let i = pos - 1; i >= 0; i--) {
+            if (text[i] === '/') {
+                // Only trigger if / is at start of line or preceded by whitespace
+                if (i === 0 || text[i - 1] === '\n' || text[i - 1] === ' ' || text[i - 1] === '\t') {
+                    slashPos = i;
+                }
+                break;
+            }
+            if (text[i] === ' ' || text[i] === '\n') break;
+        }
+
+        if (slashPos >= 0) {
+            const query = text.substring(slashPos + 1, pos).toLowerCase();
+            filtered = SLASH_COMMANDS.filter(cmd => cmd.name.includes(query)).slice(0, 10);
+
+            if (filtered.length > 0) {
+                slashStart = slashPos;
+                activeIndex = 0;
+                positionDropdown();
+                renderDropdown();
+                dropdown.style.display = 'block';
+            } else {
+                closeSlash();
+            }
+        } else {
+            closeSlash();
+        }
+    });
+
+    editor.addEventListener('keydown', (e) => {
+        if (dropdown.style.display === 'none') return;
+        // Don't intercept if other dropdowns are active
+        if (document.getElementById('mention-dropdown').style.display !== 'none') return;
+        if (document.getElementById('link-dropdown').style.display !== 'none') return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % filtered.length;
+            renderDropdown();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
+            renderDropdown();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (filtered.length > 0) {
+                e.preventDefault();
+                insertSlashCommand(filtered[activeIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            closeSlash();
+        }
+    });
+
+    editor.addEventListener('blur', () => {
+        setTimeout(closeSlash, 200);
+    });
+}
+
 async function openFrontmatterPreview() {
     if (!currentNote) return;
     const resp = await fetch(`/api/note/${currentNote}`);
@@ -2451,6 +2610,7 @@ function setupEventListeners() {
     // @ mention autocomplete
     setupMentionAutocomplete();
     setupLinkAutocomplete();
+    setupSlashCommands();
     setupPreviewAnchorLinks();
 
     // Frontmatter preview (read-only)
