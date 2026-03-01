@@ -544,7 +544,9 @@ async function loadNote(path, forceEditMode = false) {
     previewMode = forceEditMode ? 'edit' : 'preview';
     showFrontmatter = false;
     const editorContainer = document.getElementById('drop-zone');
-    
+    // Clear any inline width left by the split divider drag
+    document.getElementById('editor').style.width = '';
+
     if (forceEditMode) {
         editorContainer.classList.remove('preview-only', 'split-view');
         document.getElementById('preview-toggle').innerHTML = '<i class="fas fa-eye"></i>';
@@ -1909,6 +1911,8 @@ function togglePreview() {
     
     // Cycle: edit -> split -> preview -> edit
     // Button shows the NEXT mode
+    // Clear any inline width left by the split divider drag
+    editor.style.width = '';
     if (previewMode === 'edit') {
         previewMode = 'split';
         editorContainer.classList.add('split-view');
@@ -4264,8 +4268,10 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             const editorContainer = document.getElementById('drop-zone');
             const previewBtn = document.getElementById('preview-toggle');
+            const editorEl = document.getElementById('editor');
             previewMode = 'edit';
             editorContainer.classList.remove('split-view', 'preview-only');
+            if (editorEl) editorEl.style.width = '';
             if (previewBtn) {
                 previewBtn.innerHTML = '<i class="fas fa-columns"></i>';
                 previewBtn.title = 'Split View (Ctrl+P)';
