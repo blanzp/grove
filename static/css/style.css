@@ -1708,6 +1708,12 @@ body.light-theme .splash-logo { filter: none; }
     font-size: 12px;
 }
 
+.qs-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 16px;
+}
+
 .qs-tags {
     font-size: 10px;
     color: var(--text-secondary);

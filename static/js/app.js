@@ -4582,6 +4582,7 @@ let quickSwitcherActive = false;
 let quickSwitcherIdx = 0;
 let quickSwitcherFiltered = [];
 let quickSwitcherNotes = [];
+let quickSwitcherRecentCount = 0;
 
 async function fetchQuickSwitcherNotes() {
     try {
@@ -4653,15 +4654,17 @@ function filterQuickSwitcher(query) {
     const q = query.trim();
 
     if (!q) {
-        // Show recent files first, then all notes alphabetically
+        // Show first 3 recent files, then all notes alphabetically
         const recentPaths = new Set(recentFiles.map(f => f.path));
         const recentNotes = recentFiles
+            .slice(0, 3)
             .map(r => quickSwitcherNotes.find(n => n.path === r.path))
             .filter(Boolean);
         const rest = quickSwitcherNotes
             .filter(n => !recentPaths.has(n.path))
             .sort((a, b) => a.title.localeCompare(b.title));
         quickSwitcherFiltered = [...recentNotes, ...rest].slice(0, 20);
+        quickSwitcherRecentCount = recentNotes.length;
     } else {
         // Score and sort by match quality
         const scored = quickSwitcherNotes.map(n => {
@@ -4673,6 +4676,7 @@ function filterQuickSwitcher(query) {
         }).filter(s => s.score > 0);
         scored.sort((a, b) => b.score - a.score || a.note.title.localeCompare(b.note.title));
         quickSwitcherFiltered = scored.map(s => s.note).slice(0, 20);
+        quickSwitcherRecentCount = 0;
     }
 
     quickSwitcherIdx = 0;
@@ -4690,10 +4694,17 @@ function renderQuickSwitcherList(list, query) {
 
     list.innerHTML = '';
     quickSwitcherFiltered.forEach((note, i) => {
+        // Insert divider after recent notes
+        if (i === quickSwitcherRecentCount && quickSwitcherRecentCount > 0) {
+            const hr = document.createElement('div');
+            hr.className = 'qs-divider';
+            list.appendChild(hr);
+        }
+
         const item = document.createElement('div');
         item.className = 'command-palette-item' + (i === quickSwitcherIdx ? ' active' : '');
 
-        const isRecent = !q && recentPaths.has(note.path);
+        const isRecent = !q && i < quickSwitcherRecentCount;
         const iconClass = isRecent ? 'fa-clock' : 'fa-file-alt';
         const folderHtml = note.folder ? `<span class="qs-folder">${escapeHtml(note.folder)}/</span>` : '';
         const tagsHtml = note.tags.length > 0 ? `<span class="qs-tags">${note.tags.map(t => '#' + t).join(' ')}</span>` : '';
