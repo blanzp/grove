@@ -24,6 +24,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
   - [Footnotes](#footnotes)
   - [Table of Contents](#table-of-contents-1)
 - [Extracting Notes for LLM Summaries](#extracting-notes-for-llm-summaries)
+- [LLM Assist Configuration](#llm-assist-configuration)
 - [Configuration](#configuration)
 - [MCP Server](#mcp-server)
 - [File Structure](#file-structure)
@@ -108,6 +109,13 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **File serving** — `GET /api/file/<path>` serves any file from the vault
 - **Right-click delete** — delete images directly from tree via context menu
 - **Supported formats** — PNG, JPG, JPEG, GIF, WEBP, SVG, PDF, MP3, MP4, WAV
+
+### 🤖 LLM Assist (Optional)
+- **In-editor AI** — select text and run prompts against it (rewrite, summarize, expand, etc.)
+- **Model selector** — choose from configured models via dropdown
+- **Insert modes** — insert LLM output below selection, replace selection, or at cursor
+- **Multi-provider** — supports OpenAI-compatible APIs, Anthropic, and Ollama
+- **Privacy-first** — disabled by default, no data leaves your machine unless you configure an external endpoint
 
 ### 🎨 Appearance
 - **Soft green theme** — dark and light modes with CSS variables
@@ -466,6 +474,44 @@ Returns concatenated markdown with title/date headers and bodies only.
 - Use type filters to extract just meetings, decisions, or research separately
 - The JSONL export (`GET /api/export?format=jsonl`) is better for programmatic LLM pipelines
 
+## LLM Assist Configuration
+
+LLM Assist is disabled by default. Enable it by setting environment variables:
+
+```bash
+# Required
+GROVE_LLM_ENABLED=true
+GROVE_LLM_ENDPOINT=https://api.openai.com   # or http://localhost:11434 for Ollama
+GROVE_LLM_MODEL=gpt-4o                       # default model
+GROVE_LLM_API_KEY=sk-...                      # not needed for Ollama
+
+# Optional
+GROVE_LLM_PROVIDER=openai                    # openai (default), anthropic, or ollama
+GROVE_LLM_MODELS=gpt-4o,gpt-4o-mini,o1      # comma-separated model list for selector
+GROVE_LLM_MAX_TOKENS=800                      # max response tokens
+GROVE_LLM_TEMPERATURE=0.3                     # response temperature
+```
+
+### Supported Providers
+
+| Provider | `GROVE_LLM_PROVIDER` | `GROVE_LLM_ENDPOINT` | API Key |
+|----------|---------------------|----------------------|---------|
+| OpenAI | `openai` | `https://api.openai.com` | Required |
+| Anthropic | `anthropic` | `https://api.anthropic.com` | Required |
+| Ollama (local) | `ollama` | `http://localhost:11434` | Not needed |
+| Any OpenAI-compatible | `openai` | Your endpoint URL | Depends |
+
+### Usage
+
+1. Select text in the editor (optional)
+2. Click the **🤖 robot icon** or use the toolbar
+3. Enter a prompt (e.g., "Summarize", "Rewrite to be concise", "Translate to Spanish")
+4. Choose insert mode: **Below selection**, **Replace selection**, or **At cursor**
+5. Select a model from the dropdown (if multiple configured)
+6. Click **Run**
+
+The system prompt instructs the LLM to respond in valid markdown format.
+
 ## Configuration
 
 ### Environment Variables
@@ -719,6 +765,9 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
+| **LLM** | | |
+| `GET` | `/api/llm/status` | LLM config status (enabled, provider, models) |
+| `POST` | `/api/llm` | Generate LLM response (`prompt`, `selection`, `model`) |
 | **Export** | | |
 | `GET` | `/api/export?format=jsonl&since=<ISO>` | Export vault notes (JSONL/JSON; incremental via `since`) |
 | `GET` | `/api/extract?months=<n\|all>&starred=<bool>&type=a,b&tag=x` | Concatenate notes for LLM input |
