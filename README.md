@@ -46,6 +46,8 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Table of Contents** — toolbar button scans headings and inserts a linked TOC; re-click to update
 - **Image paste** — paste images from clipboard directly into the editor
 - **Image upload** — upload via toolbar button or drag & drop
+- **Slash commands** — type `/` at start of line for inline shortcuts (date, time, code block, table, mermaid, headings, etc.)
+- **Code block copy button** — hover over any code block in preview to reveal a copy button
 - **New notes open in edit mode** — start writing immediately after creation
 
 ### 📂 File Management
@@ -120,7 +122,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 ### 🎨 Appearance
 - **Soft green theme** — dark and light modes with CSS variables
 - **Theme toggle** — top-right button to switch between dark and light
-- **Fullscreen mode** — distraction-free writing (F11 or Escape to exit)
+- **Fullscreen mode** — distraction-free writing (Ctrl+F or Escape to exit)
 - **Collapsible sidebar** — more room for writing
 - **Welcome splash** — quick actions when no note is selected
 - **Mobile responsive** — hamburger menu, touch-friendly buttons, works on iPhone/Android
@@ -135,6 +137,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+/` | Command Palette |
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
 | `Ctrl+E` | Switch to edit mode |
+| `Ctrl+O` | Quick switcher (open note by name) |
 | `Ctrl+K` | Focus search bar |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
@@ -142,13 +145,13 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+M` | New meeting note |
 | `Ctrl+C` | Open contacts (when no text selected) |
 | `Ctrl+V` | Paste image from clipboard |
-| `Ctrl+R` | Rename note |
 | `Ctrl+X` | Delete note (when not in text field) |
 | `Ctrl+F` | Toggle fullscreen |
 | `Ctrl+T` | Todo dashboard |
 | `Escape` | Exit fullscreen |
 | `@` | Trigger contact autocomplete |
 | `[[` | Trigger wikilink autocomplete |
+| `/` | Trigger slash commands (at start of line) |
 
 ## Supported Markdown
 
@@ -188,6 +191,7 @@ Grove uses [Marked.js](https://marked.js.org/) v4.3.0 with GitHub Flavored Markd
 | `[[note name]]` | Clickable wikilink (with typeahead) |
 | `[^1]` + `[^1]: text` | Footnote with back-link |
 | `@name` | Contact mention (autocomplete in editor) |
+| `/command` | Slash commands (date, time, code, table, mermaid, etc.) |
 | TOC button | Generates linked Table of Contents from H2–H4 |
 | ` ```mermaid ` | Mermaid diagrams (flowcharts, sequence, Gantt, pie, ER, git graphs) |
 | ` ```js `, ` ```python `, etc. | Syntax-highlighted code blocks (Highlight.js, lazy-loaded) |
