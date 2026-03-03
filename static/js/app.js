@@ -2805,8 +2805,20 @@ function setupEventListeners() {
     });
     
     // New note button
-    document.getElementById('new-note').addEventListener('click', () => {
-        document.getElementById('modal-folder').value = currentFolder;
+    document.getElementById('new-note').addEventListener('click', async () => {
+        const folderSelect = document.getElementById('modal-folder');
+        try {
+            const resp = await fetch('/api/folders');
+            const folders = await resp.json();
+            folderSelect.innerHTML = '<option value="">/ (root)</option>';
+            folders.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = '/' + f;
+                folderSelect.appendChild(opt);
+            });
+        } catch (e) { /* keep existing options */ }
+        folderSelect.value = currentFolder;
         showModal('new-note-modal');
     });
     
@@ -4420,7 +4432,7 @@ async function runExtract() {
 // ---- Command Palette ----
 const COMMAND_PALETTE_COMMANDS = [
     // Notes
-    { id: 'new-note',         label: 'New Note',                icon: 'fa-file-alt',         shortcut: 'Ctrl+N',       category: 'Notes',      action: () => document.getElementById('new-note').click() },
+    { id: 'new-note',         label: 'New Note',                icon: 'fa-file-alt',         shortcut: '',              category: 'Notes',      action: () => document.getElementById('new-note').click() },
     { id: 'daily-note',       label: 'New Daily Note',          icon: 'fa-calendar-day',     shortcut: 'Ctrl+D',       category: 'Notes',      action: () => createDailyNote() },
     { id: 'meeting-note',     label: 'New Meeting Note',        icon: 'fa-handshake',        shortcut: 'Ctrl+M',       category: 'Notes',      action: () => document.getElementById('meeting-note').click() },
     { id: 'planner-note',     label: 'New Planner',             icon: 'fa-calendar-alt',     shortcut: '',              category: 'Notes',      action: () => showModal('planner-modal') },
@@ -4448,7 +4460,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'search',           label: 'Search Notes',            icon: 'fa-search',           shortcut: 'Ctrl+K',       category: 'Navigate',   action: () => { closeCommandPalette(); setTimeout(() => openSearchModal(), 100); } },
     { id: 'graph-view',       label: 'Graph View',              icon: 'fa-project-diagram',  shortcut: '',              category: 'Navigate',   action: () => openGraphView() },
     { id: 'calendar-view',    label: 'Calendar View',           icon: 'fa-calendar',         shortcut: '',              category: 'Navigate',   action: () => openCalendarView() },
-    { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: 'Ctrl+T',       category: 'Navigate',   action: () => openTodosModal() },
+    { id: 'todo-dashboard',   label: 'Todo Dashboard',          icon: 'fa-check-square',     shortcut: '',              category: 'Navigate',   action: () => openTodosModal() },
     { id: 'contacts',         label: 'Contacts',                icon: 'fa-address-book',     shortcut: 'Ctrl+C',       category: 'Navigate',   action: () => openContactsModal() },
     { id: 'templates',        label: 'Manage Templates',        icon: 'fa-clipboard-list',   shortcut: '',              category: 'Navigate',   action: () => { loadTemplatesModal(); showModal('templates-modal'); } },
     { id: 'extract',          label: 'Extract Notes for LLM',   icon: 'fa-file-export',      shortcut: '',              category: 'Navigate',   action: () => openExtractModal() },
@@ -5015,12 +5027,6 @@ function setupKeyboardShortcuts() {
             applyMarkdownAction('link', document.getElementById('editor'));
         }
         
-        // Ctrl+N or Cmd+N - New note
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            document.getElementById('new-note').click();
-        }
-        
         // Ctrl+P or Cmd+P - Toggle preview
         if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
             e.preventDefault();
@@ -5094,12 +5100,6 @@ function setupKeyboardShortcuts() {
             toggleFullscreen();
         }
 
-        // Ctrl+T or Cmd+T - Toggle todo dashboard
-        if ((e.ctrlKey || e.metaKey) && e.key === 't') {
-            e.preventDefault();
-            openTodosModal();
-        }
-        
         // Escape - Exit fullscreen
         if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) {
             e.preventDefault();

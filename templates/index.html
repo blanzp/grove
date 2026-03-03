@@ -210,12 +210,17 @@
             <input type="text" id="modal-note-title" placeholder="Note Title">
             <input type="text" id="modal-note-tags" placeholder="Tags (comma separated)">
             <label>
+                Folder:
+                <select id="modal-folder">
+                    <option value="">/ (root)</option>
+                </select>
+            </label>
+            <label>
                 Template:
                 <select id="modal-template">
                     <option value="">None</option>
                 </select>
             </label>
-            <input type="hidden" id="modal-folder">
             <div class="modal-actions">
                 <button class="btn-primary" id="create-note-btn">Create</button>
                 <button class="btn-secondary" id="cancel-note-btn">Cancel</button>

@@ -133,7 +133,6 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+S` | Save note |
-| `Ctrl+N` | New note |
 | `Ctrl+D` | New daily note |
 | `Ctrl+/` | Command Palette |
 | `Ctrl+P` | Toggle preview (edit → split → preview) |
@@ -148,7 +147,6 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 | `Ctrl+V` | Paste image from clipboard |
 | `Ctrl+X` | Delete note (when not in text field) |
 | `Ctrl+F` | Toggle fullscreen |
-| `Ctrl+T` | Todo dashboard |
 | `Escape` | Exit fullscreen |
 | `@` | Trigger contact autocomplete |
 | `[[` | Trigger wikilink autocomplete |
