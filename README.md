@@ -525,6 +525,7 @@ The system prompt instructs the LLM to respond in valid markdown format.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `GROVE_HOME` | `~/.grove` | Root directory for config and vaults |
 | `GROVE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for network access) |
 | `GROVE_PORT` | `5000` | Server port |
 

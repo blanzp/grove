@@ -192,8 +192,8 @@ def serve_openapi():
     except Exception:
         return jsonify({'error': 'openapi.yaml not found'}), 404
 
-# Global config under user's home directory
-GROVE_HOME = Path.home() / ".grove"
+# Global config under user's home directory (override with GROVE_HOME env var)
+GROVE_HOME = Path(os.environ.get("GROVE_HOME", str(Path.home() / ".grove")))
 GROVE_HOME.mkdir(exist_ok=True)
 CONFIG_DIR = GROVE_HOME
 CONFIG_PATH = CONFIG_DIR / "config.json"
