@@ -8,7 +8,7 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, g
 from pathlib import Path
 import os
 
@@ -262,19 +262,31 @@ VAULT_PATH.mkdir(exist_ok=True)
 TEMPLATES_PATH = VAULT_PATH / ".templates"
 TEMPLATES_PATH.mkdir(exist_ok=True)
 
+def _vp():
+    """Return the vault path for the current request (from ?vault= or active vault)."""
+    return g._vault_path
+
+def _tp():
+    """Return the templates path for the current request."""
+    return g._vault_path / ".templates"
+
 @app.before_request
-def _refresh_active_vault():
-    global VAULT_PATH, TEMPLATES_PATH
-    VAULT_PATH = get_active_vault_path()
-    VAULT_PATH.mkdir(exist_ok=True)
-    TEMPLATES_PATH = VAULT_PATH / ".templates"
-    TEMPLATES_PATH.mkdir(exist_ok=True)
+def _set_vault_context():
+    vault_name = request.args.get('vault')
+    if vault_name:
+        path = VAULTS_ROOT / vault_name
+        if not path.is_dir():
+            return jsonify({'error': f'Vault not found: {vault_name}'}), 404
+        _seed_vault(path)
+        g._vault_path = path
+    else:
+        g._vault_path = get_active_vault_path()
 
 
 def get_vault_structure(base_path=None):
     """Get the vault directory structure as a tree."""
     if base_path is None:
-        base_path = VAULT_PATH
+        base_path = _vp()
     
     structure = []
     
@@ -287,7 +299,7 @@ def get_vault_structure(base_path=None):
             if item.is_dir():
                 structure.append({
                     'name': item.name,
-                    'path': str(item.relative_to(VAULT_PATH)),
+                    'path': str(item.relative_to(_vp())),
                     'type': 'folder',
                     'children': get_vault_structure(item)
                 })
@@ -304,14 +316,14 @@ def get_vault_structure(base_path=None):
                 
                 structure.append({
                     'name': item.stem,
-                    'path': str(item.relative_to(VAULT_PATH)),
+                    'path': str(item.relative_to(_vp())),
                     'type': 'file',
                     'starred': starred
                 })
             elif item.is_file():
                 structure.append({
                     'name': item.name,
-                    'path': str(item.relative_to(VAULT_PATH)),
+                    'path': str(item.relative_to(_vp())),
                     'type': 'asset'
                 })
     except PermissionError:
@@ -365,7 +377,7 @@ def extract_wikilinks(content):
 def get_note_title(note_path):
     """Get the title of a note from its frontmatter or filename."""
     try:
-        file_path = VAULT_PATH / note_path
+        file_path = _vp() / note_path
         if not file_path.exists():
             return file_path.stem
         content = file_path.read_text(encoding="utf-8", errors="replace")
@@ -450,7 +462,7 @@ def list_vaults():
         # Ensure a default vault exists
         (VAULTS_ROOT / 'default').mkdir(parents=True, exist_ok=True)
         names = ['default']
-    active = VAULT_PATH.name
+    active = get_active_vault_path().name
     return jsonify({
         'active': active,
         'vaults': sorted(list(set(names)))
@@ -477,12 +489,12 @@ def export_vault():
     import io
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for f in VAULT_PATH.rglob('*'):
+        for f in _vp().rglob('*'):
             if f.is_file():
-                arcname = str(f.relative_to(VAULT_PATH))
+                arcname = str(f.relative_to(_vp()))
                 zf.write(f, arcname)
     buf.seek(0)
-    vault_name = VAULT_PATH.name
+    vault_name = _vp().name
     return send_file(buf, mimetype='application/zip', as_attachment=True,
                      download_name=f'grove-{vault_name}-{datetime.now().strftime("%Y%m%d")}.zip')
 
@@ -529,7 +541,7 @@ def switch_vault():
 @app.route('/api/note/<path:note_path>')
 def get_note(note_path):
     """Get a note's content."""
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     
     if not file_path.exists() or not file_path.suffix == '.md':
         return jsonify({'error': 'Note not found'}), 404
@@ -557,7 +569,7 @@ def get_note(note_path):
 @app.route('/api/note/<path:note_path>/star', methods=['POST'])
 def toggle_star(note_path):
     """Toggle star status of a note."""
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     
     if not file_path.exists():
         return jsonify({'success': False, 'error': 'Note not found'}), 404
@@ -588,7 +600,7 @@ def update_note_tags(note_path):
     data = request.json
     tags = data.get('tags', [])
     
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     if not file_path.exists():
         return jsonify({'success': False, 'error': 'Note not found'}), 404
     
@@ -668,7 +680,7 @@ def rename_note_title(note_path):
     if not new_name:
         return jsonify({'success': False, 'error': 'Name required'}), 400
     
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     if not file_path.exists():
         return jsonify({'success': False, 'error': 'Note not found'}), 404
     
@@ -704,7 +716,7 @@ def rename_note_title(note_path):
     else:
         file_path.write_text(content, encoding="utf-8")
     
-    return jsonify({'success': True, 'path': str(new_path.relative_to(VAULT_PATH))})
+    return jsonify({'success': True, 'path': str(new_path.relative_to(_vp()))})
 
 
 @app.route('/api/note', methods=['POST'])
@@ -727,9 +739,9 @@ def create_note():
     
     # Determine path
     if folder:
-        file_path = VAULT_PATH / folder / f"{filename}.md"
+        file_path = _vp() / folder / f"{filename}.md"
     else:
-        file_path = VAULT_PATH / f"{filename}.md"
+        file_path = _vp() / f"{filename}.md"
     
     file_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -743,7 +755,7 @@ def create_note():
         doc_type = template.lower()
 
     if template:
-        template_path = TEMPLATES_PATH / f"{template}.md"
+        template_path = _tp() / f"{template}.md"
         if template_path.exists():
             tpl = template_path.read_text(encoding="utf-8", errors="replace")
             # Replace placeholders, then strip any frontmatter the template might have
@@ -761,7 +773,7 @@ def create_note():
     
     return jsonify({
         'success': True,
-        'path': str(file_path.relative_to(VAULT_PATH))
+        'path': str(file_path.relative_to(_vp()))
     })
 
 
@@ -776,15 +788,15 @@ def create_folder():
     folder_name = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '-').lower()
     
     if parent:
-        folder_path = VAULT_PATH / parent / folder_name
+        folder_path = _vp() / parent / folder_name
     else:
-        folder_path = VAULT_PATH / folder_name
+        folder_path = _vp() / folder_name
     
     folder_path.mkdir(parents=True, exist_ok=True)
     
     return jsonify({
         'success': True,
-        'path': str(folder_path.relative_to(VAULT_PATH))
+        'path': str(folder_path.relative_to(_vp()))
     })
 
 
@@ -795,7 +807,7 @@ def create_daily():
     data = request.get_json(silent=True) or {}
     date_str = data.get('date', datetime.now().strftime('%Y-%m-%d'))
     
-    daily_folder = VAULT_PATH / 'daily'
+    daily_folder = _vp() / 'daily'
     daily_folder.mkdir(exist_ok=True)
     
     file_path = daily_folder / f"{date_str}.md"
@@ -803,7 +815,7 @@ def create_daily():
     if not file_path.exists():
         # Prefer a body-only template at .templates/daily.md
         body = None
-        tpl = TEMPLATES_PATH / 'daily.md'
+        tpl = _tp() / 'daily.md'
         if tpl.exists():
             body = tpl.read_text(encoding="utf-8", errors="replace")
             # Replace placeholders
@@ -815,7 +827,7 @@ def create_daily():
     
     return jsonify({
         'success': True,
-        'path': str(file_path.relative_to(VAULT_PATH))
+        'path': str(file_path.relative_to(_vp()))
     })
 
 
@@ -827,9 +839,9 @@ def search_notes():
     
     results = []
     
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         # Exclude templates folder from search
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts:
             continue
         if md_file.name.startswith('.'):
@@ -865,7 +877,7 @@ def search_notes():
             snippet = body[:120].replace('\n', ' ').strip() + ('...' if len(body) > 120 else '')
 
         results.append({
-            'path': str(md_file.relative_to(VAULT_PATH)),
+            'path': str(md_file.relative_to(_vp())),
             'title': title,
             'tags': tags,
             'snippet': snippet
@@ -879,7 +891,7 @@ def get_tags():
     """Get all tags in the vault."""
     tag_counts = {}
     
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         if md_file.name.startswith('.'):
             continue
         
@@ -898,7 +910,7 @@ def get_tags():
 @app.route('/api/backlinks/<path:note_path>')
 def get_backlinks(note_path):
     """Get all notes that link to this note."""
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
@@ -920,9 +932,9 @@ def get_backlinks(note_path):
     backlinks = []
     
     # Search all notes for wikilinks to this note
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         # Skip templates and hidden files
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts or md_file.name.startswith('.'):
             continue
         
@@ -937,9 +949,9 @@ def get_backlinks(note_path):
             # Check if any wikilink matches this note's title or filename
             for link in wikilinks:
                 if link.lower() in link_targets:
-                    note_title = get_note_title(str(md_file.relative_to(VAULT_PATH)))
+                    note_title = get_note_title(str(md_file.relative_to(_vp())))
                     backlinks.append({
-                        'path': str(md_file.relative_to(VAULT_PATH)),
+                        'path': str(md_file.relative_to(_vp())),
                         'title': note_title
                     })
                     break
@@ -959,13 +971,13 @@ def get_wikilink_map():
     """Get a map of note titles and filenames to paths for wikilink resolution."""
     title_map = {}
     
-    for md_file in VAULT_PATH.rglob('*.md'):
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+    for md_file in _vp().rglob('*.md'):
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts or md_file.name.startswith('.'):
             continue
         
         try:
-            rel_path = str(md_file.relative_to(VAULT_PATH))
+            rel_path = str(md_file.relative_to(_vp()))
             title = get_note_title(rel_path)
             filename_stem = md_file.stem  # filename without .md extension
             path_without_ext = rel_path.rsplit('.md', 1)[0]  # e.g., "research/README"
@@ -994,13 +1006,13 @@ def get_graph():
     title_to_path = {}
     
     # First pass: collect all notes as nodes
-    for md_file in VAULT_PATH.rglob('*.md'):
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+    for md_file in _vp().rglob('*.md'):
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts or md_file.name.startswith('.'):
             continue
         
         try:
-            rel_path = str(md_file.relative_to(VAULT_PATH))
+            rel_path = str(md_file.relative_to(_vp()))
             title = get_note_title(rel_path)
             
             content = md_file.read_text(encoding="utf-8", errors="replace")
@@ -1027,13 +1039,13 @@ def get_graph():
             continue
     
     # Second pass: extract wikilinks and build edges
-    for md_file in VAULT_PATH.rglob('*.md'):
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+    for md_file in _vp().rglob('*.md'):
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts or md_file.name.startswith('.'):
             continue
         
         try:
-            rel_path = str(md_file.relative_to(VAULT_PATH))
+            rel_path = str(md_file.relative_to(_vp()))
             content = md_file.read_text(encoding="utf-8", errors="replace")
             wikilinks = extract_wikilinks(content)
             
@@ -1065,13 +1077,13 @@ def get_calendar_data():
     
     dated_notes = {}  # date string -> list of notes
     
-    for md_file in VAULT_PATH.rglob('*.md'):
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+    for md_file in _vp().rglob('*.md'):
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts or md_file.name.startswith('.'):
             continue
         
         try:
-            rel_path = str(md_file.relative_to(VAULT_PATH))
+            rel_path = str(md_file.relative_to(_vp()))
             filename = md_file.stem
             title = get_note_title(rel_path)
             
@@ -1124,10 +1136,10 @@ def get_calendar_data():
 def get_templates():
     """Get available templates."""
     templates = []
-    for template_file in TEMPLATES_PATH.glob('*.md'):
+    for template_file in _tp().glob('*.md'):
         templates.append({
             'name': template_file.stem,
-            'path': str(template_file.relative_to(VAULT_PATH))
+            'path': str(template_file.relative_to(_vp()))
         })
     return jsonify(templates)
 
@@ -1135,7 +1147,7 @@ def get_templates():
 @app.route('/api/template/<template_name>')
 def get_template(template_name):
     """Get a template's content."""
-    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    template_path = _tp() / f"{template_name}.md"
     
     if not template_path.exists():
         return jsonify({'error': 'Template not found'}), 404
@@ -1160,7 +1172,7 @@ def create_template():
     
     # Sanitize name
     filename = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '-').lower()
-    template_path = TEMPLATES_PATH / f"{filename}.md"
+    template_path = _tp() / f"{filename}.md"
     
     if template_path.exists():
         return jsonify({'error': 'Template already exists'}), 400
@@ -1179,7 +1191,7 @@ def update_template(template_name):
     data = request.json
     content = data.get('content', '')
     
-    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    template_path = _tp() / f"{template_name}.md"
     
     if not template_path.exists():
         return jsonify({'error': 'Template not found'}), 404
@@ -1192,7 +1204,7 @@ def update_template(template_name):
 @app.route('/api/template/<template_name>', methods=['DELETE'])
 def delete_template(template_name):
     """Delete a template."""
-    template_path = TEMPLATES_PATH / f"{template_name}.md"
+    template_path = _tp() / f"{template_name}.md"
     
     if not template_path.exists():
         return jsonify({'error': 'Template not found'}), 404
@@ -1212,7 +1224,7 @@ def move_note():
     if not source_path:
         return jsonify({'error': 'Source path required'}), 400
     
-    source_file = VAULT_PATH / source_path
+    source_file = _vp() / source_path
     
     if not source_file.exists():
         return jsonify({'error': f'Source file not found: {source_path}'}), 404
@@ -1220,13 +1232,13 @@ def move_note():
     # Build target path
     filename = source_file.name
     if target_folder:
-        target_file = VAULT_PATH / target_folder / filename
+        target_file = _vp() / target_folder / filename
     else:
-        target_file = VAULT_PATH / filename
+        target_file = _vp() / filename
     
     # Don't move if source and target are the same
     if source_file == target_file:
-        return jsonify({'success': True, 'path': str(target_file.relative_to(VAULT_PATH))})
+        return jsonify({'success': True, 'path': str(target_file.relative_to(_vp()))})
     
     # Check if target already exists
     if target_file.exists():
@@ -1240,14 +1252,14 @@ def move_note():
     
     return jsonify({
         'success': True,
-        'path': str(target_file.relative_to(VAULT_PATH))
+        'path': str(target_file.relative_to(_vp()))
     })
 
 
 @app.route('/api/note/<path:note_path>', methods=['DELETE'])
 def delete_note(note_path):
     """Delete a note."""
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
@@ -1267,7 +1279,7 @@ def rename_note():
     if not old_path or not new_name:
         return jsonify({'error': 'Old path and new name required'}), 400
     
-    old_file = VAULT_PATH / old_path
+    old_file = _vp() / old_path
     
     if not old_file.exists():
         return jsonify({'error': 'Note not found'}), 404
@@ -1294,7 +1306,7 @@ def rename_note():
     
     return jsonify({
         'success': True,
-        'path': str(new_file.relative_to(VAULT_PATH))
+        'path': str(new_file.relative_to(_vp()))
     })
 
 
@@ -1308,7 +1320,7 @@ def move_folder():
     if not source_path:
         return jsonify({'error': 'Source path required'}), 400
     
-    source_folder = VAULT_PATH / source_path
+    source_folder = _vp() / source_path
     
     if not source_folder.exists() or not source_folder.is_dir():
         return jsonify({'error': f'Source folder not found: {source_path}'}), 404
@@ -1320,9 +1332,9 @@ def move_folder():
     # Build target path
     folder_name = source_folder.name
     if target_path:
-        target_folder = VAULT_PATH / target_path / folder_name
+        target_folder = _vp() / target_path / folder_name
     else:
-        target_folder = VAULT_PATH / folder_name
+        target_folder = _vp() / folder_name
     
     # Check if target already exists
     if target_folder.exists():
@@ -1336,7 +1348,38 @@ def move_folder():
     
     return jsonify({
         'success': True,
-        'path': str(target_folder.relative_to(VAULT_PATH))
+        'path': str(target_folder.relative_to(_vp()))
+    })
+
+
+@app.route('/api/rename-folder', methods=['POST'])
+def rename_folder():
+    """Rename a folder in place."""
+    data = request.json or {}
+    old_path = data.get('path', '').strip().strip('/')
+    new_name = data.get('name', '').strip()
+
+    if not old_path or not new_name:
+        return jsonify({'error': 'path and name required'}), 400
+
+    folder = _vp() / old_path
+    if not folder.exists() or not folder.is_dir():
+        return jsonify({'error': 'Folder not found'}), 404
+
+    # Sanitize
+    safe_name = re.sub(r'[^\w\s-]', '', new_name).strip().replace(' ', '-').lower()
+    safe_name = re.sub(r'[-\s]+', '-', safe_name)
+    if not safe_name:
+        return jsonify({'error': 'Invalid folder name'}), 400
+
+    new_folder = folder.parent / safe_name
+    if new_folder.exists():
+        return jsonify({'error': 'A folder with that name already exists'}), 400
+
+    folder.rename(new_folder)
+    return jsonify({
+        'success': True,
+        'path': str(new_folder.relative_to(_vp()))
     })
 
 
@@ -1349,7 +1392,7 @@ def delete_folder(folder_path):
     if not folder_path:
         return jsonify({'error': 'Folder path required'}), 400
 
-    target_folder = VAULT_PATH / folder_path
+    target_folder = _vp() / folder_path
 
     if not target_folder.exists():
         return jsonify({'error': 'Folder not found'}), 404
@@ -1373,9 +1416,9 @@ def get_todos():
     """Get all todos from all notes."""
     todos = []
     
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         # Exclude templates folder from todo scan
-        rel_parts = md_file.relative_to(VAULT_PATH).parts
+        rel_parts = md_file.relative_to(_vp()).parts
         if '.templates' in rel_parts:
             continue
         if md_file.name.startswith('.'):
@@ -1385,7 +1428,7 @@ def get_todos():
         fm, body = extract_frontmatter(content)
         
         title = fm.get('title', md_file.stem)
-        path = str(md_file.relative_to(VAULT_PATH))
+        path = str(md_file.relative_to(_vp()))
         
         # Find all checkbox items
         lines = content.split('\n')
@@ -1427,7 +1470,7 @@ def toggle_todo():
     if path is None or line_num is None:
         return jsonify({'error': 'Path and line number required'}), 400
     
-    file_path = VAULT_PATH / path
+    file_path = _vp() / path
     
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
@@ -1458,7 +1501,7 @@ def toggle_todo():
 # Contacts import/export for name consistency
 def _grove_config():
     """Read .grove/config.json for the active vault."""
-    cfg_path = VAULT_PATH / '.grove' / 'config.json'
+    cfg_path = _vp() / '.grove' / 'config.json'
     if cfg_path.exists():
         try:
             cfg = json.loads(cfg_path.read_text(encoding="utf-8", errors="replace"))
@@ -1488,7 +1531,7 @@ def _grove_config():
     return cfg
 
 def _save_grove_config(cfg):
-    grove_dir = VAULT_PATH / '.grove'
+    grove_dir = _vp() / '.grove'
     grove_dir.mkdir(exist_ok=True)
     (grove_dir / 'config.json').write_text(json.dumps(cfg, indent=2))
 
@@ -1508,7 +1551,7 @@ def update_grove_config():
     return jsonify({'success': True, 'config': cfg})
 
 def _contacts_path():
-    grove_dir = VAULT_PATH / '.grove'
+    grove_dir = _vp() / '.grove'
     grove_dir.mkdir(exist_ok=True)
     return grove_dir / 'contacts.json'
 
@@ -1612,12 +1655,12 @@ ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.pdf', 
 @app.route('/api/file/<path:file_path>')
 def serve_file(file_path):
     """Serve any file from the vault (images, attachments, etc.)."""
-    full_path = VAULT_PATH / file_path
+    full_path = _vp() / file_path
     if not full_path.exists() or not full_path.is_file():
         return jsonify({'error': 'File not found'}), 404
     # Security: ensure path is within vault
     try:
-        full_path.resolve().relative_to(VAULT_PATH.resolve())
+        full_path.resolve().relative_to(_vp().resolve())
     except ValueError:
         return jsonify({'error': 'Access denied'}), 403
     return send_file(full_path)
@@ -1627,7 +1670,7 @@ def upload_file():
     """Upload a file to the vault. Supports multipart form or JSON base64."""
     # Determine target folder
     folder = request.form.get('folder', request.args.get('folder', 'attachments'))
-    target_dir = VAULT_PATH / folder
+    target_dir = _vp() / folder
     target_dir.mkdir(parents=True, exist_ok=True)
 
     MARKDOWN_EXTENSIONS = {'.md', '.markdown', '.txt'}
@@ -1660,7 +1703,7 @@ def upload_file():
     else:
         return jsonify({'error': 'No file provided'}), 400
 
-    rel_path = str(file_path.relative_to(VAULT_PATH))
+    rel_path = str(file_path.relative_to(_vp()))
 
     if ext in MARKDOWN_EXTENSIONS:
         return jsonify({
@@ -1692,7 +1735,7 @@ def upload_paste():
     if ',' in b64:
         b64 = b64.split(',', 1)[1]
 
-    target_dir = VAULT_PATH / folder
+    target_dir = _vp() / folder
     target_dir.mkdir(parents=True, exist_ok=True)
     file_path = target_dir / filename
     if file_path.exists():
@@ -1701,7 +1744,7 @@ def upload_paste():
         file_path = target_dir / f"{stem}-{uuid.uuid4().hex[:6]}{ext}"
 
     file_path.write_bytes(base64.b64decode(b64))
-    rel_path = str(file_path.relative_to(VAULT_PATH))
+    rel_path = str(file_path.relative_to(_vp()))
     return jsonify({
         'success': True,
         'path': rel_path,
@@ -1716,9 +1759,9 @@ def upload_paste():
 def list_folders():
     """List all folders in the vault for upload destination selection."""
     folders = []
-    for item in VAULT_PATH.rglob('*'):
+    for item in _vp().rglob('*'):
         if item.is_dir() and not item.name.startswith('.'):
-            rel = item.relative_to(VAULT_PATH)
+            rel = item.relative_to(_vp())
             if not any(part.startswith('.') for part in rel.parts):
                 folders.append(str(rel))
     folders.sort()
@@ -1729,7 +1772,7 @@ def list_folders():
 def upload_bulk():
     """Upload multiple files to a specified folder."""
     folder = request.form.get('folder', '')
-    target_dir = VAULT_PATH / folder if folder else VAULT_PATH
+    target_dir = _vp() / folder if folder else _vp()
     target_dir.mkdir(parents=True, exist_ok=True)
     
     files = request.files.getlist('files')
@@ -1768,7 +1811,7 @@ def upload_bulk():
                 file_path.write_text(content, encoding='utf-8')
             else:
                 file_path.write_bytes(f.read())
-            rel_path = str(file_path.relative_to(VAULT_PATH))
+            rel_path = str(file_path.relative_to(_vp()))
             uploaded.append(rel_path)
         except Exception as e:
             errors.append(f'{f.filename}: {str(e)}')
@@ -1798,11 +1841,11 @@ def export_notes():
             return jsonify({'error': f'Invalid since timestamp: {since_str}'}), 400
 
     notes = []
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         if md_file.name.startswith('.'):
             continue
         # Skip files in hidden directories (e.g. .templates)
-        rel = md_file.relative_to(VAULT_PATH)
+        rel = md_file.relative_to(_vp())
         if any(part.startswith('.') for part in rel.parts):
             continue
 
@@ -1880,10 +1923,10 @@ def extract_notes():
     
     matching_notes = []
     
-    for md_file in VAULT_PATH.rglob('*.md'):
+    for md_file in _vp().rglob('*.md'):
         if md_file.name.startswith('.'):
             continue
-        rel = md_file.relative_to(VAULT_PATH)
+        rel = md_file.relative_to(_vp())
         if any(part.startswith('.') for part in rel.parts):
             continue
         
@@ -2029,7 +2072,7 @@ def save_note(note_path):
     data = request.json
     content = data.get('content', '')
 
-    file_path = VAULT_PATH / note_path
+    file_path = _vp() / note_path
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content, encoding="utf-8")
 

@@ -60,13 +60,6 @@
                 <div id="tag-autocomplete" class="tag-autocomplete" style="display:none;"></div>
             </div>
             
-            <div class="recent-files collapsed">
-                <h3 class="collapsible-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                    <i class="fas fa-chevron-down collapse-icon"></i> Recent Files
-                </h3>
-                <div id="recent-list" class="collapsible-body"></div>
-            </div>
-            
             <div class="file-tree" id="file-tree">
                 <!-- Tree will be populated here -->
             </div>
@@ -146,9 +139,8 @@
                     <button id="frontmatter-toggle" disabled style="display:none" title="Toggle Frontmatter"><i class="fas fa-code"></i></button>
                     <button id="frontmatter-preview" disabled title="Preview Frontmatter (read-only)"><i class="fas fa-scroll"></i></button>
                     <button id="preview-toggle" disabled title="Preview (Ctrl+P)"><i class="fas fa-eye"></i></button>
-                    <button id="rename-btn" disabled title="Rename (F2)"><i class="fas fa-file-signature"></i></button>
                     <button id="llm-btn" disabled title="LLM (optional)"><i class="fas fa-robot"></i></button>
-                    <button id="share-btn" disabled title="Share"><i class="fas fa-share-alt"></i></button>
+                    <button id="share-btn" disabled title="Share"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
             
@@ -205,22 +197,22 @@
     
     <!-- Modals -->
     <div class="modal" id="new-note-modal">
-        <div class="modal-content">
+        <div class="modal-content modal-small">
             <h2>New Note</h2>
             <input type="text" id="modal-note-title" placeholder="Note Title">
             <input type="text" id="modal-note-tags" placeholder="Tags (comma separated)">
-            <label>
-                Folder:
+            <div class="form-group">
+                <label for="modal-folder">Folder</label>
                 <select id="modal-folder">
                     <option value="">/ (root)</option>
                 </select>
-            </label>
-            <label>
-                Template:
+            </div>
+            <div class="form-group">
+                <label for="modal-template">Template</label>
                 <select id="modal-template">
                     <option value="">None</option>
                 </select>
-            </label>
+            </div>
             <div class="modal-actions">
                 <button class="btn-primary" id="create-note-btn">Create</button>
                 <button class="btn-secondary" id="cancel-note-btn">Cancel</button>
@@ -776,6 +768,35 @@ Use placeholders:
         </div>
     </div>
 
+    <!-- Rename Folder Modal -->
+    <div class="modal" id="rename-folder-modal">
+        <div class="modal-content modal-small">
+            <h2>Rename Folder</h2>
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="rename-folder-input" placeholder="New folder name" style="width: 100%;">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="confirm-rename-folder-btn">Rename</button>
+                <button class="btn-secondary" id="cancel-rename-folder-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Item Modal -->
+    <div class="modal" id="move-item-modal">
+        <div class="modal-content modal-small">
+            <h2>Move to Folder</h2>
+            <p style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">Moving <strong id="move-item-name"></strong></p>
+            <div id="move-folder-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px;"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="cancel-move-item-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tree Context Menu -->
+    <div class="tree-context-menu" id="tree-context-menu" style="display: none;"></div>
+
     <!-- Keyboard Shortcuts Cheatsheet -->
     <div class="modal" id="shortcuts-modal">
         <div class="modal-content shortcuts-modal-content">
@@ -824,7 +845,7 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260301a"></script>
+    <script src="/static/js/app.js?v=20260403a"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

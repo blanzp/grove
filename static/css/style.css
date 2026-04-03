@@ -478,6 +478,84 @@ body.light-theme .sidebar-logo {
     margin-left: 16px;
 }
 
+/* Tree item more button */
+.tree-item {
+    position: relative;
+}
+
+.tree-more-btn {
+    display: none;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.6;
+}
+
+.tree-more-btn:hover {
+    background: var(--active-color);
+    opacity: 1;
+}
+
+.tree-item:hover .tree-more-btn {
+    display: block;
+}
+
+/* Tree context menu */
+.tree-context-menu {
+    position: fixed;
+    z-index: 10010;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    padding: 4px;
+    min-width: 160px;
+}
+
+.tree-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.tree-context-menu-item:hover {
+    background: var(--hover-color);
+}
+
+.tree-context-menu-item i {
+    width: 16px;
+    text-align: center;
+    color: var(--text-secondary);
+    opacity: 1;
+    font-size: 13px;
+}
+
+.tree-context-menu-item.danger {
+    color: var(--danger-color);
+}
+
+.tree-context-menu-item.danger i {
+    color: var(--danger-color);
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
@@ -1056,10 +1134,42 @@ pre:hover .code-copy-btn {
     margin-bottom: 12px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 6px;
     color: var(--text-primary);
     font-size: 14px;
     font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modal-content select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.modal-content select:focus,
+.modal-content input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.modal-content .form-group {
+    margin-bottom: 12px;
+}
+
+.modal-content .form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.modal-content .form-group select {
+    margin-bottom: 0;
 }
 
 .modal-content label {

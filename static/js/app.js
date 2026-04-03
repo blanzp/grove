@@ -255,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTree();
     loadTags();
     loadTemplates();
-    loadRecentFiles();
     setupEventListeners();
     setupDragAndDrop();
     setupTreeDragAndDrop();
@@ -421,11 +420,28 @@ function setupTreeDragAndDrop() {
 }
 
 // Load file tree
+let _lastTreeHash = '';
+const _expandedFolders = new Set();
+
 async function loadTree() {
     const response = await fetch('/api/tree');
     const tree = await response.json();
-    renderTree(tree, document.getElementById('file-tree'));
+    const hash = JSON.stringify(tree);
+    if (hash !== _lastTreeHash) {
+        _lastTreeHash = hash;
+        renderTree(tree, document.getElementById('file-tree'));
+        // Re-expand previously open folders
+        _expandedFolders.forEach(path => {
+            const folderEl = document.querySelector(`.tree-folder[data-path="${CSS.escape(path)}"]`);
+            if (folderEl && !folderEl.nextElementSibling?.classList.contains('tree-children')) {
+                folderEl.click();
+            }
+        });
+    }
 }
+
+// Poll for external changes (MCP, AI agents, other clients)
+setInterval(loadTree, 3000);
 
 // Render tree recursively
 function renderTree(items, container, level = 0) {
@@ -440,93 +456,106 @@ function renderTree(items, container, level = 0) {
         
         if (item.type === 'folder') {
             itemDiv.classList.add('tree-folder');
-            itemDiv.innerHTML = `<i class="fas fa-folder"></i> ${item.name}`;
+            itemDiv.innerHTML = `<i class="fas fa-folder"></i> <span class="tree-label">${item.name}</span><button class="tree-more-btn" title="Actions"><i class="fas fa-ellipsis-h"></i></button>`;
             itemDiv.setAttribute('draggable', 'true');
+
+            // "..." button opens context menu
+            itemDiv.querySelector('.tree-more-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                showTreeContextMenu(e, item.path, item.name, 'folder');
+            });
+
             itemDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentFolder = item.path;
-                
+
                 // Highlight selected folder
                 document.querySelectorAll('.tree-folder.selected').forEach(el => el.classList.remove('selected'));
                 itemDiv.classList.add('selected');
-                
+
                 // Toggle folder expansion
                 const existingChildren = itemDiv.nextElementSibling;
                 if (existingChildren && existingChildren.classList.contains('tree-children')) {
                     // Folder is already expanded, collapse it
                     existingChildren.remove();
-                    itemDiv.querySelector('i').classList.remove('fa-folder-open');
-                    itemDiv.querySelector('i').classList.add('fa-folder');
+                    itemDiv.querySelector('.fa-folder-open')?.classList.replace('fa-folder-open', 'fa-folder');
+                    _expandedFolders.delete(item.path);
                 } else if (item.children && item.children.length > 0) {
                     // Expand folder
                     const childContainer = document.createElement('div');
                     childContainer.className = 'tree-children';
                     renderTree(item.children, childContainer, level + 1);
                     itemDiv.after(childContainer);
-                    itemDiv.querySelector('i').classList.remove('fa-folder');
-                    itemDiv.querySelector('i').classList.add('fa-folder-open');
+                    itemDiv.querySelector('.fa-folder')?.classList.replace('fa-folder', 'fa-folder-open');
+                    _expandedFolders.add(item.path);
                 }
             });
-            
+
             // Make folders draggable
             itemDiv.addEventListener('dragstart', handleDragStart);
             itemDiv.addEventListener('dragend', handleDragEnd);
-            
+
             // Make folders drop targets
             itemDiv.addEventListener('dragover', handleDragOver);
             itemDiv.addEventListener('dragleave', handleDragLeave);
             itemDiv.addEventListener('drop', handleDrop);
 
-            // Add context menu for folders (right-click to delete)
+            // Right-click context menu
             itemDiv.addEventListener('contextmenu', (e) => {
-
                 e.preventDefault();
                 e.stopPropagation();
-                showFolderContextMenu(e, item.path, item.name);
+                showTreeContextMenu(e, item.path, item.name, 'folder');
             });
         } else if (item.type === 'asset') {
             const ext = (item.name.split('.').pop() || '').toLowerCase();
             const iconMap = {png:'fa-image',jpg:'fa-image',jpeg:'fa-image',gif:'fa-image',webp:'fa-image',svg:'fa-image',pdf:'fa-file-pdf',mp3:'fa-file-audio',mp4:'fa-file-video',wav:'fa-file-audio'};
             const icon = iconMap[ext] || 'fa-file';
-            itemDiv.innerHTML = `<i class="fas ${icon}"></i> ${item.name}`;
+            itemDiv.innerHTML = `<i class="fas ${icon}"></i> <span class="tree-label">${item.name}</span><button class="tree-more-btn" title="Actions"><i class="fas fa-ellipsis-h"></i></button>`;
             itemDiv.style.opacity = '0.8';
+
+            itemDiv.querySelector('.tree-more-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                showTreeContextMenu(e, item.path, item.name, 'file');
+            });
+
             itemDiv.addEventListener('click', () => {
                 // Open asset in preview modal or new tab
                 const url = `/api/file/${item.path}`;
                 if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
-                    // Open image in preview modal
                     openImagePreview(url, item.name, item.path);
                 } else {
                     window.open(url, '_blank');
                 }
             });
 
-            // Add context menu for assets (right-click to delete)
             itemDiv.addEventListener('contextmenu', (e) => {
-
                 e.preventDefault();
                 e.stopPropagation();
-                showFileContextMenu(e, item.path, item.name);
+                showTreeContextMenu(e, item.path, item.name, 'file');
             });
         } else {
             const starIcon = item.starred ? '<i class="fas fa-star" style="color: gold; font-size: 0.8em; margin-right: 4px;"></i>' : '';
-            itemDiv.innerHTML = `${starIcon}<i class="fas fa-file-alt"></i> ${item.name}`;
+            itemDiv.innerHTML = `${starIcon}<i class="fas fa-file-alt"></i> <span class="tree-label">${item.name}</span><button class="tree-more-btn" title="Actions"><i class="fas fa-ellipsis-h"></i></button>`;
             itemDiv.setAttribute('draggable', 'true');
+
+            itemDiv.querySelector('.tree-more-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                showTreeContextMenu(e, item.path, item.name, 'file');
+            });
+
             itemDiv.addEventListener('click', () => {
                 loadNote(item.path);
                 closeMobileMenu();
             });
-            
+
             // Make files draggable
             itemDiv.addEventListener('dragstart', handleDragStart);
             itemDiv.addEventListener('dragend', handleDragEnd);
 
-            // Add context menu for files (right-click to delete)
             itemDiv.addEventListener('contextmenu', (e) => {
-
                 e.preventDefault();
                 e.stopPropagation();
-                showFileContextMenu(e, item.path, item.name);
+                showTreeContextMenu(e, item.path, item.name, 'file');
             });
         }
         
@@ -595,7 +624,6 @@ async function loadNote(path, forceEditMode = false) {
     const fmToggle = document.getElementById('frontmatter-toggle');
     if (fmToggle) fmToggle.disabled = true;
     document.getElementById('preview-toggle').disabled = false;
-    document.getElementById('rename-btn').disabled = false;
     document.getElementById('share-btn').disabled = false;
     document.getElementById('frontmatter-preview').disabled = false;
     document.getElementById('star-btn').disabled = false;
@@ -1761,7 +1789,7 @@ function setupSlashCommands() {
         { name: 'link',      icon: 'fa-link',            desc: 'Markdown link',               insert: () => '[text](url)', cursor: -6 },
         { name: 'image',     icon: 'fa-image',           desc: 'Image embed',                 insert: () => '![alt](url)', cursor: -5 },
         { name: 'toc',       icon: 'fa-list-ol',         desc: 'Table of contents',           insert: () => { applyMarkdownAction('toc', editor); return null; } },
-        { name: 'mermaid',   icon: 'fa-project-diagram', desc: 'Mermaid diagram',             insert: () => '```mermaid\nflowchart TD\n    A[Start] --> B[End]\n```', cursor: -4 },
+        { name: 'mermaid',   icon: 'fa-project-diagram', desc: 'Mermaid diagram',             insert: () => '```mermaid\nflowchart TD\n    A[Start] --> B[End]\n```\n', cursor: -5 },
         { name: 'quote',     icon: 'fa-quote-left',      desc: 'Blockquote',                  insert: () => '> ' },
         { name: 'h1',        icon: 'fa-heading',         desc: 'Heading 1',                   insert: () => '# ' },
         { name: 'h2',        icon: 'fa-heading',         desc: 'Heading 2',                   insert: () => '## ' },
@@ -2515,9 +2543,6 @@ function setupEventListeners() {
     // Draggable split divider
     setupSplitDivider();
 
-    // Rename button
-    document.getElementById('rename-btn').addEventListener('click', renameNote);
-    
     // Theme toggle
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
     
@@ -2577,6 +2602,16 @@ function setupEventListeners() {
     if (confirmDeleteFolderBtn) confirmDeleteFolderBtn.addEventListener('click', confirmDeleteFolder);
     const cancelDeleteFolderBtn = document.getElementById('cancel-delete-folder-btn');
     if (cancelDeleteFolderBtn) cancelDeleteFolderBtn.addEventListener('click', () => hideModal('delete-folder-modal'));
+
+    // Rename folder modal
+    document.getElementById('confirm-rename-folder-btn').addEventListener('click', confirmRenameFolder);
+    document.getElementById('cancel-rename-folder-btn').addEventListener('click', () => hideModal('rename-folder-modal'));
+    document.getElementById('rename-folder-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); confirmRenameFolder(); }
+    });
+
+    // Move item modal
+    document.getElementById('cancel-move-item-btn').addEventListener('click', () => hideModal('move-item-modal'));
 
     // Manage templates
     document.getElementById('manage-templates').addEventListener('click', openTemplatesModal);
@@ -3290,12 +3325,183 @@ function deleteNote() {
     showModal('delete-modal');
 }
 
-function showFileContextMenu(e, filePath, fileName) {
+// ── Unified tree context menu ────────────────────────────────────────────────
 
+function showTreeContextMenu(e, itemPath, itemName, itemType) {
+    const menu = document.getElementById('tree-context-menu');
+    menu.innerHTML = '';
+
+    const actions = [];
+
+    if (itemType === 'folder') {
+        actions.push({ icon: 'fa-i-cursor', label: 'Rename', action: () => startRenameFolder(itemPath, itemName) });
+        actions.push({ icon: 'fa-arrows-alt', label: 'Move', action: () => startMoveItem(itemPath, itemName, 'folder') });
+        actions.push({ icon: 'fa-trash', label: 'Delete', danger: true, action: () => startDeleteFolder(itemPath, itemName) });
+    } else {
+        actions.push({ icon: 'fa-i-cursor', label: 'Rename', action: () => startRenameFile(itemPath, itemName) });
+        actions.push({ icon: 'fa-arrows-alt', label: 'Move', action: () => startMoveItem(itemPath, itemName, 'file') });
+        actions.push({ icon: 'fa-trash', label: 'Delete', danger: true, action: () => startDeleteFile(itemPath, itemName) });
+    }
+
+    actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = 'tree-context-menu-item' + (a.danger ? ' danger' : '');
+        btn.innerHTML = `<i class="fas ${a.icon}"></i> ${a.label}`;
+        btn.addEventListener('click', () => { hideTreeContextMenu(); a.action(); });
+        menu.appendChild(btn);
+    });
+
+    // Position near the click / button
+    menu.style.display = 'block';
+    const rect = menu.getBoundingClientRect();
+    let x = e.clientX ?? e.pageX;
+    let y = e.clientY ?? e.pageY;
+    // Keep within viewport
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 8;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 8;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    // Close on outside click
+    setTimeout(() => document.addEventListener('click', hideTreeContextMenu, { once: true }), 0);
+}
+
+function hideTreeContextMenu() {
+    document.getElementById('tree-context-menu').style.display = 'none';
+}
+
+// ── Delete actions ───────────────────────────────────────────────────────────
+
+function startDeleteFile(filePath, fileName) {
     pendingDeleteNote = { path: filePath, name: fileName };
     const displayName = fileName.replace(/\.md$/, '');
     document.getElementById('delete-note-name').textContent = displayName;
     showModal('delete-modal');
+}
+
+function startDeleteFolder(folderPath, folderName) {
+    pendingDeleteFolder = { path: folderPath, name: folderName };
+    document.getElementById('delete-folder-name').textContent = folderName;
+    showModal('delete-folder-modal');
+}
+
+// ── Rename file from context menu ────────────────────────────────────────────
+
+let pendingRenameFile = null;
+
+function startRenameFile(filePath, fileName) {
+    pendingRenameFile = { path: filePath, name: fileName };
+    const displayName = fileName.replace(/\.md$/, '');
+    document.getElementById('rename-input').value = displayName;
+    showModal('rename-modal');
+    setTimeout(() => { const inp = document.getElementById('rename-input'); inp.focus(); inp.select(); }, 0);
+}
+
+// ── Rename folder ────────────────────────────────────────────────────────────
+
+let pendingRenameFolder = null;
+
+function startRenameFolder(folderPath, folderName) {
+    pendingRenameFolder = { path: folderPath, name: folderName };
+    document.getElementById('rename-folder-input').value = folderName;
+    showModal('rename-folder-modal');
+    setTimeout(() => { const inp = document.getElementById('rename-folder-input'); inp.focus(); inp.select(); }, 0);
+}
+
+async function confirmRenameFolder() {
+    const newName = document.getElementById('rename-folder-input').value.trim();
+    if (!newName || !pendingRenameFolder) { hideModal('rename-folder-modal'); return; }
+    hideModal('rename-folder-modal');
+
+    const response = await fetch('/api/rename-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: pendingRenameFolder.path, name: newName })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        showNotification('Folder renamed');
+        // If current note was inside renamed folder, update path
+        if (currentNote && currentNote.startsWith(pendingRenameFolder.path + '/')) {
+            currentNote = currentNote.replace(pendingRenameFolder.path, result.path);
+        }
+        loadTree();
+    } else {
+        showNotification(result.error || 'Failed to rename folder', true);
+    }
+    pendingRenameFolder = null;
+}
+
+// ── Move item ────────────────────────────────────────────────────────────────
+
+let pendingMoveItem = null;
+
+async function startMoveItem(itemPath, itemName, itemType) {
+    pendingMoveItem = { path: itemPath, name: itemName, type: itemType };
+    const displayName = itemName.replace(/\.md$/, '');
+    document.getElementById('move-item-name').textContent = displayName;
+
+    // Fetch folder list
+    const resp = await fetch('/api/folders');
+    const folders = await resp.json();
+
+    const list = document.getElementById('move-folder-list');
+    list.innerHTML = '';
+
+    // Root option
+    const rootBtn = document.createElement('button');
+    rootBtn.className = 'tree-context-menu-item';
+    rootBtn.innerHTML = '<i class="fas fa-home"></i> / (vault root)';
+    rootBtn.addEventListener('click', () => confirmMoveItem(''));
+    list.appendChild(rootBtn);
+
+    // Current parent (to show which folder it's in)
+    const currentParent = itemPath.includes('/') ? itemPath.substring(0, itemPath.lastIndexOf('/')) : '';
+
+    folders.forEach(f => {
+        // Don't show the item itself as a target (for folders)
+        if (itemType === 'folder' && (f === itemPath || f.startsWith(itemPath + '/'))) return;
+        // Don't show the current parent
+        if (f === currentParent) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'tree-context-menu-item';
+        btn.innerHTML = `<i class="fas fa-folder"></i> ${f}`;
+        btn.addEventListener('click', () => confirmMoveItem(f));
+        list.appendChild(btn);
+    });
+
+    showModal('move-item-modal');
+}
+
+async function confirmMoveItem(targetFolder) {
+    if (!pendingMoveItem) return;
+    hideModal('move-item-modal');
+
+    const endpoint = pendingMoveItem.type === 'folder' ? '/api/move-folder' : '/api/move';
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: pendingMoveItem.path, target: targetFolder })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        showNotification(`Moved to ${targetFolder || '/'}`);
+        if (pendingMoveItem.type === 'file' && currentNote === pendingMoveItem.path) {
+            currentNote = result.path;
+        }
+        loadTree();
+    } else {
+        showNotification(result.error || 'Failed to move', true);
+    }
+    pendingMoveItem = null;
+}
+
+// Legacy wrappers (kept for compatibility)
+function showFileContextMenu(e, filePath, fileName) {
+    showTreeContextMenu(e, filePath, fileName, 'file');
 }
 
 async function confirmDeleteNote() {
@@ -3327,7 +3533,6 @@ async function confirmDeleteNote() {
             const fmToggle = document.getElementById('frontmatter-toggle');
             if (fmToggle) fmToggle.disabled = true;
             document.getElementById('preview-toggle').disabled = true;
-            document.getElementById('rename-btn').disabled = true;
             document.getElementById('share-btn').disabled = true;
             document.getElementById('frontmatter-preview').disabled = true;
             updateBreadcrumbs();
@@ -3354,12 +3559,7 @@ async function confirmDeleteNote() {
 let pendingDeleteFolder = null;
 
 function showFolderContextMenu(e, folderPath, folderName) {
-
-    // For now, directly show delete confirmation modal
-    // In the future, could show a proper context menu with multiple options
-    pendingDeleteFolder = { path: folderPath, name: folderName };
-    document.getElementById('delete-folder-name').textContent = folderName;
-    showModal('delete-folder-modal');
+    showTreeContextMenu(e, folderPath, folderName, 'folder');
 }
 
 async function confirmDeleteFolder() {
@@ -3394,9 +3594,10 @@ async function confirmDeleteFolder() {
     }
 }
 
-// Rename note
+// Rename note (toolbar button — renames currently open note)
 function renameNote() {
     if (!currentNote) return;
+    pendingRenameFile = null; // use currentNote path
     document.getElementById('rename-input').value = document.getElementById('note-title').textContent;
     showModal('rename-modal');
     setTimeout(() => {
@@ -3408,31 +3609,36 @@ function renameNote() {
 
 async function confirmRenameNote() {
     const newName = document.getElementById('rename-input').value.trim();
-    if (!newName) return;
+    if (!newName) { hideModal('rename-modal'); return; }
     hideModal('rename-modal');
-    
+
+    // Determine which file to rename: context-menu target or current note
+    const targetPath = pendingRenameFile ? pendingRenameFile.path : currentNote;
+    if (!targetPath) return;
+
     const response = await fetch('/api/rename', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            old_path: currentNote,
-            new_name: newName
-        })
+        body: JSON.stringify({ old_path: targetPath, new_name: newName })
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
-        wikilinkMap = null; // Invalidate cache
-        showNotification('Note renamed');
-        currentNote = result.path;
-        document.getElementById('note-title').textContent = newName;
+        wikilinkMap = null;
+        showNotification('Renamed');
+        // If the renamed file is the currently open note, update state
+        if (targetPath === currentNote) {
+            currentNote = result.path;
+            document.getElementById('note-title').textContent = newName;
+            updateBreadcrumbs();
+        }
         loadTree();
-        updateBreadcrumbs();
         updateRecentFile(result.path, newName);
     } else {
-        alert(result.error);
+        showNotification(result.error || 'Failed to rename', true);
     }
+    pendingRenameFile = null;
 }
 
 // Recent files management
@@ -3447,13 +3653,11 @@ function addToRecent(path, title) {
     recentFiles = recentFiles.slice(0, 5);
     
     localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
-    loadRecentFiles();
 }
 
 function removeFromRecent(path) {
     recentFiles = recentFiles.filter(f => f.path !== path);
     localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
-    loadRecentFiles();
 }
 
 function updateRecentFile(path, title) {
@@ -3461,29 +3665,7 @@ function updateRecentFile(path, title) {
     if (file) {
         file.title = title;
         localStorage.setItem('grove-recent', JSON.stringify(recentFiles));
-        loadRecentFiles();
     }
-}
-
-function loadRecentFiles() {
-    const container = document.getElementById('recent-list');
-    container.innerHTML = '';
-    
-    if (recentFiles.length === 0) {
-        container.innerHTML = '<div style="font-size: 12px; color: #888; padding: 4px 8px;">No recent files</div>';
-        return;
-    }
-    
-    recentFiles.forEach(file => {
-        const item = document.createElement('div');
-        item.className = 'recent-item';
-        item.textContent = file.title;
-        item.addEventListener('click', () => {
-            loadNote(file.path);
-            closeMobileMenu();
-        });
-        container.appendChild(item);
-    });
 }
 
 // Breadcrumbs
@@ -5335,11 +5517,20 @@ async function toggleTodo(path, lineNum) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, line: lineNum })
     });
-    
+
     if (response.ok) {
-        // If the note is currently open, reload it to show the change
+        // Update content in-place without full reload (preserves split view, scroll, etc.)
         if (currentNote === path) {
-            await loadNote(path);
+            const noteResp = await fetch(`/api/note/${path}`);
+            const note = await noteResp.json();
+            let content = note.content;
+            const fmMatch = content.match(/^(---\n[\s\S]*?\n---)\n*([\s\S]*)$/);
+            if (fmMatch) {
+                currentNoteFrontmatter = fmMatch[1];
+                content = fmMatch[2];
+            }
+            document.getElementById('editor').value = content;
+            renderPreview();
         }
     } else {
         const error = await response.json();
@@ -5625,27 +5816,39 @@ function renderGraph(data) {
     const edgeColor = isDarkMode ? '#555' : '#999';
     const highlightColor = '#2c5aa0';
     
-    // Prepare nodes with clean, minimal styling
-    const nodes = new vis.DataSet(data.nodes.map(n => ({
-        id: n.id,
-        label: n.label,
-        title: n.title,
-        shape: 'dot',
-        size: 6,
-        color: {
-            background: nodeColor,
-            border: nodeColor,
-            highlight: {
-                background: highlightColor,
-                border: highlightColor
+    // Count incoming links (backlinks) per node
+    const backlinkCount = {};
+    data.edges.forEach(e => {
+        backlinkCount[e.to] = (backlinkCount[e.to] || 0) + 1;
+    });
+    const maxLinks = Math.max(1, ...Object.values(backlinkCount));
+
+    // Prepare nodes — size scales with backlink count
+    const nodes = new vis.DataSet(data.nodes.map(n => {
+        const count = backlinkCount[n.id] || 0;
+        const size = 6 + (count / maxLinks) * 18;
+        const fontSize = 12 + (count / maxLinks) * 6;
+        return {
+            id: n.id,
+            label: n.label,
+            title: `${n.title} (${count} backlink${count !== 1 ? 's' : ''})`,
+            shape: 'dot',
+            size: size,
+            color: {
+                background: nodeColor,
+                border: nodeColor,
+                highlight: {
+                    background: highlightColor,
+                    border: highlightColor
+                }
+            },
+            font: {
+                color: labelColor,
+                size: fontSize,
+                face: 'system-ui, -apple-system, sans-serif'
             }
-        },
-        font: {
-            color: labelColor,
-            size: 13,
-            face: 'system-ui, -apple-system, sans-serif'
-        }
-    })));
+        };
+    }));
     
     // Prepare edges with thin, subtle lines
     const edges = new vis.DataSet(data.edges.map(e => ({
@@ -5672,27 +5875,40 @@ function renderGraph(data) {
         edges: edges
     };
     
+    const nodeCount = data.nodes.length;
+    // Scale repulsion and spacing with graph size
+    const gravity = Math.min(-1500, -800 * Math.sqrt(nodeCount));
+    const springLen = Math.max(180, 100 + nodeCount * 6);
+
     const options = {
         physics: {
+            enabled: true,
             stabilization: {
-                iterations: 300,
+                enabled: true,
+                iterations: 400,
                 fit: true
             },
             barnesHut: {
-                gravitationalConstant: -3000,
-                springLength: 200,
-                springConstant: 0.03,
-                damping: 0.5
-            }
+                gravitationalConstant: gravity,
+                centralGravity: 0.15,
+                springLength: springLen,
+                springConstant: 0.02,
+                damping: 0.3,
+                avoidOverlap: 0.8
+            },
+            minVelocity: 0.75,
+            maxVelocity: 40
         },
         interaction: {
             hover: true,
             tooltipDelay: 100,
             hideEdgesOnDrag: true,
-            hideEdgesOnZoom: false
+            hideEdgesOnZoom: false,
+            zoomSpeed: 0.6
         },
         layout: {
-            improvedLayout: true
+            improvedLayout: true,
+            randomSeed: 42
         }
     };
     

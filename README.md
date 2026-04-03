@@ -52,13 +52,13 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 
 ### 📂 File Management
 - **File tree** sidebar with folder navigation — shows all files (markdown, images, PDFs, etc.)
+- **Live polling** — file tree auto-refreshes every 3 seconds, preserving expanded folder state (great for AI-generated files)
 - **Drag & drop** files and folders to reorganize
-- **Import** — drop `.md` or `.txt` files to import into your vault
-- **Recent files** panel (collapsed by default) for quick access
+- **Import** — drop `.md` or `.txt` files to import into your vault (preserves existing frontmatter)
 - **Search modal** — full-text search across note contents with `#tag` filtering, context snippets with highlighted matches (Ctrl+K)
 - **Inline search bar** — search notes with unified #tag filtering in sidebar
 - **Create, rename, delete** notes and folders
-- **Right-click context menu** — delete files, folders, and images via right-click
+- **Context menu** — click "..." on any file tree item for rename, move, and delete actions (files and folders)
 - **Image preview** — click images in tree to open preview modal with proper sizing
 - **Asset files** — images, PDFs, audio/video shown with type-specific icons
 - **Vault selector** — at bottom of sidebar for switching between vaults
@@ -70,12 +70,14 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Templates** — create, edit, and delete body-only note templates (Grove manages frontmatter)
 - **Document types** — auto-set `type` in frontmatter based on template (`note`, `meeting`, `decision`, `research`, `reflection`, `execution`, `daily`)
 - **Starred notes** — ⭐ toggle in editor; starred icon shows in the file tree
-- **Interactive checkboxes** — click checkboxes in preview to toggle completion (syncs to source markdown)
+- **Interactive checkboxes** — click checkboxes in preview to toggle completion (syncs to source markdown, works in split view without resetting layout)
 - **Todo dashboard** — scan all notes for checkboxes, toggle completion, click to navigate to source note (excludes `.templates/`)
 
 ### 🔗 Graph View & Backlinks
 - **Backlinks panel** — shows all notes that link to the current note; click to navigate
 - **Interactive graph view** — visualize your knowledge network with connected nodes
+- **Backlink-scaled nodes** — node size reflects number of incoming links (more backlinks = larger node)
+- **Adaptive physics** — graph layout scales gravity and spring length based on node count for better separation
 - **Click to navigate** — click any node in the graph to open that note
 - **Theme-aware** — graph colors adapt to dark/light mode
 - **Wikilink detection** — automatically detects `[[wikilinks]]` to build connections
@@ -94,6 +96,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 ### 🗄️ Multi-Vault
 - **Multiple vaults** — create and switch between vaults (e.g., personal, work)
 - **Vault selector** — dropdown in the sidebar toolbar
+- **Per-request vault isolation** — API and MCP tools accept `?vault=` parameter to target a specific vault without affecting the UI's active vault (enables multiple AI agents working on separate vaults concurrently)
 - **Per-vault config** — each vault has its own `.grove/config.json`
 - **Per-vault templates** — each vault has its own `.templates/` directory
 - **Per-vault contacts** — each vault has its own `.grove/contacts.json`
@@ -631,15 +634,26 @@ args = ["/path/to/grove/mcp_server.py"]
 GROVE_URL = "http://localhost:5000"
 ```
 
-### Available Tools
+### Available Tools (38+)
 
-| Tool | Description |
-|------|-------------|
-| `search_notes` | Search notes by text query and/or tag |
-| `read_note` | Read a note's full content and metadata |
-| `create_note` | Create a new note with title, content, folder, and tags |
-| `list_notes` | List all notes in the active vault |
-| `get_tags` | Get all tags with their note counts |
+All tools accept an optional `vault` parameter to target a specific vault without changing the UI's active vault.
+
+| Category | Tools |
+|----------|-------|
+| **Notes** | `search_notes`, `read_note`, `create_note`, `update_note`, `delete_note`, `rename_note`, `move_note`, `list_notes`, `star_note` |
+| **Folders** | `create_folder`, `delete_folder`, `rename_folder`, `move_folder`, `list_folders` |
+| **Tags** | `get_tags`, `update_tags` |
+| **Todos** | `get_todos`, `toggle_todo` |
+| **Templates** | `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template` |
+| **Contacts** | `list_contacts`, `create_contact`, `update_contact`, `delete_contact`, `import_contacts` |
+| **Vaults** | `list_vaults`, `create_vault`, `switch_vault`, `delete_vault` |
+| **Graph & Links** | `get_graph`, `get_backlinks`, `get_wikilink_map` |
+| **Search & Export** | `search_notes`, `export_notes`, `extract_notes` |
+| **Daily & Meeting** | `create_daily_note`, `create_meeting_note` |
+| **Files** | `upload_file`, `get_file` |
+| **Config** | `get_config`, `update_config` |
+
+The MCP server instructions include documentation for wikilinks (`[[Note Title]]`), mermaid diagrams, templates with placeholders, and todo checkboxes.
 
 ### Resources
 
@@ -714,6 +728,8 @@ Vault data (created at runtime):
 
 Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Editor](https://editor.swagger.io)
 
+All endpoints accept an optional `?vault=<name>` query parameter to target a specific vault without changing the UI's active vault.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | **Notes** | | |
@@ -732,6 +748,7 @@ Full OpenAPI 3.0 spec: [`openapi.yaml`](openapi.yaml) — browse in [Swagger Edi
 | `POST` | `/api/move` | Move a file |
 | `POST` | `/api/move-folder` | Move a folder |
 | `POST` | `/api/rename` | Rename a file |
+| `POST` | `/api/rename-folder` | Rename a folder |
 | **Daily & Templates** | | |
 | `POST` | `/api/daily` | Create daily note |
 | `GET` | `/api/templates` | List templates |

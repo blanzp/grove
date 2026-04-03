@@ -316,6 +316,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessPath'
 
+  /api/rename-folder:
+    post:
+      tags: [Folders]
+      summary: Rename a folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, name]
+              properties:
+                path:
+                  type: string
+                  description: Current folder path relative to vault root
+                name:
+                  type: string
+                  description: New folder name
+      responses:
+        '200':
+          description: Folder renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPath'
+        '400':
+          description: Invalid name or folder already exists
+        '404':
+          description: Folder not found
+
   /api/daily:
     post:
       tags: [Daily & Meeting]
@@ -1226,6 +1256,16 @@ paths:
 
 components:
   parameters:
+    VaultParam:
+      name: vault
+      in: query
+      required: false
+      schema:
+        type: string
+      description: >
+        Target vault name. When provided, the request operates on the specified vault
+        instead of the active vault. This allows MCP clients and AI agents to work on
+        their own vaults without affecting the UI's active vault.
     NotePath:
       name: path
       in: path
