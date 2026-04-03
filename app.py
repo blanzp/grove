@@ -744,7 +744,10 @@ def create_note():
         file_path = _vp() / f"{filename}.md"
     
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
+    if file_path.exists():
+        return jsonify({'error': 'A note with that name already exists'}), 409
+
     # Build content
     allowed_types = {"decision","research","execution","reflection","meeting"}
     # Default type is 'note' only when no template is selected

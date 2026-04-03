@@ -422,8 +422,10 @@ function setupTreeDragAndDrop() {
 // Load file tree
 let _lastTreeHash = '';
 const _expandedFolders = new Set();
+let _searchActive = false;
 
 async function loadTree() {
+    if (_searchActive) return; // Don't overwrite search results
     const response = await fetch('/api/tree');
     const tree = await response.json();
     const hash = JSON.stringify(tree);
@@ -974,7 +976,7 @@ ${html}
         window.open('mailto:?subject=' + encodeURIComponent(title));
 
         // Show persistent notification
-        showNotification('✓ Formatted content copied! Just paste (Cmd+V) into email body', true);
+        showNotification('✓ Formatted content copied! Just paste (Cmd+V) into email body');
     } catch (e) {
         // Fallback: open email and show instruction
         window.open('mailto:?subject=' + encodeURIComponent(title));
@@ -1981,6 +1983,8 @@ async function createNote(title, tags, folder, template, customFilename) {
         loadTree();
         loadNote(result.path, true); // Force edit mode for new notes
         showNotification('Note created');
+    } else {
+        showNotification(result.error || 'Failed to create note');
     }
 }
 
@@ -2946,13 +2950,18 @@ function setupEventListeners() {
         const value = sidebarSearchInput.value.trim();
         searchClearBtn.style.display = value ? 'flex' : 'none';
         if (!value) {
+            _searchActive = false;
+            _lastTreeHash = ''; // Force re-render
             loadTree();
             return;
         }
         const { query, tag } = parseSearchInput(value);
         if (query || tag) {
+            _searchActive = true;
             searchNotes(query, tag);
         } else {
+            _searchActive = false;
+            _lastTreeHash = '';
             loadTree();
         }
     }
@@ -3030,6 +3039,8 @@ function setupEventListeners() {
         sidebarSearchInput.value = '';
         searchClearBtn.style.display = 'none';
         tagAutocomplete.style.display = 'none';
+        _searchActive = false;
+        _lastTreeHash = ''; // Force re-render
         loadTree();
         sidebarSearchInput.focus();
     });
@@ -3428,7 +3439,7 @@ async function confirmRenameFolder() {
         }
         loadTree();
     } else {
-        showNotification(result.error || 'Failed to rename folder', true);
+        showNotification(result.error || 'Failed to rename folder');
     }
     pendingRenameFolder = null;
 }
@@ -3494,7 +3505,7 @@ async function confirmMoveItem(targetFolder) {
         }
         loadTree();
     } else {
-        showNotification(result.error || 'Failed to move', true);
+        showNotification(result.error || 'Failed to move');
     }
     pendingMoveItem = null;
 }
@@ -3587,10 +3598,10 @@ async function confirmDeleteFolder() {
             pendingDeleteFolder = null;
         } else {
             const error = await response.json();
-            showNotification(error.error || 'Failed to delete folder', true);
+            showNotification(error.error || 'Failed to delete folder');
         }
     } catch (e) {
-        showNotification('Failed to delete folder: ' + e.message, true);
+        showNotification('Failed to delete folder: ' + e.message);
     }
 }
 
@@ -3636,7 +3647,7 @@ async function confirmRenameNote() {
         loadTree();
         updateRecentFile(result.path, newName);
     } else {
-        showNotification(result.error || 'Failed to rename', true);
+        showNotification(result.error || 'Failed to rename');
     }
     pendingRenameFile = null;
 }
