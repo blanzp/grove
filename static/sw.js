@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grove-v12';
+const CACHE_NAME = 'grove-v14';
 const STATIC_ASSETS = [
   '/',
   '/static/css/style.css',

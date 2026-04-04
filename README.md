@@ -56,6 +56,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault (preserves existing frontmatter)
 - **Search modal** — full-text search across note contents with `#tag` filtering, context snippets with highlighted matches (Ctrl+K)
+- **Semantic search** — optional AI-powered search using local embeddings (BAAI/bge-small-en-v1.5 via fastembed); finds conceptually related notes even without exact keyword matches; hybrid keyword + semantic ranking with relevance scores
 - **Inline search bar** — search notes with unified #tag filtering in sidebar
 - **Create, rename, delete** notes and folders
 - **Context menu** — click "..." on any file tree item for rename, move, and delete actions (files and folders)
@@ -528,6 +529,7 @@ The system prompt instructs the LLM to respond in valid markdown format.
 | `GROVE_HOME` | `~/.grove` | Root directory for config and vaults |
 | `GROVE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for network access) |
 | `GROVE_PORT` | `5000` | Server port |
+| `GROVE_SEMANTIC_SEARCH` | `false` | Enable semantic search with local embeddings (`true` to enable) |
 
 ### Per-Vault Config (`vault/.grove/config.json`)
 ```json
@@ -757,7 +759,8 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 | `PUT` | `/api/template/<name>` | Update template |
 | `DELETE` | `/api/template/<name>` | Delete template |
 | **Search & Tags** | | |
-| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes (excludes `.templates/`) |
+| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes — hybrid keyword + semantic when enabled (excludes `.templates/`) |
+| `GET` | `/api/search/status` | Semantic search status (enabled, indexed count) |
 | `GET` | `/api/tags` | Get all tags with counts |
 | **Todos** | | |
 | `GET` | `/api/todos` | Get all checkboxes (excludes `.templates/`) |

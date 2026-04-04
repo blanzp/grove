@@ -2092,8 +2092,12 @@ async function searchNotes(query, tag) {
     
     results.forEach(result => {
         const itemDiv = document.createElement('div');
-        itemDiv.className = 'tree-item';
-        itemDiv.innerHTML = `<i class="fas fa-file-alt"></i> ${result.title}`;
+        itemDiv.className = 'tree-item search-result';
+        const scoreHtml = result.score !== undefined && result.score > 0
+            ? `<span class="search-score" title="Relevance">${Math.round(result.score * 50)}%</span>` : '';
+        const snippetHtml = result.snippet
+            ? `<div class="search-snippet">${result.snippet}</div>` : '';
+        itemDiv.innerHTML = `<div class="search-result-header"><i class="fas fa-file-alt"></i> ${result.title}${scoreHtml}</div>${snippetHtml}`;
         itemDiv.addEventListener('click', () => loadNote(result.path));
         container.appendChild(itemDiv);
     });
@@ -4922,8 +4926,9 @@ function renderSearchModalList(list, query) {
 
         const tagsHtml = (result.tags && result.tags.length > 0) ? `<span class="qs-tags">${result.tags.map(t => '#' + t).join(' ')}</span>` : '';
         const snippetHtml = result.snippet ? `<div class="search-snippet">${highlightMatch(escapeHtml(result.snippet), query)}</div>` : '';
+        const scoreHtml = result.score !== undefined && result.score > 0 ? `<span class="search-score">${Math.round(result.score * 50)}%</span>` : '';
 
-        item.innerHTML = `<div class="search-result-main"><div class="search-result-top"><i class="fas fa-file-alt"></i><span class="cp-label">${escapeHtml(result.title)}</span>${tagsHtml}</div>${snippetHtml}</div>`;
+        item.innerHTML = `<div class="search-result-main"><div class="search-result-top"><i class="fas fa-file-alt"></i><span class="cp-label">${escapeHtml(result.title)}</span>${tagsHtml}${scoreHtml}</div>${snippetHtml}</div>`;
         item.addEventListener('click', () => executeSearchModalItem(i));
         item.addEventListener('mouseenter', () => {
             searchModalIdx = i;

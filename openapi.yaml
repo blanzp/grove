@@ -394,6 +394,30 @@ paths:
                       type: array
                       items:
                         type: string
+                    snippet:
+                      type: string
+                      description: Context snippet around the match
+                    score:
+                      type: number
+                      description: Relevance score (higher when semantic search is enabled)
+
+  /api/search/status:
+    get:
+      tags: [Search & Tags]
+      summary: Semantic search status
+      description: Returns whether semantic search is enabled and how many notes are indexed.
+      responses:
+        '200':
+          description: Status info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  semantic:
+                    type: boolean
+                  indexed:
+                    type: integer
 
   /api/tags:
     get:

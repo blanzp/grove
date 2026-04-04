@@ -36,7 +36,10 @@ mcp = FastMCP(
         "Built-in templates: daily, daily-planner, weekly-planner, meeting, decision, "
         "research, reflection. Pass a template name to create_note to pre-fill the note "
         "body. Templates support {{title}} and {{date}} placeholders. "
-        "Use list_templates and get_template to discover available templates."
+        "Use list_templates and get_template to discover available templates.\n\n"
+        "Search uses hybrid keyword + semantic matching when GROVE_SEMANTIC_SEARCH=true "
+        "is set on the server. Semantic search finds conceptually related notes even when "
+        "exact keywords don't match. Results are ranked by relevance score."
     ),
 )
 

@@ -483,6 +483,43 @@ body.light-theme .sidebar-logo {
     position: relative;
 }
 
+.search-result {
+    flex-direction: column;
+    align-items: flex-start !important;
+    padding: 6px 12px !important;
+}
+
+.search-result-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.search-result-header i {
+    flex-shrink: 0;
+}
+
+.search-score {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--accent-color);
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.search-snippet {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    padding-left: 20px;
+}
+
 .tree-more-btn {
     display: none;
     position: absolute;

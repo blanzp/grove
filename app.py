@@ -207,6 +207,144 @@ PROJECT_SEED_VAULT = Path(__file__).parent / "default-vault"
 # Backward-compat: fall back to legacy 'vault' if default-vault not present
 LEGACY_SEED_VAULT = Path(__file__).parent / "vault"
 
+# ─── Semantic Search ───
+
+SEMANTIC_SEARCH_ENABLED = os.environ.get('GROVE_SEMANTIC_SEARCH', 'false').lower() == 'true'
+
+class SemanticIndex:
+    """Per-vault embedding index backed by SQLite + fastembed."""
+
+    _model = None  # Class-level singleton — shared across vaults
+
+    def __init__(self, vault_path: Path):
+        import sqlite3
+        self.vault_path = vault_path
+        self.db_path = vault_path / '.grove' / 'embeddings.db'
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._conn.execute(
+            'CREATE TABLE IF NOT EXISTS embeddings '
+            '(path TEXT PRIMARY KEY, mtime REAL, embedding BLOB)'
+        )
+        self._conn.commit()
+
+    @classmethod
+    def _get_model(cls):
+        if cls._model is None:
+            from fastembed import TextEmbedding
+            cls._model = TextEmbedding('BAAI/bge-small-en-v1.5')
+        return cls._model
+
+    def _embed_texts(self, texts):
+        import numpy as np
+        model = self._get_model()
+        return list(model.embed(texts))
+
+    def _text_for_note(self, path: Path):
+        """Extract searchable text from a note (title + body, no YAML)."""
+        content = path.read_text(encoding='utf-8', errors='replace')
+        fm, body = extract_frontmatter(content)
+        title = fm.get('title', path.stem)
+        return f"{title}\n{body}"
+
+    def upsert(self, rel_path: str):
+        """Embed a single note and store/update its vector."""
+        import numpy as np
+        full = self.vault_path / rel_path
+        if not full.exists() or not full.suffix == '.md':
+            return
+        mtime = full.stat().st_mtime
+        row = self._conn.execute(
+            'SELECT mtime FROM embeddings WHERE path = ?', (rel_path,)
+        ).fetchone()
+        if row and row[0] >= mtime:
+            return  # Already up to date
+        text = self._text_for_note(full)
+        if not text.strip():
+            return
+        vec = self._embed_texts([text])[0]
+        self._conn.execute(
+            'INSERT OR REPLACE INTO embeddings (path, mtime, embedding) VALUES (?, ?, ?)',
+            (rel_path, mtime, np.array(vec, dtype=np.float32).tobytes())
+        )
+        self._conn.commit()
+
+    def remove(self, rel_path: str):
+        """Remove a note's embedding."""
+        self._conn.execute('DELETE FROM embeddings WHERE path = ?', (rel_path,))
+        self._conn.commit()
+
+    def rename(self, old_path: str, new_path: str):
+        """Update the path key for a renamed/moved note."""
+        self._conn.execute(
+            'UPDATE embeddings SET path = ? WHERE path = ?', (new_path, old_path)
+        )
+        self._conn.commit()
+
+    def search(self, query: str, top_k: int = 20):
+        """Return [(rel_path, score), ...] ranked by cosine similarity."""
+        import numpy as np
+        q_vec = np.array(self._embed_texts([query])[0], dtype=np.float32)
+        rows = self._conn.execute('SELECT path, embedding FROM embeddings').fetchall()
+        if not rows:
+            return []
+        scored = []
+        for path, blob in rows:
+            vec = np.frombuffer(blob, dtype=np.float32)
+            score = float(np.dot(q_vec, vec) / (np.linalg.norm(q_vec) * np.linalg.norm(vec) + 1e-10))
+            scored.append((path, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
+
+    def sync(self):
+        """Catch-up: embed new/changed notes, remove deleted ones."""
+        existing = {r[0] for r in self._conn.execute('SELECT path FROM embeddings').fetchall()}
+        on_disk = set()
+        for md in self.vault_path.rglob('*.md'):
+            rel = md.relative_to(self.vault_path)
+            if '.templates' in rel.parts or md.name.startswith('.'):
+                continue
+            rel_str = str(rel)
+            on_disk.add(rel_str)
+            self.upsert(rel_str)
+        # Remove embeddings for deleted notes
+        for orphan in existing - on_disk:
+            self.remove(orphan)
+
+# Cache of per-vault SemanticIndex instances
+_semantic_indexes: dict[str, 'SemanticIndex'] = {}
+
+def get_semantic_index(vault_path: Path = None) -> 'SemanticIndex':
+    """Get or create the SemanticIndex for a vault."""
+    if vault_path is None:
+        vault_path = _vp()
+    key = str(vault_path)
+    if key not in _semantic_indexes:
+        _semantic_indexes[key] = SemanticIndex(vault_path)
+    return _semantic_indexes[key]
+
+def _sem_upsert(rel_path: str):
+    """Embed a note if semantic search is enabled."""
+    if SEMANTIC_SEARCH_ENABLED:
+        try:
+            get_semantic_index().upsert(rel_path)
+        except Exception as e:
+            print(f"[semantic] embed error for {rel_path}: {e}")
+
+def _sem_remove(rel_path: str):
+    if SEMANTIC_SEARCH_ENABLED:
+        try:
+            get_semantic_index().remove(rel_path)
+        except Exception:
+            pass
+
+def _sem_rename(old_path: str, new_path: str):
+    if SEMANTIC_SEARCH_ENABLED:
+        try:
+            get_semantic_index().rename(old_path, new_path)
+        except Exception:
+            pass
+
 
 def _seed_vault(path: Path):
     """Initialize a vault with README and standard templates if missing."""
@@ -773,10 +911,12 @@ def create_note():
         content = build_frontmatter(title, tags, doc_type) + f"# {title}\n\n"
     
     file_path.write_text(content, encoding="utf-8")
-    
+    rel_path = str(file_path.relative_to(_vp()))
+    _sem_upsert(rel_path)
+
     return jsonify({
         'success': True,
-        'path': str(file_path.relative_to(_vp()))
+        'path': rel_path
     })
 
 
@@ -836,12 +976,21 @@ def create_daily():
 
 @app.route('/api/search')
 def search_notes():
-    """Search notes by name or tags."""
+    """Search notes by name or tags. Blends semantic results when enabled."""
     query = request.args.get('q', '').lower()
     tag_filter = request.args.get('tag', '').lower()
-    
+
+    # ── Semantic boost map (path → score) ──
+    sem_scores = {}
+    if SEMANTIC_SEARCH_ENABLED and query:
+        try:
+            hits = get_semantic_index().search(query, top_k=50)
+            sem_scores = {path: score for path, score in hits}
+        except Exception as e:
+            print(f"[semantic] search error: {e}")
+
     results = []
-    
+
     for md_file in _vp().rglob('*.md'):
         # Exclude templates folder from search
         rel_parts = md_file.relative_to(_vp()).parts
@@ -849,21 +998,26 @@ def search_notes():
             continue
         if md_file.name.startswith('.'):
             continue
-        
+
         content = md_file.read_text(encoding="utf-8", errors="replace")
         fm, body = extract_frontmatter(content)
-        
+
         title = fm.get('title', md_file.stem)
         tags = fm.get('tags', [])
-        
-        # Filter by query
-        if query and query not in title.lower() and query not in content.lower():
-            continue
-        
+        rel_path = str(md_file.relative_to(_vp()))
+
         # Filter by tag
         if tag_filter and tag_filter not in [t.lower() for t in tags]:
             continue
-        
+
+        # Keyword match
+        keyword_hit = not query or query in title.lower() or query in content.lower()
+        semantic_score = sem_scores.get(rel_path, 0.0)
+
+        # Include if keyword match OR semantic score above threshold
+        if not keyword_hit and semantic_score < 0.35:
+            continue
+
         # Build a context snippet around the match
         snippet = ''
         if query:
@@ -874,19 +1028,39 @@ def search_notes():
                 end = min(len(body), idx + len(query) + 60)
                 snippet = ('...' if start > 0 else '') + body[start:end].replace('\n', ' ').strip() + ('...' if end < len(body) else '')
             else:
-                # Match was in title only
                 snippet = body[:120].replace('\n', ' ').strip() + ('...' if len(body) > 120 else '')
         else:
             snippet = body[:120].replace('\n', ' ').strip() + ('...' if len(body) > 120 else '')
 
+        # Score: keyword match gets 1.0 base, semantic adds up to 1.0
+        score = (1.0 if keyword_hit else 0.0) + semantic_score
+
         results.append({
-            'path': str(md_file.relative_to(_vp())),
+            'path': rel_path,
             'title': title,
             'tags': tags,
-            'snippet': snippet
+            'snippet': snippet,
+            'score': round(score, 3)
         })
-    
+
+    # Sort by score descending (relevance-ranked)
+    if query:
+        results.sort(key=lambda r: r['score'], reverse=True)
+
     return jsonify(results)
+
+
+@app.route('/api/search/status')
+def search_status():
+    """Return whether semantic search is enabled and indexed."""
+    info = {'semantic': SEMANTIC_SEARCH_ENABLED, 'indexed': 0}
+    if SEMANTIC_SEARCH_ENABLED:
+        try:
+            idx = get_semantic_index()
+            info['indexed'] = idx._conn.execute('SELECT COUNT(*) FROM embeddings').fetchone()[0]
+        except Exception:
+            pass
+    return jsonify(info)
 
 
 @app.route('/api/tags')
@@ -1252,10 +1426,12 @@ def move_note():
     
     # Move the file
     source_file.rename(target_file)
-    
+    new_rel = str(target_file.relative_to(_vp()))
+    _sem_rename(source_path, new_rel)
+
     return jsonify({
         'success': True,
-        'path': str(target_file.relative_to(_vp()))
+        'path': new_rel
     })
 
 
@@ -1263,12 +1439,13 @@ def move_note():
 def delete_note(note_path):
     """Delete a note."""
     file_path = _vp() / note_path
-    
+
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
-    
+
     file_path.unlink()
-    
+    _sem_remove(note_path)
+
     return jsonify({'success': True})
 
 
@@ -1306,10 +1483,13 @@ def rename_note():
     
     old_file.rename(new_file)
     new_file.write_text(content, encoding="utf-8")
-    
+    new_rel = str(new_file.relative_to(_vp()))
+    _sem_rename(old_path, new_rel)
+    _sem_upsert(new_rel)  # Re-embed since title changed
+
     return jsonify({
         'success': True,
-        'path': str(new_file.relative_to(_vp()))
+        'path': new_rel
     })
 
 
@@ -2085,6 +2265,7 @@ def save_note(note_path):
         saved_content = _update_frontmatter_field(saved_content, 'updated', datetime.now().isoformat())
         file_path.write_text(saved_content, encoding="utf-8")
 
+    _sem_upsert(note_path)
     return jsonify({'success': True, 'path': note_path})
 
 
@@ -2092,4 +2273,17 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get('GROVE_PORT', '5000'))
     host = os.environ.get('GROVE_HOST', '127.0.0.1')
+
+    # Sync semantic index on startup (background thread)
+    if SEMANTIC_SEARCH_ENABLED:
+        import threading
+        def _startup_sync():
+            vault = get_active_vault_path()
+            print(f"[semantic] Syncing embeddings for {vault.name}...")
+            idx = get_semantic_index(vault)
+            idx.sync()
+            count = idx._conn.execute('SELECT COUNT(*) FROM embeddings').fetchone()[0]
+            print(f"[semantic] Ready — {count} notes indexed")
+        threading.Thread(target=_startup_sync, daemon=True).start()
+
     app.run(debug=False, host=host, port=port)
