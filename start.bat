@@ -8,9 +8,6 @@ REM Server binding
 set GROVE_HOST=127.0.0.1
 set GROVE_PORT=5000
 
-REM Semantic search (requires: pip install fastembed numpy)
-REM set GROVE_SEMANTIC_SEARCH=true
-
 REM LLM Assist (disabled by default)
 REM set GROVE_LLM_ENABLED=true
 REM set GROVE_LLM_PROVIDER=openai

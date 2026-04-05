@@ -37,9 +37,13 @@ mcp = FastMCP(
         "research, reflection. Pass a template name to create_note to pre-fill the note "
         "body. Templates support {{title}} and {{date}} placeholders. "
         "Use list_templates and get_template to discover available templates.\n\n"
-        "Search uses hybrid keyword + semantic matching when GROVE_SEMANTIC_SEARCH=true "
-        "is set on the server. Semantic search finds conceptually related notes even when "
-        "exact keywords don't match. Results are ranked by relevance score."
+        "Search uses BM25 ranking — results are scored by term frequency and document "
+        "rarity. Multi-word queries work well. Results include a relevance score.\n\n"
+        "IMPORTANT: At the start of each conversation, call get_agent_prompt() to read "
+        "the vault's agent.md file. This contains user-written instructions for how you "
+        "should manage this vault — persona, conventions, workflows, and folder structure. "
+        "Follow those instructions. If the user gives you new standing instructions, "
+        "save them with set_agent_prompt()."
     ),
 )
 
@@ -844,6 +848,46 @@ def update_config(config: dict, vault: str = "") -> str:
         JSON object with success status and updated config.
     """
     return _json(_grove_put(_v("/api/config", vault), config))
+
+
+# ── Agent Prompt ────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def get_agent_prompt(vault: str = "") -> str:
+    """Read the vault's agent.md — a user-written prompt that describes how you
+    should manage this vault (persona, conventions, workflows, folder structure).
+
+    IMPORTANT: Call this tool at the start of every conversation to understand
+    the user's expectations for this vault. Follow the instructions in agent.md.
+
+    Args:
+        vault: Target vault name (default: active vault).
+
+    Returns:
+        The agent.md content, or empty string if none exists.
+    """
+    result = _grove_get(_v("/api/agent", vault))
+    if isinstance(result, dict):
+        return result.get("content", "")
+    return ""
+
+
+@mcp.tool()
+def set_agent_prompt(content: str, vault: str = "") -> str:
+    """Update the vault's agent.md prompt.
+
+    Use this to save agent instructions the user provides, or to update
+    conventions as the vault evolves.
+
+    Args:
+        content: The full agent.md content (markdown).
+        vault: Target vault name (default: active vault).
+
+    Returns:
+        JSON object with success status.
+    """
+    return _json(_grove_put(_v("/api/agent", vault), {"content": content}))
 
 
 # ── Calendar ─────────────────────────────────────────────────────────────────

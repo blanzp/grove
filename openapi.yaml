@@ -404,8 +404,8 @@ paths:
   /api/search/status:
     get:
       tags: [Search & Tags]
-      summary: Semantic search status
-      description: Returns whether semantic search is enabled and how many notes are indexed.
+      summary: Search index status
+      description: Returns BM25 index status and how many notes are indexed.
       responses:
         '200':
           description: Status info
@@ -414,7 +414,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  semantic:
+                  bm25:
                     type: boolean
                   indexed:
                     type: integer
@@ -819,6 +819,44 @@ paths:
                     type: boolean
                   config:
                     type: object
+
+  /api/agent:
+    get:
+      tags: [Agent]
+      summary: Read vault's agent.md prompt
+      description: Returns the agent.md content that defines how AI agents should manage this vault.
+      responses:
+        '200':
+          description: Agent prompt content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+    put:
+      tags: [Agent]
+      summary: Update vault's agent.md prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Agent prompt updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
   /api/file/{path}:
     get:

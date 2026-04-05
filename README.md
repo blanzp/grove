@@ -56,7 +56,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Drag & drop** files and folders to reorganize
 - **Import** — drop `.md` or `.txt` files to import into your vault (preserves existing frontmatter)
 - **Search modal** — full-text search across note contents with `#tag` filtering, context snippets with highlighted matches (Ctrl+K)
-- **Semantic search** — optional AI-powered search using local embeddings (BAAI/bge-small-en-v1.5 via fastembed); finds conceptually related notes even without exact keyword matches; hybrid keyword + semantic ranking with relevance scores
+- **BM25 ranked search** — relevance-ranked results using BM25 algorithm (same ranking used by search engines); multi-word queries scored by term frequency and document rarity; zero external dependencies
 - **Inline search bar** — search notes with unified #tag filtering in sidebar
 - **Create, rename, delete** notes and folders
 - **Context menu** — click "..." on any file tree item for rename, move, and delete actions (files and folders)
@@ -101,6 +101,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Per-vault config** — each vault has its own `.grove/config.json`
 - **Per-vault templates** — each vault has its own `.templates/` directory
 - **Per-vault contacts** — each vault has its own `.grove/contacts.json`
+- **Per-vault agent prompt** — `.grove/agent.md` defines how AI agents should manage the vault (persona, conventions, workflows, folder structure)
 
 ### 📤 Share
 - **Print / Save as PDF** — clean, formatted print view
@@ -529,7 +530,6 @@ The system prompt instructs the LLM to respond in valid markdown format.
 | `GROVE_HOME` | `~/.grove` | Root directory for config and vaults |
 | `GROVE_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for network access) |
 | `GROVE_PORT` | `5000` | Server port |
-| `GROVE_SEMANTIC_SEARCH` | `false` | Enable semantic search with local embeddings (`true` to enable) |
 
 ### Per-Vault Config (`vault/.grove/config.json`)
 ```json
@@ -655,6 +655,7 @@ All tools accept an optional `vault` parameter to target a specific vault withou
 | **Daily & Meeting** | `create_daily_note`, `create_meeting_note` |
 | **Files** | `upload_file`, `get_file` |
 | **Config** | `get_config`, `update_config` |
+| **Agent** | `get_agent_prompt`, `set_agent_prompt` |
 
 The MCP server instructions include documentation for wikilinks (`[[Note Title]]`), mermaid diagrams, templates with placeholders, and todo checkboxes.
 
@@ -716,7 +717,8 @@ Vault data (created at runtime):
     ├── default/            # Default vault
     │   ├── .grove/
     │   │   ├── config.json     # Per-vault config
-    │   │   └── contacts.json   # Contacts database
+    │   │   ├── contacts.json   # Contacts database
+    │   │   └── agent.md        # AI agent instructions for this vault
     │   ├── .templates/         # Note templates
     │   ├── attachments/        # Uploaded images & files
     │   ├── daily/              # Daily notes
@@ -759,8 +761,8 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 | `PUT` | `/api/template/<name>` | Update template |
 | `DELETE` | `/api/template/<name>` | Delete template |
 | **Search & Tags** | | |
-| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes — hybrid keyword + semantic when enabled (excludes `.templates/`) |
-| `GET` | `/api/search/status` | Semantic search status (enabled, indexed count) |
+| `GET` | `/api/search?q=<query>&tag=<tag>` | Search notes — BM25 relevance-ranked (excludes `.templates/`) |
+| `GET` | `/api/search/status` | Search index status (indexed count) |
 | `GET` | `/api/tags` | Get all tags with counts |
 | **Todos** | | |
 | `GET` | `/api/todos` | Get all checkboxes (excludes `.templates/`) |
@@ -790,6 +792,9 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
+| **Agent** | | |
+| `GET` | `/api/agent` | Read vault's agent.md prompt |
+| `PUT` | `/api/agent` | Update vault's agent.md prompt |
 | **LLM** | | |
 | `GET` | `/api/llm/status` | LLM config status (enabled, provider, models) |
 | `POST` | `/api/llm` | Generate LLM response (`prompt`, `selection`, `model`) |

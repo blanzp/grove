@@ -8,9 +8,6 @@
 export GROVE_HOST=127.0.0.1
 export GROVE_PORT=5000
 
-# Semantic search (requires: pip install fastembed numpy)
-# export GROVE_SEMANTIC_SEARCH=true
-
 # LLM Assist (disabled by default)
 # export GROVE_LLM_ENABLED=true
 # export GROVE_LLM_PROVIDER=openai
