@@ -1067,6 +1067,144 @@ async function shareViaCopyHtml() {
     }
 }
 
+function shareViaMarp() {
+    hideModal('share-modal');
+    let body = document.getElementById('editor').value;
+    const title = document.getElementById('note-title').textContent;
+
+    // Strip frontmatter
+    const fmMatch = body.match(/^---\n[\s\S]*?\n---\n*/);
+    if (fmMatch) body = body.slice(fmMatch[0].length);
+
+    // Split into slides:
+    // 1) If --- separators exist, split on those
+    // 2) Otherwise, split on headings (# or ##)
+    const lines = body.split('\n');
+    let slides = [];
+    let current = [];
+    let inCode = false;
+
+    // Check if there are any --- separators (outside code blocks)
+    let hasHR = false;
+    let tempInCode = false;
+    for (const line of lines) {
+        if (line.trim().startsWith('```')) tempInCode = !tempInCode;
+        if (!tempInCode && /^---\s*$/.test(line) && lines.indexOf(line) > 0) { hasHR = true; break; }
+    }
+
+    if (hasHR) {
+        // Split on ---
+        for (const line of lines) {
+            if (line.trim().startsWith('```')) inCode = !inCode;
+            if (!inCode && /^---\s*$/.test(line) && current.length > 0) {
+                slides.push(current.join('\n').trim());
+                current = [];
+            } else {
+                current.push(line);
+            }
+        }
+    } else {
+        // Split on headings (# or ##)
+        for (const line of lines) {
+            if (line.trim().startsWith('```')) inCode = !inCode;
+            if (!inCode && /^#{1,2}\s/.test(line) && current.length > 0) {
+                slides.push(current.join('\n').trim());
+                current = [line];
+            } else {
+                current.push(line);
+            }
+        }
+    }
+    if (current.join('').trim()) slides.push(current.join('\n').trim());
+    if (slides.length === 0) { showNotification('No slide content'); return; }
+
+    // Render markdown per slide
+    const renderMd = (md) => {
+        if (typeof marked === 'function') return marked(md);
+        if (typeof marked === 'object' && typeof marked.parse === 'function') return marked.parse(md);
+        return '<pre>' + md + '</pre>';
+    };
+
+    const slideHtml = slides.map((md, i) =>
+        `<div class="slide" id="slide-${i}">${renderMd(md)}</div>`
+    ).join('\n');
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>${title} — Slides</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#1a2318;color:#d4ddd2;font-family:'DM Sans',system-ui,sans-serif}
+.slide{display:none;width:100vw;height:100vh;padding:8vh 10vw;overflow:auto;
+  font-size:clamp(18px,2.5vw,32px);line-height:1.5}
+.slide.active{display:flex;flex-direction:column;justify-content:center}
+.slide h1{font-size:2em;margin-bottom:.4em;color:#7fb069}
+.slide h2{font-size:1.5em;margin-bottom:.4em;color:#7fb069}
+.slide h3{font-size:1.2em;margin-bottom:.3em;color:#93b885}
+.slide p{margin-bottom:.6em}
+.slide ul,.slide ol{margin:0 0 .6em 1.2em}
+.slide li{margin-bottom:.2em}
+.slide code{background:rgba(127,176,105,.15);padding:.1em .3em;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.85em}
+.slide pre{background:rgba(0,0,0,.3);padding:1em;border-radius:8px;overflow-x:auto;margin:.6em 0}
+.slide pre code{background:none;padding:0}
+.slide blockquote{border-left:4px solid #7fb069;padding-left:1em;color:#93b885;margin:.6em 0}
+.slide img{max-width:80%;max-height:60vh;border-radius:8px;margin:.5em auto;display:block}
+.slide table{border-collapse:collapse;margin:.6em 0;width:auto}
+.slide th,.slide td{border:1px solid #3a5a32;padding:.3em .7em;text-align:left}
+.slide th{background:rgba(127,176,105,.15)}
+.slide a{color:#7fb069}
+.controls{position:fixed;bottom:24px;right:32px;display:flex;gap:12px;z-index:10;opacity:.5;transition:opacity .2s}
+.controls:hover{opacity:1}
+.controls button{background:rgba(127,176,105,.2);border:1px solid #3a5a32;color:#d4ddd2;
+  width:44px;height:44px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.controls button:hover{background:rgba(127,176,105,.4)}
+.progress{position:fixed;bottom:0;left:0;height:3px;background:#7fb069;transition:width .3s ease}
+.counter{position:fixed;bottom:28px;left:32px;font-size:14px;opacity:.4;font-variant-numeric:tabular-nums}
+@media print{
+  .controls,.progress,.counter{display:none!important}
+  html,body{height:auto;overflow:visible;background:#fff;color:#111}
+  .slide{display:flex!important;flex-direction:column;justify-content:center;
+    width:100%;height:100vh;padding:8vh 10vw;page-break-after:always;break-after:page;
+    font-size:20pt;color:#111}
+  .slide:last-child{page-break-after:auto;break-after:auto}
+  .slide h1,.slide h2{color:#2d5a27}
+  .slide h3{color:#3a7a2a}
+  .slide code{background:#eef5ec}
+  .slide pre{background:#f5f5f5;border:1px solid #ddd}
+  .slide blockquote{border-left-color:#2d5a27;color:#555}
+  .slide th{background:#eef5ec}
+  .slide th,.slide td{border-color:#ccc}
+  .slide a{color:#2d5a27}
+}
+</style></head><body>
+${slideHtml}
+<div class="controls">
+  <button id="prev" title="Previous">&#9664;</button>
+  <button id="next" title="Next">&#9654;</button>
+  <button id="fs" title="Fullscreen">&#x26F6;</button>
+  <button id="pdf" title="Save as PDF">&#128438;</button>
+</div>
+<div class="progress" id="progress"></div>
+<div class="counter" id="counter"></div>
+<script>
+let idx=0;const slides=document.querySelectorAll('.slide'),total=slides.length;
+function go(n){slides[idx].classList.remove('active');idx=Math.max(0,Math.min(total-1,n));
+slides[idx].classList.add('active');document.getElementById('progress').style.width=((idx+1)/total*100)+'%';
+document.getElementById('counter').textContent=(idx+1)+' / '+total;}
+go(0);
+document.getElementById('prev').onclick=()=>go(idx-1);
+document.getElementById('next').onclick=()=>go(idx+1);
+document.getElementById('fs').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();};
+document.getElementById('pdf').onclick=()=>window.print();
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter'){e.preventDefault();go(idx+1)}
+else if(e.key==='ArrowLeft'||e.key==='Backspace'){e.preventDefault();go(idx-1)}
+else if(e.key==='Escape'&&document.fullscreenElement)document.exitFullscreen();
+else if(e.key==='f')document.getElementById('fs').click();
+else if(e.key==='Home'){e.preventDefault();go(0)}
+else if(e.key==='End'){e.preventDefault();go(total-1)}});
+</script></body></html>`);
+    win.document.close();
+}
+
 // ─── Image Upload & Paste ───
 
 function uploadImageForEditor(editor) {
@@ -2658,6 +2796,7 @@ function setupEventListeners() {
     document.getElementById('share-email').addEventListener('click', shareViaEmail);
     document.getElementById('share-copy').addEventListener('click', shareViaCopyMarkdown);
     document.getElementById('share-copy-html').addEventListener('click', shareViaCopyHtml);
+    document.getElementById('share-marp').addEventListener('click', shareViaMarp);
 
     // LLM (optional)
     initLlmUi();
@@ -4668,6 +4807,7 @@ const COMMAND_PALETTE_COMMANDS = [
     { id: 'share-copy-md',    label: 'Copy as Markdown',        icon: 'fa-copy',             shortcut: '',              category: 'Share',      action: () => shareViaCopyMarkdown(), needsNote: true },
     { id: 'share-copy-html',  label: 'Copy as HTML',            icon: 'fa-code',             shortcut: '',              category: 'Share',      action: () => shareViaCopyHtml(), needsNote: true },
     { id: 'share-copy-link',  label: 'Copy Link',               icon: 'fa-link',             shortcut: '',              category: 'Share',      action: () => shareViaCopyLink(), needsNote: true },
+    { id: 'share-marp',       label: 'Present as Slides',       icon: 'fa-tv',               shortcut: '',              category: 'Share',      action: () => shareViaMarp(), needsNote: true },
 
     // Theme
     { id: 'toggle-theme',     label: 'Toggle Dark/Light Mode',  icon: 'fa-adjust',           shortcut: '',              category: 'Theme',      action: () => toggleTheme() },
@@ -5943,4 +6083,74 @@ function renderGraph(data) {
         }
     });
 }
+
+
+// ─── Web Clipper ───
+
+(function() {
+    function buildBookmarklet(groveUrl, folder) {
+        // Navigate the current tab to Grove's /clip page with data in the hash.
+        // The /clip page (same origin as the API) does the POST, then offers
+        // a link back to the original page.
+        var code = `javascript:void(function(){` +
+            `var s=window.getSelection().toString();` +
+            `var h='';` +
+            `if(s){` +
+                `var r=window.getSelection().getRangeAt(0);` +
+                `var d=document.createElement('div');` +
+                `d.appendChild(r.cloneContents());` +
+                `h=d.innerHTML;` +
+            `}else{` +
+                `var a=document.querySelector('article')||document.querySelector('[role=main]')||document.querySelector('main')||document.body;` +
+                `h=a.innerHTML;` +
+            `}` +
+            `var data=JSON.stringify({title:document.title,url:location.href,html:h,folder:'${folder}',tags:['clip']});` +
+            `location.href='${groveUrl}/clip#'+encodeURIComponent(data);` +
+        `}())`;
+        return code;
+    }
+
+    function updateClipper() {
+        var folder = (document.getElementById('clipper-folder').value || 'clips').trim();
+        var groveUrl = window.location.origin;
+        var code = buildBookmarklet(groveUrl, folder);
+        var link = document.getElementById('clipper-bookmarklet');
+        var pre = document.getElementById('clipper-code');
+        if (link) link.href = code;
+        if (pre) pre.textContent = code;
+        try { localStorage.setItem('grove_clip_folder', folder); } catch(e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var btn = document.getElementById('clipper-btn');
+        if (btn) btn.addEventListener('click', function() {
+            try {
+                var saved = localStorage.getItem('grove_clip_folder');
+                if (saved) document.getElementById('clipper-folder').value = saved;
+            } catch(e) {}
+            updateClipper();
+            showModal('clipper-modal');
+        });
+
+        var closeBtn = document.getElementById('close-clipper-btn');
+        if (closeBtn) closeBtn.addEventListener('click', function() { hideModal('clipper-modal'); });
+
+        var updateBtn = document.getElementById('clipper-update-btn');
+        if (updateBtn) updateBtn.addEventListener('click', updateClipper);
+
+        var copyBtn = document.getElementById('copy-clipper-code');
+        if (copyBtn) copyBtn.addEventListener('click', function() {
+            var code = document.getElementById('clipper-code').textContent;
+            navigator.clipboard.writeText(code).then(function() {
+                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(function() { copyBtn.innerHTML = '<i class="fas fa-copy"></i>'; }, 1500);
+            });
+        });
+
+        var modal = document.getElementById('clipper-modal');
+        if (modal) modal.addEventListener('click', function(e) {
+            if (e.target === modal) hideModal('clipper-modal');
+        });
+    });
+})();
 

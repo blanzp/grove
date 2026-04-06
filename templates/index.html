@@ -40,6 +40,7 @@
             <button id="graph-btn" title="Graph View"><i class="fas fa-project-diagram"></i></button>
             <button id="calendar-btn" title="Calendar View"><i class="fas fa-calendar"></i></button>
             <div class="action-bar-spacer"></div>
+            <button id="clipper-btn" title="Web Clipper"><i class="fas fa-paperclip"></i></button>
             <button id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
         </div>
         
@@ -386,6 +387,7 @@
                 <button class="btn-primary" id="share-copy"><i class="fas fa-copy"></i> Copy as Markdown</button>
                 <button class="btn-primary" id="share-copy-html"><i class="fas fa-code"></i> Copy as HTML</button>
                 <button class="btn-primary" id="share-copy-link"><i class="fas fa-link"></i> Copy link to this note</button>
+                <button class="btn-primary" id="share-marp"><i class="fas fa-tv"></i> Present as Slides</button>
             </div>
             <div class="modal-actions" style="margin-top: 12px;">
                 <button class="btn-secondary" id="close-share-btn">Close</button>
@@ -794,6 +796,32 @@ Use placeholders:
         </div>
     </div>
 
+    <!-- Web Clipper Setup Modal -->
+    <div class="modal" id="clipper-modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <h2><i class="fas fa-paperclip" style="margin-right: 8px;"></i>Web Clipper</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Drag the button below to your bookmarks bar. Click it on any web page to clip it to Grove.</p>
+            <div style="text-align: center; margin: 20px 0;">
+                <a id="clipper-bookmarklet" href="#" class="btn-primary" style="display: inline-block; padding: 12px 24px; font-size: 15px; text-decoration: none; cursor: grab; border-radius: 8px;" draggable="true">
+                    <i class="fas fa-paperclip"></i>&nbsp; Clip to Grove
+                </a>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;"><strong>How to install:</strong> Drag the button above to your bookmarks bar. If you can't drag it, right-click your bookmarks bar &rarr; "Add page" &rarr; paste the code below as the URL.</p>
+            <div style="position: relative;">
+                <pre id="clipper-code" style="background: var(--bg-tertiary); color: var(--text-primary); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; max-height: 120px; overflow: auto; word-break: break-all; white-space: pre-wrap; user-select: all;"></pre>
+                <button id="copy-clipper-code" title="Copy" style="position: absolute; top: 8px; right: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; cursor: pointer; color: var(--text-secondary); font-size: 12px;"><i class="fas fa-copy"></i></button>
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+                <label for="clipper-folder">Default folder</label>
+                <input type="text" id="clipper-folder" value="clips" placeholder="clips" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="clipper-update-btn">Update Bookmarklet</button>
+                <button class="btn-secondary" id="close-clipper-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Tree Context Menu -->
     <div class="tree-context-menu" id="tree-context-menu" style="display: none;"></div>
 
@@ -845,7 +873,7 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260403a"></script>
+    <script src="/static/js/app.js?v=20260406i"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

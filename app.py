@@ -24,6 +24,7 @@ import json
 import re
 import uuid
 from datetime import datetime
+from html.parser import HTMLParser
 
 app = Flask(__name__)
 app.json.ensure_ascii = False  # Allow UTF-8 in JSON responses
@@ -916,6 +917,242 @@ def create_note():
         'success': True,
         'path': rel_path
     })
+
+
+# ─── HTML → Markdown converter (no dependencies) ───
+
+class _HTMLToMarkdown(HTMLParser):
+    """Lightweight HTML→Markdown converter for web clipping."""
+
+    BLOCK_TAGS = {'p', 'div', 'article', 'section', 'main', 'header', 'footer',
+                  'aside', 'nav', 'figure', 'figcaption', 'details', 'summary'}
+    SKIP_TAGS = {'script', 'style', 'noscript', 'iframe', 'svg', 'math', 'template',
+                 'head', 'button', 'input', 'select', 'textarea', 'form', 'nav', 'footer'}
+
+    def __init__(self):
+        super().__init__()
+        self._out = []          # output tokens
+        self._skip = 0          # depth inside skipped tags
+        self._pre = 0           # depth inside <pre>
+        self._list_stack = []   # stack of ('ul'|'ol', counter)
+        self._href = None       # current <a> href
+        self._link_text = []    # text inside current <a>
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag in self.SKIP_TAGS:
+            self._skip += 1
+            return
+        if self._skip:
+            return
+
+        if tag == 'pre':
+            self._pre += 1
+            self._out.append('\n```\n')
+        elif tag == 'code' and not self._pre:
+            self._out.append('`')
+        elif tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            level = int(tag[1])
+            self._out.append('\n' + '#' * level + ' ')
+        elif tag == 'br':
+            self._out.append('  \n' if self._pre == 0 else '\n')
+        elif tag == 'hr':
+            self._out.append('\n---\n')
+        elif tag in ('strong', 'b'):
+            self._out.append('**')
+        elif tag in ('em', 'i'):
+            self._out.append('*')
+        elif tag == 'del':
+            self._out.append('~~')
+        elif tag == 'a':
+            self._href = a.get('href', '')
+            self._link_text = []
+        elif tag == 'img':
+            alt = a.get('alt', '')
+            src = a.get('src', '')
+            if src:
+                self._out.append(f'![{alt}]({src})')
+        elif tag in ('ul', 'ol'):
+            self._list_stack.append((tag, 0))
+            self._out.append('\n')
+        elif tag == 'li':
+            indent = '  ' * max(0, len(self._list_stack) - 1)
+            if self._list_stack:
+                kind, count = self._list_stack[-1]
+                if kind == 'ol':
+                    count += 1
+                    self._list_stack[-1] = (kind, count)
+                    self._out.append(f'{indent}{count}. ')
+                else:
+                    self._out.append(f'{indent}- ')
+            else:
+                self._out.append('- ')
+        elif tag == 'blockquote':
+            self._out.append('\n> ')
+        elif tag == 'table':
+            self._out.append('\n')
+        elif tag == 'tr':
+            self._out.append('|')
+        elif tag in ('td', 'th'):
+            self._out.append(' ')
+        elif tag in self.BLOCK_TAGS:
+            self._out.append('\n')
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP_TAGS:
+            self._skip = max(0, self._skip - 1)
+            return
+        if self._skip:
+            return
+
+        if tag == 'pre':
+            self._pre = max(0, self._pre - 1)
+            self._out.append('\n```\n')
+        elif tag == 'code' and not self._pre:
+            self._out.append('`')
+        elif tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            self._out.append('\n')
+        elif tag in ('strong', 'b'):
+            self._out.append('**')
+        elif tag in ('em', 'i'):
+            self._out.append('*')
+        elif tag == 'del':
+            self._out.append('~~')
+        elif tag == 'a':
+            text = ''.join(self._link_text).strip()
+            if self._href and text:
+                self._out.append(f'[{text}]({self._href})')
+            elif text:
+                self._out.append(text)
+            self._href = None
+            self._link_text = []
+        elif tag in ('ul', 'ol'):
+            if self._list_stack:
+                self._list_stack.pop()
+            self._out.append('\n')
+        elif tag == 'li':
+            self._out.append('\n')
+        elif tag in ('td', 'th'):
+            self._out.append(' |')
+        elif tag == 'tr':
+            self._out.append('\n')
+        elif tag == 'blockquote':
+            self._out.append('\n')
+        elif tag in self.BLOCK_TAGS:
+            self._out.append('\n')
+
+    def handle_data(self, data):
+        if self._skip:
+            return
+        if self._href is not None:
+            self._link_text.append(data)
+        else:
+            if self._pre:
+                self._out.append(data)
+            else:
+                self._out.append(data)
+
+    def get_markdown(self):
+        text = ''.join(self._out)
+        # Collapse runs of 3+ newlines to 2
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+
+def _html_to_markdown(html):
+    """Convert HTML string to Markdown."""
+    parser = _HTMLToMarkdown()
+    parser.feed(html)
+    return parser.get_markdown()
+
+
+@app.route('/clip')
+def clip_page():
+    """Bookmarklet landing page — reads clip data from URL hash and POSTs to /api/clip."""
+    return '''<!DOCTYPE html><html><head><title>Grove — Clipping...</title></head>
+<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;
+background:#1a2318;color:#d4ddd2;font-family:system-ui,sans-serif">
+<div id="msg" style="text-align:center">
+<div style="font-size:18px">Clipping...</div>
+</div>
+<script>
+try{
+  var raw=decodeURIComponent(location.hash.slice(1));
+  var data=JSON.parse(raw);
+  var srcUrl=data.url||'';
+  fetch('/api/clip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+  .then(function(r){return r.json()})
+  .then(function(r){
+    if(r.success){
+      var back=srcUrl?'<a href="'+srcUrl+'" style="color:#7fb069;margin-top:14px;display:inline-block;font-size:14px">Back to page</a>':'';
+      document.getElementById('msg').innerHTML='<div style="font-size:48px;margin-bottom:12px">&#10003;</div>'
+        +'<div style="font-size:18px">Clipped to Grove</div>'
+        +'<div style="font-size:13px;opacity:.6;margin-top:6px">'+r.path+'</div>'
+        +back;
+    }else{
+      document.getElementById('msg').innerHTML='<div style="color:#e74c3c">'+(r.error||'Clip failed')+'</div>';
+    }
+  }).catch(function(e){
+    document.getElementById('msg').innerHTML='<div style="color:#e74c3c">Error: '+e.message+'</div>';
+  });
+}catch(e){
+  document.getElementById('msg').innerHTML='<div style="color:#e74c3c">No clip data found</div>';
+}
+</script></body></html>'''
+
+
+@app.route('/api/clip', methods=['POST'])
+def clip_note():
+    """Web clipper endpoint — create a note from a web page."""
+    data = request.json or {}
+    title = (data.get('title') or 'Untitled Clip').strip()
+    url = (data.get('url') or '').strip()
+    html = (data.get('html') or '').strip()
+    text = (data.get('text') or '').strip()
+    folder = (data.get('folder') or 'clips').strip()
+    tags = data.get('tags', ['clip'])
+
+    # Convert HTML to Markdown, fall back to plain text
+    if html:
+        body = _html_to_markdown(html)
+    elif text:
+        body = text
+    else:
+        body = ''
+
+    # Build the note content
+    source_line = f'> Clipped from [{title}]({url})' if url else ''
+    parts = [f'# {title}']
+    if source_line:
+        parts.append(source_line)
+    parts.append('')
+    if body:
+        parts.append(body)
+
+    md_body = '\n\n'.join(parts) + '\n'
+
+    # Create filename from title
+    filename = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '-').lower()
+    filename = re.sub(r'[-\s]+', '-', filename)
+
+    file_path = _vp() / folder / f"{filename}.md"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Avoid overwriting — append timestamp if file exists
+    if file_path.exists():
+        ts = datetime.now().strftime('%Y%m%d%H%M%S')
+        file_path = _vp() / folder / f"{filename}-{ts}.md"
+
+    if 'clip' not in tags:
+        tags.append('clip')
+
+    content = build_frontmatter(title, tags, 'note') + md_body
+    file_path.write_text(content, encoding='utf-8')
+    rel_path = str(file_path.relative_to(_vp()))
+    _bm25_upsert(rel_path)
+
+    return jsonify({'success': True, 'path': rel_path, 'title': title})
+
 
 
 @app.route('/api/folder', methods=['POST'])
