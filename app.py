@@ -1101,6 +1101,18 @@ try{
 </script></body></html>'''
 
 
+
+@app.route('/api/marp-template')
+def get_marp_template():
+    """Return the Marp frontmatter template for the active vault."""
+    tpl_path = _vp() / '.grove' / 'marp-template.md'
+    if not tpl_path.exists():
+        tpl_path = PROJECT_SEED_VAULT / '.grove' / 'marp-template.md'
+    if tpl_path.exists():
+        return tpl_path.read_text(encoding='utf-8')
+    return '---\nmarp: true\ntheme: default\npaginate: true\n---\n'
+
+
 @app.route('/api/clip', methods=['POST'])
 def clip_note():
     """Web clipper endpoint — create a note from a web page."""

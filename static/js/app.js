@@ -1067,141 +1067,174 @@ async function shareViaCopyHtml() {
     }
 }
 
-function shareViaMarp() {
+async function shareViaMarp() {
     hideModal('share-modal');
     let body = document.getElementById('editor').value;
     const title = document.getElementById('note-title').textContent;
 
-    // Strip frontmatter
+    // Strip Grove frontmatter
     const fmMatch = body.match(/^---\n[\s\S]*?\n---\n*/);
     if (fmMatch) body = body.slice(fmMatch[0].length);
 
-    // Split into slides:
-    // 1) If --- separators exist, split on those
-    // 2) Otherwise, split on headings (# or ##)
-    const lines = body.split('\n');
-    let slides = [];
-    let current = [];
-    let inCode = false;
-
-    // Check if there are any --- separators (outside code blocks)
+    // If note has no --- slide separators, insert them before each # or ## heading
     let hasHR = false;
     let tempInCode = false;
-    for (const line of lines) {
+    for (const line of body.split('\n')) {
         if (line.trim().startsWith('```')) tempInCode = !tempInCode;
-        if (!tempInCode && /^---\s*$/.test(line) && lines.indexOf(line) > 0) { hasHR = true; break; }
+        if (!tempInCode && /^---\s*$/.test(line)) { hasHR = true; break; }
     }
-
-    if (hasHR) {
-        // Split on ---
+    if (!hasHR) {
+        const lines = body.split('\n');
+        const out = [];
+        let inCode = false;
+        let hasContent = false;
         for (const line of lines) {
             if (line.trim().startsWith('```')) inCode = !inCode;
-            if (!inCode && /^---\s*$/.test(line) && current.length > 0) {
-                slides.push(current.join('\n').trim());
-                current = [];
-            } else {
-                current.push(line);
+            if (!inCode && /^#{1,2}\s/.test(line) && hasContent) {
+                out.push('', '---', '');
             }
+            out.push(line);
+            if (line.trim()) hasContent = true;
         }
+        body = out.join('\n');
     } else {
-        // Split on headings (# or ##)
-        for (const line of lines) {
-            if (line.trim().startsWith('```')) inCode = !inCode;
-            if (!inCode && /^#{1,2}\s/.test(line) && current.length > 0) {
-                slides.push(current.join('\n').trim());
-                current = [line];
-            } else {
-                current.push(line);
-            }
-        }
+        // Ensure existing --- separators have blank lines around them
+        body = body.replace(/([^\n])\n---\n/g, '$1\n\n---\n\n');
+        body = body.replace(/\n---\n([^\n])/g, '\n\n---\n\n$1');
     }
-    if (current.join('').trim()) slides.push(current.join('\n').trim());
-    if (slides.length === 0) { showNotification('No slide content'); return; }
 
-    // Render markdown per slide
-    const renderMd = (md) => {
-        if (typeof marked === 'function') return marked(md);
-        if (typeof marked === 'object' && typeof marked.parse === 'function') return marked.parse(md);
-        return '<pre>' + md + '</pre>';
-    };
+    // Fetch Marp template from vault
+    let template = '---\nmarp: true\ntheme: default\npaginate: true\n---\n';
+    try {
+        const vaultParam = activeVault ? '?vault=' + encodeURIComponent(activeVault) : '';
+        const resp = await fetch('/api/marp-template' + vaultParam);
+        if (resp.ok) template = await resp.text();
+    } catch (e) { /* use default */ }
 
-    const slideHtml = slides.map((md, i) =>
-        `<div class="slide" id="slide-${i}">${renderMd(md)}</div>`
-    ).join('\n');
+    // Combine template + note body
+    const marpMd = template.includes('{{content}}')
+        ? template.replace('{{content}}', body)
+        : template + '\n' + body;
 
+    // Open presenter page
     const win = window.open('', '_blank');
+    if (!win) { showNotification('Popup blocked — allow popups for this site'); return; }
+
     win.document.write(`<!DOCTYPE html><html><head><title>${title} — Slides</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;background:#1a2318;color:#d4ddd2;font-family:'DM Sans',system-ui,sans-serif}
-.slide{display:none;width:100vw;height:100vh;padding:8vh 10vw;overflow:auto;
-  font-size:clamp(18px,2.5vw,32px);line-height:1.5}
-.slide.active{display:flex;flex-direction:column;justify-content:center}
-.slide h1{font-size:2em;margin-bottom:.4em;color:#7fb069}
-.slide h2{font-size:1.5em;margin-bottom:.4em;color:#7fb069}
-.slide h3{font-size:1.2em;margin-bottom:.3em;color:#93b885}
-.slide p{margin-bottom:.6em}
-.slide ul,.slide ol{margin:0 0 .6em 1.2em}
-.slide li{margin-bottom:.2em}
-.slide code{background:rgba(127,176,105,.15);padding:.1em .3em;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.85em}
-.slide pre{background:rgba(0,0,0,.3);padding:1em;border-radius:8px;overflow-x:auto;margin:.6em 0}
-.slide pre code{background:none;padding:0}
-.slide blockquote{border-left:4px solid #7fb069;padding-left:1em;color:#93b885;margin:.6em 0}
-.slide img{max-width:80%;max-height:60vh;border-radius:8px;margin:.5em auto;display:block}
-.slide table{border-collapse:collapse;margin:.6em 0;width:auto}
-.slide th,.slide td{border:1px solid #3a5a32;padding:.3em .7em;text-align:left}
-.slide th{background:rgba(127,176,105,.15)}
-.slide a{color:#7fb069}
+html,body{height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
+#loading{display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#d4ddd2;opacity:.6}
+#deck{display:none;width:100vw;height:100vh;position:relative}
 .controls{position:fixed;bottom:24px;right:32px;display:flex;gap:12px;z-index:10;opacity:.5;transition:opacity .2s}
 .controls:hover{opacity:1}
-.controls button{background:rgba(127,176,105,.2);border:1px solid #3a5a32;color:#d4ddd2;
+.controls button{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#d4ddd2;
   width:44px;height:44px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
-.controls button:hover{background:rgba(127,176,105,.4)}
-.progress{position:fixed;bottom:0;left:0;height:3px;background:#7fb069;transition:width .3s ease}
-.counter{position:fixed;bottom:28px;left:32px;font-size:14px;opacity:.4;font-variant-numeric:tabular-nums}
+.controls button:hover{background:rgba(255,255,255,.2)}
+.progress{position:fixed;bottom:0;left:0;height:3px;background:#7fb069;transition:width .3s ease;z-index:10}
+.counter{position:fixed;bottom:28px;left:32px;font-size:14px;opacity:.4;font-variant-numeric:tabular-nums;color:#d4ddd2;z-index:10}
 @media print{
-  .controls,.progress,.counter{display:none!important}
-  html,body{height:auto;overflow:visible;background:#fff;color:#111}
-  .slide{display:flex!important;flex-direction:column;justify-content:center;
-    width:100%;height:100vh;padding:8vh 10vw;page-break-after:always;break-after:page;
-    font-size:20pt;color:#111}
-  .slide:last-child{page-break-after:auto;break-after:auto}
-  .slide h1,.slide h2{color:#2d5a27}
-  .slide h3{color:#3a7a2a}
-  .slide code{background:#eef5ec}
-  .slide pre{background:#f5f5f5;border:1px solid #ddd}
-  .slide blockquote{border-left-color:#2d5a27;color:#555}
-  .slide th{background:#eef5ec}
-  .slide th,.slide td{border-color:#ccc}
-  .slide a{color:#2d5a27}
+  .controls,.progress,.counter,#loading{display:none!important}
+  html,body{height:auto;overflow:visible;background:#fff}
+  #deck{display:block!important;height:auto!important}
 }
 </style></head><body>
-${slideHtml}
-<div class="controls">
+<div id="loading">Loading Marp...</div>
+<div id="deck"></div>
+<div class="controls" style="display:none" id="ctrl">
   <button id="prev" title="Previous">&#9664;</button>
   <button id="next" title="Next">&#9654;</button>
   <button id="fs" title="Fullscreen">&#x26F6;</button>
   <button id="pdf" title="Save as PDF">&#128438;</button>
 </div>
 <div class="progress" id="progress"></div>
-<div class="counter" id="counter"></div>
-<script>
-let idx=0;const slides=document.querySelectorAll('.slide'),total=slides.length;
-function go(n){slides[idx].classList.remove('active');idx=Math.max(0,Math.min(total-1,n));
-slides[idx].classList.add('active');document.getElementById('progress').style.width=((idx+1)/total*100)+'%';
-document.getElementById('counter').textContent=(idx+1)+' / '+total;}
-go(0);
-document.getElementById('prev').onclick=()=>go(idx-1);
-document.getElementById('next').onclick=()=>go(idx+1);
-document.getElementById('fs').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();};
-document.getElementById('pdf').onclick=()=>window.print();
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter'){e.preventDefault();go(idx+1)}
-else if(e.key==='ArrowLeft'||e.key==='Backspace'){e.preventDefault();go(idx-1)}
-else if(e.key==='Escape'&&document.fullscreenElement)document.exitFullscreen();
-else if(e.key==='f')document.getElementById('fs').click();
-else if(e.key==='Home'){e.preventDefault();go(0)}
-else if(e.key==='End'){e.preventDefault();go(total-1)}});
-</script></body></html>`);
+<div class="counter" id="counter" style="display:none"></div>
+<script type="module">
+const marpMd = ${JSON.stringify(marpMd)};
+
+try {
+  const { Marp } = await import('https://esm.sh/@marp-team/marp-core@4');
+  const marp = new Marp({ html: true, script: false });
+  const { html, css } = marp.render(marpMd);
+
+  // Inject Marp CSS + overrides for navigation
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  const override = document.createElement('style');
+  override.textContent = [
+    '.marpit > svg[data-marpit-svg] { display: none; position: absolute; top: 50%; left: 50%; }',
+    '.marpit > svg[data-marpit-svg].active { display: block; }',
+    '.marpit > svg[data-marpit-svg] section { padding: 60px 80px !important; }',
+    '@media print { .marpit > svg[data-marpit-svg] { display: block !important;',
+    '  position: relative !important; top: auto !important; left: auto !important;',
+    '  margin: 0 auto !important; transform: none !important;',
+    '  page-break-after: always; break-after: page; }',
+    '  .marpit > svg[data-marpit-svg]:last-child { page-break-after: auto; } }'
+  ].join(' ');
+  document.head.appendChild(override);
+
+  // Inject slides
+  const deck = document.getElementById('deck');
+  deck.innerHTML = html;
+  deck.style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('ctrl').style.display = 'flex';
+  document.getElementById('counter').style.display = 'block';
+
+  // Each slide is a top-level <svg data-marpit-svg> inside <div class="marpit">
+  const slides = Array.from(deck.querySelectorAll('.marpit > svg[data-marpit-svg]'));
+  const total = slides.length;
+
+  // Scale and center SVG slides
+  function scaleSlides() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const scale = Math.min(vw / 1280, vh / 720);
+    const w = 1280 * scale, h = 720 * scale;
+    slides.forEach(svg => {
+      svg.style.width = w + 'px';
+      svg.style.height = h + 'px';
+      svg.style.marginLeft = (-w / 2) + 'px';
+      svg.style.marginTop = (-h / 2) + 'px';
+    });
+  }
+  scaleSlides();
+  window.addEventListener('resize', scaleSlides);
+
+  // Navigation
+  let idx = 0;
+  function go(n) {
+    if (slides[idx]) slides[idx].classList.remove('active');
+    idx = Math.max(0, Math.min(total - 1, n));
+    slides[idx].classList.add('active');
+    document.getElementById('progress').style.width = ((idx + 1) / total * 100) + '%';
+    document.getElementById('counter').textContent = (idx + 1) + ' / ' + total;
+  }
+  go(0);
+
+  document.getElementById('prev').onclick = () => go(idx - 1);
+  document.getElementById('next').onclick = () => go(idx + 1);
+  document.getElementById('fs').onclick = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  };
+  document.getElementById('pdf').onclick = () => window.print();
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); go(idx + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen();
+    else if (e.key === 'f') document.getElementById('fs').click();
+    else if (e.key === 'p') window.print();
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(total - 1); }
+  });
+
+} catch (e) {
+  document.getElementById('loading').textContent = 'Failed to load Marp: ' + e.message;
+}
+<\/script></body></html>`);
     win.document.close();
 }
 
@@ -1233,36 +1266,51 @@ function uploadImageForEditor(editor) {
     input.click();
 }
 
-async function handleImagePaste(e) {
-    const items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
+async function uploadImageBlob(blob, editor) {
+    const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const filename = `paste-${Date.now()}.${ext}`;
+    const reader = new FileReader();
+    reader.onload = async () => {
+        try {
+            const resp = await fetch('/api/upload/paste', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: reader.result, filename, folder: 'attachments' })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                insertTextAtCursor(editor, result.markdown + '\n');
+                showNotification('Image pasted');
+            }
+        } catch (err) {
+            showNotification('Paste upload failed');
+        }
+    };
+    reader.readAsDataURL(blob);
+}
 
-    for (const item of items) {
-        if (item.type.startsWith('image/')) {
-            e.preventDefault();
-            const blob = item.getAsFile();
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const b64 = reader.result;
-                const ext = blob.type.split('/')[1] || 'png';
-                const filename = `paste-${Date.now()}.${ext}`;
-                try {
-                    const resp = await fetch('/api/upload/paste', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ data: b64, filename, folder: 'attachments' })
-                    });
-                    const result = await resp.json();
-                    if (result.success) {
-                        insertTextAtCursor(e.target, result.markdown + '\n');
-                        showNotification('Image pasted');
-                    }
-                } catch (err) {
-                    showNotification('Paste upload failed');
-                }
-            };
-            reader.readAsDataURL(blob);
-            return;
+async function handleImagePaste(e) {
+    // 1. Try clipboardData.files first (iOS Safari puts images here)
+    const files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length > 0) {
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                e.preventDefault();
+                uploadImageBlob(file, e.target);
+                return;
+            }
+        }
+    }
+
+    // 2. Try clipboardData.items (Chrome, Firefox, desktop Safari)
+    const items = e.clipboardData && e.clipboardData.items;
+    if (items) {
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                uploadImageBlob(item.getAsFile(), e.target);
+                return;
+            }
         }
     }
 }
@@ -2682,6 +2730,21 @@ function setupEventListeners() {
 
     // Paste image from clipboard
     editorEl.addEventListener('paste', handleImagePaste);
+
+    // Drop images onto editor (also handles iOS drag-and-drop)
+    editorEl.addEventListener('dragover', (e) => e.preventDefault());
+    editorEl.addEventListener('drop', (e) => {
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length > 0) {
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    e.preventDefault();
+                    uploadImageBlob(file, editorEl);
+                    return;
+                }
+            }
+        }
+    });
 
     // Sync preview scroll with editor scroll (split view)
     editorEl.addEventListener('scroll', handleEditorScrollSync);
