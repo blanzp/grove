@@ -495,6 +495,27 @@ color: #d4ddd2
 
 To customize, create or edit `.grove/marp-template.md` in your vault directory. Any valid [Marp directives](https://marpit.marp.app/directives) work in the frontmatter.
 
+**Custom CSS file:**
+
+For more extensive styling, create `.grove/marp-theme.css` in your vault. This CSS is automatically injected into the slides. Example:
+
+```css
+/* .grove/marp-theme.css */
+section {
+  font-family: Georgia, serif;
+}
+h1 { color: #7fb069; }
+code {
+  background: rgba(127, 176, 105, 0.15);
+  border-radius: 4px;
+}
+blockquote {
+  border-left: 4px solid #7fb069;
+}
+```
+
+A default `marp-theme.css` with Grove-styled colors is included. Override it by creating your own in your vault's `.grove/` directory.
+
 **Per-slide directives** can also be used inline in your notes:
 ```markdown
 <!-- _class: lead -->
@@ -756,7 +777,8 @@ grove/
 ├── default-vault/          # Seed files for new vaults
 │   ├── .grove/
 │   │   ├── config.json
-│   │   └── marp-template.md  # Default Marp slide template
+│   │   ├── marp-template.md  # Default Marp slide template
+│   │   └── marp-theme.css    # Default Marp slide CSS
 │   └── .templates/
 │       ├── meeting.md
 │       ├── decision.md
@@ -787,7 +809,8 @@ Vault data (created at runtime):
     │   │   ├── config.json     # Per-vault config
     │   │   ├── contacts.json   # Contacts database
     │   │   ├── agent.md        # AI agent instructions for this vault
-    │   │   └── marp-template.md # Slide presentation template (optional)
+    │   │   ├── marp-template.md # Slide presentation template (optional)
+    │   │   └── marp-theme.css   # Slide CSS overrides (optional)
     │   ├── .templates/         # Note templates
     │   ├── attachments/        # Uploaded images & files
     │   ├── daily/              # Daily notes

@@ -1109,8 +1109,17 @@ def get_marp_template():
     if not tpl_path.exists():
         tpl_path = PROJECT_SEED_VAULT / '.grove' / 'marp-template.md'
     if tpl_path.exists():
-        return tpl_path.read_text(encoding='utf-8')
-    return '---\nmarp: true\ntheme: default\npaginate: true\n---\n'
+        tpl = tpl_path.read_text(encoding='utf-8')
+    else:
+        tpl = '---\nmarp: true\ntheme: default\npaginate: true\n---\n'
+    # Inject custom CSS from .grove/marp-theme.css if it exists
+    css_path = _vp() / '.grove' / 'marp-theme.css'
+    if not css_path.exists():
+        css_path = PROJECT_SEED_VAULT / '.grove' / 'marp-theme.css'
+    if css_path.exists():
+        css = css_path.read_text(encoding='utf-8')
+        tpl = tpl.replace('{{content}}', '<style>\n' + css + '\n</style>\n\n{{content}}')
+    return tpl
 
 
 @app.route('/api/clip', methods=['POST'])

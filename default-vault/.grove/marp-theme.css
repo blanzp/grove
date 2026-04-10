@@ -1,0 +1,35 @@
+/* Grove Marp slide theme — customize per vault at .grove/marp-theme.css */
+
+section {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+h1 {
+  color: #7fb069;
+}
+
+h2 {
+  color: #a3c98e;
+}
+
+code {
+  background: rgba(127, 176, 105, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+pre code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+blockquote {
+  border-left: 4px solid #7fb069;
+  padding-left: 16px;
+  color: #a8b5a5;
+}
+
+table th {
+  background: rgba(127, 176, 105, 0.2);
+}
