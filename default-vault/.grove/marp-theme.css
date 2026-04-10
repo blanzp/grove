@@ -25,6 +25,9 @@ section pre > code {
   padding: 16px;
   border-radius: 8px;
   color: #e8ede6 !important;
+  line-height: 1.5 !important;
+  font-size: 0.65em !important;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
 }
 
 section blockquote {
