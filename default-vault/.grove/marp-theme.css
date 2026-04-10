@@ -24,14 +24,25 @@ section code {
   font-weight: 500;
 }
 
-section pre > code {
+section pre {
   background: #2c3e2c !important;
-  padding: 16px;
   border-radius: 8px;
+  padding: 0 !important;
+  margin: 0.5em 0 !important;
+  overflow: auto !important;
+}
+
+section pre > code {
+  display: block !important;
+  background: transparent !important;
+  padding: 16px !important;
+  margin: 0 !important;
   color: #e8ede6 !important;
-  line-height: 1.5 !important;
-  font-size: 0.65em !important;
-  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  line-height: 1.6 !important;
+  font-size: 0.6em !important;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace !important;
+  white-space: pre !important;
+  overflow-x: auto !important;
 }
 
 section blockquote {
