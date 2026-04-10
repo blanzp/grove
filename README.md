@@ -23,6 +23,8 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
   - [Search](#search)
   - [Footnotes](#footnotes)
   - [Table of Contents](#table-of-contents-1)
+  - [Slide Presentations](#slide-presentations)
+  - [Web Clipper](#web-clipper-1)
 - [Extracting Notes for LLM Summaries](#extracting-notes-for-llm-summaries)
 - [LLM Assist Configuration](#llm-assist-configuration)
 - [Configuration](#configuration)
@@ -109,6 +111,14 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Copy as Markdown** — raw markdown to clipboard
 - **Copy as HTML** — rendered HTML to clipboard (paste into Gmail, Docs, etc.)
 - **Copy link** — copy a deep link to the current note
+- **Present as Slides** — render any note as a full-screen slide presentation using [Marp Core](https://marp.app/) (see [Slide Presentations](#slide-presentations))
+
+### 📎 Web Clipper
+- **Bookmarklet** — drag the bookmarklet link from the clipper modal to your bookmarks bar
+- **Clip any page** — click the bookmarklet on any web page to save it as a markdown note in Grove
+- **HTML to Markdown** — automatically converts page content (headings, lists, links, images, code blocks, tables, blockquotes) to clean markdown
+- **Configurable folder** — choose which folder clipped notes are saved to (default: `clips/`)
+- **Source URL** — original page URL is preserved in the clipped note
 
 ### 🖼️ Images & Attachments
 - **Paste from clipboard** — Ctrl+V an image, auto-uploads to `attachments/`
@@ -448,6 +458,63 @@ Click the **📋 TOC button** in the markdown toolbar to generate a Table of Con
 - Click again to update the existing TOC in place
 - In preview, clicking a TOC link smooth-scrolls to that heading
 
+### Slide Presentations
+
+Turn any note into a slide deck via **Share → Present as Slides**. Grove uses [Marp Core](https://marp.app/) (loaded from CDN) to render markdown as full-screen slides in a new browser tab.
+
+**How slides are split:**
+- Explicit `---` separators (with blank lines above and below) create slide breaks
+- If no explicit separators exist, Grove auto-splits on headings
+
+**Keyboard controls in the presenter:**
+
+| Key | Action |
+|-----|--------|
+| `→` / `↓` / `Space` | Next slide |
+| `←` / `↑` | Previous slide |
+| `F` | Toggle fullscreen |
+| `P` | Print / Save as PDF |
+
+**Per-vault Marp template:**
+
+Each vault can have its own slide template at `<vault>/.grove/marp-template.md`. The template uses Marp frontmatter directives and a `{{content}}` placeholder where the note body is inserted.
+
+Default template (Gaia theme with Grove dark colors):
+```markdown
+---
+marp: true
+theme: gaia
+class: lead
+paginate: true
+backgroundColor: #1a2318
+color: #d4ddd2
+---
+
+{{content}}
+```
+
+To customize, create or edit `.grove/marp-template.md` in your vault directory. Any valid [Marp directives](https://marpit.marp.app/directives) work in the frontmatter.
+
+**Per-slide directives** can also be used inline in your notes:
+```markdown
+<!-- _class: lead -->
+<!-- _backgroundColor: #2d5016 -->
+<!-- _color: #ffffff -->
+```
+
+**Available Marp themes:** `default`, `gaia`, `uncover`
+
+### Web Clipper
+
+Save web pages to Grove as markdown notes using a bookmarklet.
+
+1. Click the **📎 paperclip icon** at the bottom of the sidebar to open the clipper modal
+2. Drag the **Clip to Grove** link to your bookmarks bar
+3. Set your preferred folder (default: `clips/`)
+4. On any web page, click the bookmarklet — it navigates to Grove's clip page, saves the note, and shows a confirmation with a link back to the original page
+
+**Note:** The bookmarklet navigates the current tab to Grove to avoid CORS/Private Network Access restrictions. Use the "Back to page" link to return.
+
 ## Extracting Notes for LLM Summaries
 
 Grove is designed to work seamlessly with LLMs. Use the Extract feature to generate a clean markdown document you can paste into any AI assistant.
@@ -688,7 +755,8 @@ grove/
 ├── openapi.yaml            # OpenAPI 3.0 spec
 ├── default-vault/          # Seed files for new vaults
 │   ├── .grove/
-│   │   └── config.json
+│   │   ├── config.json
+│   │   └── marp-template.md  # Default Marp slide template
 │   └── .templates/
 │       ├── meeting.md
 │       ├── decision.md
@@ -718,7 +786,8 @@ Vault data (created at runtime):
     │   ├── .grove/
     │   │   ├── config.json     # Per-vault config
     │   │   ├── contacts.json   # Contacts database
-    │   │   └── agent.md        # AI agent instructions for this vault
+    │   │   ├── agent.md        # AI agent instructions for this vault
+    │   │   └── marp-template.md # Slide presentation template (optional)
     │   ├── .templates/         # Note templates
     │   ├── attachments/        # Uploaded images & files
     │   ├── daily/              # Daily notes
@@ -789,6 +858,11 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 | `GET` | `/api/graph` | Get graph data (nodes + edges) |
 | `GET` | `/api/wikilink-map` | Get title/filename → path mapping |
 | `GET` | `/api/calendar` | Get dated notes for calendar view |
+| **Clipper** | | |
+| `GET` | `/clip` | Web clipper landing page (reads clip data from URL hash) |
+| `POST` | `/api/clip` | Save clipped page as markdown note |
+| **Slides** | | |
+| `GET` | `/api/marp-template` | Get Marp slide template for active vault |
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |
@@ -809,6 +883,7 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 - **Markdown Rendering:** [Marked.js](https://marked.js.org/) v4.3.0 (GFM enabled)
 - **Syntax Highlighting:** [Highlight.js](https://highlightjs.org/) (lazy-loaded)
 - **Diagrams:** [Mermaid.js](https://mermaid.js.org/) v10 (flowcharts, sequence, Gantt, pie, ER, C4, etc.)
+- **Slide Presentations:** [Marp Core](https://marp.app/) v4 (CDN-loaded, renders markdown as slides)
 - **Graph View:** [Vis.js Network](https://visjs.github.io/vis-network/)
 - **Icons:** [Font Awesome](https://fontawesome.com/) 6.4.0
 - **Styling:** CSS custom properties for theming
