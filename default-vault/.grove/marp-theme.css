@@ -12,6 +12,10 @@ section h2 {
   color: #4a8c2a !important;
 }
 
+section a {
+  color: #3d7a1c !important;
+}
+
 section code {
   background: rgba(61, 122, 28, 0.15) !important;
   padding: 2px 6px;
