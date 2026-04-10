@@ -3,8 +3,8 @@ marp: true
 theme: gaia
 class: lead
 paginate: true
-backgroundColor: #1a2318
-color: #d4ddd2
+backgroundColor: #f5f7f4
+color: #2c3e2c
 ---
 
 {{content}}

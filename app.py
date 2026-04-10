@@ -350,13 +350,16 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text(encoding="utf-8", errors="replace"))
-    # Seed agent.md if missing
-    agent_md = path / '.grove' / 'agent.md'
-    agent_md.parent.mkdir(parents=True, exist_ok=True)
-    if not agent_md.exists():
-        seed_agent = seed / '.grove' / 'agent.md' if seed.exists() else None
-        if seed_agent and seed_agent.exists():
-            agent_md.write_text(seed_agent.read_text(encoding='utf-8', errors='replace'), encoding='utf-8')
+    # Seed .grove files if missing (agent.md, marp-template.md, marp-theme.css)
+    grove_dir = path / '.grove'
+    grove_dir.mkdir(parents=True, exist_ok=True)
+    if seed.exists():
+        for fname in ('agent.md', 'marp-template.md', 'marp-theme.css'):
+            target = grove_dir / fname
+            if not target.exists():
+                src = seed / '.grove' / fname
+                if src.exists():
+                    target.write_text(src.read_text(encoding='utf-8', errors='replace'), encoding='utf-8')
 
     # Create README from project README if missing
     readme = path / 'README.md'
@@ -1112,14 +1115,18 @@ def get_marp_template():
         tpl = tpl_path.read_text(encoding='utf-8')
     else:
         tpl = '---\nmarp: true\ntheme: default\npaginate: true\n---\n'
-    # Inject custom CSS from .grove/marp-theme.css if it exists
+    return tpl
+
+
+@app.route('/api/marp-theme-css')
+def get_marp_theme_css():
+    """Return custom Marp CSS for the active vault."""
     css_path = _vp() / '.grove' / 'marp-theme.css'
     if not css_path.exists():
         css_path = PROJECT_SEED_VAULT / '.grove' / 'marp-theme.css'
     if css_path.exists():
-        css = css_path.read_text(encoding='utf-8')
-        tpl = tpl.replace('{{content}}', '<style>\n' + css + '\n</style>\n\n{{content}}')
-    return tpl
+        return css_path.read_text(encoding='utf-8'), 200, {'Content-Type': 'text/css'}
+    return '', 200, {'Content-Type': 'text/css'}
 
 
 @app.route('/api/clip', methods=['POST'])

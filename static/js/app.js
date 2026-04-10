@@ -1103,13 +1103,19 @@ async function shareViaMarp() {
         body = body.replace(/\n---\n([^\n])/g, '\n\n---\n\n$1');
     }
 
-    // Fetch Marp template from vault
+    // Fetch Marp template and custom CSS from vault
     let template = '---\nmarp: true\ntheme: default\npaginate: true\n---\n';
+    let customCss = '';
     try {
-        const vaultParam = activeVault ? '?vault=' + encodeURIComponent(activeVault) : '';
-        const resp = await fetch('/api/marp-template' + vaultParam);
-        if (resp.ok) template = await resp.text();
-    } catch (e) { /* use default */ }
+        const vaultSel = document.getElementById('vault-select');
+        const vaultParam = vaultSel && vaultSel.value ? '?vault=' + encodeURIComponent(vaultSel.value) : '';
+        const [tplResp, cssResp] = await Promise.all([
+            fetch('/api/marp-template' + vaultParam),
+            fetch('/api/marp-theme-css' + vaultParam)
+        ]);
+        if (tplResp.ok) template = await tplResp.text();
+        if (cssResp.ok) customCss = await cssResp.text();
+    } catch (e) { /* use defaults */ }
 
     // Combine template + note body
     const marpMd = template.includes('{{content}}')
@@ -1151,17 +1157,27 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:system-ui,sans
 <div class="counter" id="counter" style="display:none"></div>
 <script type="module">
 const marpMd = ${JSON.stringify(marpMd)};
+const customCss = ${JSON.stringify(customCss)};
 
 try {
   const { Marp } = await import('https://esm.sh/@marp-team/marp-core@4');
   const marp = new Marp({ html: true, script: false });
   const { html, css } = marp.render(marpMd);
 
-  // Inject Marp CSS + overrides for navigation
+  // Inject Marp CSS
   const style = document.createElement('style');
   style.textContent = css;
   document.head.appendChild(style);
 
+  // Inject custom theme CSS into document head (after Marp CSS)
+  let finalHtml = html;
+  if (customCss) {
+    const custom = document.createElement('style');
+    custom.textContent = customCss;
+    document.head.appendChild(custom);
+  }
+
+  // Navigation overrides
   const override = document.createElement('style');
   override.textContent = [
     '.marpit > svg[data-marpit-svg] { display: none; position: absolute; top: 50%; left: 50%; }',
@@ -1177,7 +1193,7 @@ try {
 
   // Inject slides
   const deck = document.getElementById('deck');
-  deck.innerHTML = html;
+  deck.innerHTML = finalHtml;
   deck.style.display = 'block';
   document.getElementById('loading').style.display = 'none';
   document.getElementById('ctrl').style.display = 'flex';
