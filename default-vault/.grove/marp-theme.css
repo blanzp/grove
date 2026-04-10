@@ -45,6 +45,44 @@ section pre > code {
   overflow-x: auto !important;
 }
 
+/* Syntax highlighting — light-on-dark overrides for hljs */
+section pre > code .hljs-keyword,
+section pre > code .hljs-selector-tag,
+section pre > code .hljs-built_in,
+section pre > code .hljs-type { color: #8cc8ff !important; }
+
+section pre > code .hljs-string,
+section pre > code .hljs-attr,
+section pre > code .hljs-symbol,
+section pre > code .hljs-bullet { color: #a8d89a !important; }
+
+section pre > code .hljs-number,
+section pre > code .hljs-literal { color: #d4a6f5 !important; }
+
+section pre > code .hljs-comment,
+section pre > code .hljs-quote { color: #8a9a82 !important; font-style: italic; }
+
+section pre > code .hljs-function,
+section pre > code .hljs-title { color: #e8d87c !important; }
+
+section pre > code .hljs-params { color: #f0f4ee !important; }
+
+section pre > code .hljs-meta,
+section pre > code .hljs-doctag { color: #ff9a6c !important; }
+
+section pre > code .hljs-variable,
+section pre > code .hljs-template-variable { color: #f0c4a0 !important; }
+
+section pre > code .hljs-name,
+section pre > code .hljs-tag { color: #ff8a80 !important; }
+
+section pre > code .hljs-attr { color: #a8d89a !important; }
+
+section pre > code .hljs-class .hljs-title { color: #e8d87c !important; }
+
+section pre > code .hljs-deletion { color: #ff8a80 !important; }
+section pre > code .hljs-addition { color: #a8d89a !important; }
+
 section blockquote {
   border-left: 4px solid #4a8c2a;
   padding-left: 16px;
