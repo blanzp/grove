@@ -1154,6 +1154,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:system-ui,sans
   .controls,.progress,.counter,#loading{display:none!important}
   html,body{height:auto;overflow:visible;background:#fff}
   #deck{display:block!important;height:auto!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
 }
 </style></head><body>
 <div id="loading">Loading Marp...</div>
@@ -1197,7 +1198,10 @@ try {
     '@media print { .marpit > svg[data-marpit-svg] { display: block !important;',
     '  position: relative !important; top: auto !important; left: auto !important;',
     '  margin: 0 auto !important; transform: none !important;',
-    '  page-break-after: always; break-after: page; }',
+    '  page-break-after: always; break-after: page;',
+    '  -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }',
+    '  .marpit > svg[data-marpit-svg] section { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }',
+    '  .marpit > svg[data-marpit-svg] foreignObject { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }',
     '  .marpit > svg[data-marpit-svg]:last-child { page-break-after: auto; } }'
   ].join(' ');
   document.head.appendChild(override);
