@@ -1,0 +1,155 @@
+/* @theme grove-cover */
+
+/* Default slide — white background */
+section {
+  background: #f5f7f4;
+  color: #2c3e2c;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 28px;
+  padding: 60px 80px;
+}
+
+section h1 { color: #3d7a1c; }
+section h2 { color: #4a8c2a; }
+section h3 { color: #5a9a3a; }
+section a { color: #3d7a1c; }
+
+/* Cover slide — dark background, centered text */
+section.cover {
+  background: #1a2318;
+  color: #d4ddd2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+section.cover h1 {
+  color: #7fb069;
+  font-size: 2.2em;
+  margin-bottom: 0.3em;
+}
+
+section.cover h2 {
+  color: #a3c98e;
+  font-size: 1.2em;
+  font-weight: 400;
+}
+
+section.cover p {
+  color: #8a9a82;
+}
+
+/* Section divider — medium green background */
+section.divider {
+  background: #2d5a27;
+  color: #e8ede6;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+section.divider h1 {
+  color: #ffffff;
+  font-size: 2em;
+}
+
+section.divider h2 {
+  color: #b8d4a8;
+  font-weight: 400;
+}
+
+/* Closing slide — same as cover */
+section.end {
+  background: #1a2318;
+  color: #d4ddd2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+section.end h1 {
+  color: #7fb069;
+  font-size: 2.2em;
+}
+
+section.end p {
+  color: #8a9a82;
+}
+
+/* Code blocks */
+section code {
+  background: rgba(61, 122, 28, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+section pre {
+  background: #1a2618;
+  border-radius: 8px;
+  padding: 0;
+  margin: 0.5em 0;
+  overflow: auto;
+}
+
+section pre > code {
+  display: block;
+  background: transparent;
+  padding: 16px;
+  margin: 0;
+  color: #f0f4ee;
+  line-height: 1.4;
+  font-size: 0.7em;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  white-space: pre;
+}
+
+/* Cover slide code — lighter style */
+section.cover code {
+  background: rgba(127, 176, 105, 0.25);
+  color: #d4ddd2;
+}
+
+/* Syntax highlighting */
+section pre > code .hljs-keyword,
+section pre > code .hljs-built_in,
+section pre > code .hljs-type { color: #8cc8ff; }
+section pre > code .hljs-string,
+section pre > code .hljs-attr { color: #a8d89a; }
+section pre > code .hljs-number,
+section pre > code .hljs-literal { color: #d4a6f5; }
+section pre > code .hljs-comment,
+section pre > code .hljs-quote { color: #8a9a82; font-style: italic; }
+section pre > code .hljs-function,
+section pre > code .hljs-title { color: #e8d87c; }
+section pre > code .hljs-params { color: #f0f4ee; }
+
+/* Blockquotes */
+section blockquote {
+  border-left: 4px solid #4a8c2a;
+  padding-left: 16px;
+  color: #5a6e58;
+}
+
+/* Tables */
+section table th {
+  background: #2c3e2c;
+  color: #e8ede6;
+}
+
+/* Page numbers */
+section::after {
+  color: #8a9a82;
+}
+
+section.cover::after,
+section.end::after {
+  display: none;
+}

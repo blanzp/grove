@@ -22,6 +22,8 @@ if _env_path.exists():
             os.environ.setdefault(key.strip(), val.strip())
 import json
 import re
+import shutil
+import time
 import uuid
 from datetime import datetime
 from html.parser import HTMLParser
@@ -32,6 +34,23 @@ app.json.ensure_ascii = False  # Allow UTF-8 in JSON responses
 # Serve OpenAPI spec for IDE integrations (Copilot, etc.)
 from flask import send_from_directory
 PROJECT_ROOT = Path(__file__).parent
+
+# ─── Delete helpers (OneDrive retry) ───
+
+def _retry_delete(path, is_dir=False, retries=5, delay=0.5):
+    """Delete a file or directory with retries for OneDrive/cloud-sync locking (WinError 5)."""
+    for attempt in range(retries):
+        try:
+            if is_dir:
+                shutil.rmtree(path)
+            else:
+                Path(path).unlink()
+            return
+        except PermissionError:
+            if attempt < retries - 1:
+                time.sleep(delay * (attempt + 1))
+            else:
+                raise
 
 # ─── LLM Config Helpers ───
 
@@ -649,7 +668,6 @@ def export_vault():
 
 @app.route('/api/vaults/delete', methods=['POST'])
 def delete_vault():
-    import shutil
     data = request.json or {}
     name = data.get('name')
     if not name:
@@ -657,7 +675,7 @@ def delete_vault():
     path = VAULTS_ROOT / name
     if not path.exists():
         return jsonify({'error': 'Vault not found'}), 404
-    shutil.rmtree(path)
+    _retry_delete(path, is_dir=True)
     # If we just deleted the active vault, switch back to 'default'
     cfg = {}
     if CONFIG_PATH.exists():
@@ -1680,11 +1698,11 @@ def update_template(template_name):
 def delete_template(template_name):
     """Delete a template."""
     template_path = _tp() / f"{template_name}.md"
-    
+
     if not template_path.exists():
         return jsonify({'error': 'Template not found'}), 404
-    
-    template_path.unlink()
+
+    _retry_delete(template_path)
     
     return jsonify({'success': True})
 
@@ -1741,7 +1759,7 @@ def delete_note(note_path):
     if not file_path.exists():
         return jsonify({'error': 'Note not found'}), 404
 
-    file_path.unlink()
+    _retry_delete(file_path)
     _bm25_remove(note_path)
 
     return jsonify({'success': True})
@@ -1867,8 +1885,6 @@ def rename_folder():
 @app.route('/api/folder/<path:folder_path>', methods=['DELETE'])
 def delete_folder(folder_path):
     """Delete a folder and all its contents."""
-    import shutil
-
     folder_path = folder_path.strip().strip('/')
     if not folder_path:
         return jsonify({'error': 'Folder path required'}), 400
@@ -1886,7 +1902,7 @@ def delete_folder(folder_path):
         return jsonify({'error': 'Cannot delete hidden folders'}), 403
 
     try:
-        shutil.rmtree(target_folder)
+        _retry_delete(target_folder, is_dir=True)
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': f'Failed to delete folder: {str(e)}'}), 500
