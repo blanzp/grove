@@ -1214,6 +1214,29 @@ try {
   document.getElementById('ctrl').style.display = 'flex';
   document.getElementById('counter').style.display = 'block';
 
+  // Bake computed backgrounds into inline styles for reliable PDF export
+  deck.querySelectorAll('section').forEach(sec => {
+    const bg = getComputedStyle(sec).backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+      sec.style.backgroundColor = bg;
+    }
+    const color = getComputedStyle(sec).color;
+    if (color) sec.style.color = color;
+  });
+  deck.querySelectorAll('pre').forEach(pre => {
+    const bg = getComputedStyle(pre).backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+      pre.style.backgroundColor = bg;
+    }
+  });
+  deck.querySelectorAll('th').forEach(th => {
+    const bg = getComputedStyle(th).backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+      th.style.backgroundColor = bg;
+      th.style.color = getComputedStyle(th).color;
+    }
+  });
+
   // Each slide is a top-level <svg data-marpit-svg> inside <div class="marpit">
   const slides = Array.from(deck.querySelectorAll('.marpit > svg[data-marpit-svg]'));
   const total = slides.length;
