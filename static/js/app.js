@@ -6180,20 +6180,30 @@ function renderGraph(data) {
     });
     const maxLinks = Math.max(1, ...Object.values(backlinkCount));
 
-    // Prepare nodes — size scales with backlink count
+    // Assign colors by folder for visual clustering
+    const folders = [...new Set(data.nodes.map(n => n.folder || '/'))];
+    const palette = isDarkMode
+        ? ['#5b8c5a','#5a7fb0','#b07a5a','#8c5a8c','#5ab0a3','#b0a35a','#7a5ab0','#b05a6e','#5ab06e','#6e8cb0']
+        : ['#4a8c2a','#2a6a8c','#8c6a2a','#6a2a8c','#2a8c7a','#8c8a2a','#5a2a8c','#8c2a4a','#2a8c4a','#4a6a8c'];
+    const folderColor = {};
+    folders.forEach((f, i) => { folderColor[f] = palette[i % palette.length]; });
+
+    // Prepare nodes — size scales with backlink count, color by folder
     const nodes = new vis.DataSet(data.nodes.map(n => {
         const count = backlinkCount[n.id] || 0;
         const size = 6 + (count / maxLinks) * 18;
         const fontSize = 12 + (count / maxLinks) * 6;
+        const folder = n.folder || '/';
+        const color = folderColor[folder];
         return {
             id: n.id,
             label: n.label,
-            title: `${n.title} (${count} backlink${count !== 1 ? 's' : ''})`,
+            title: `${n.title} (${folder}) — ${count} backlink${count !== 1 ? 's' : ''}`,
             shape: 'dot',
             size: size,
             color: {
-                background: nodeColor,
-                border: nodeColor,
+                background: color,
+                border: color,
                 highlight: {
                     background: highlightColor,
                     border: highlightColor
@@ -6233,28 +6243,29 @@ function renderGraph(data) {
     };
     
     const nodeCount = data.nodes.length;
-    // Scale repulsion and spacing with graph size
-    const gravity = Math.min(-1500, -800 * Math.sqrt(nodeCount));
-    const springLen = Math.max(180, 100 + nodeCount * 6);
+    // Scale repulsion and spacing with graph size — low central gravity
+    // lets disconnected clusters drift apart naturally
+    const gravity = Math.min(-3000, -1200 * Math.sqrt(nodeCount));
+    const springLen = Math.max(220, 140 + nodeCount * 5);
 
     const options = {
         physics: {
             enabled: true,
             stabilization: {
                 enabled: true,
-                iterations: 400,
+                iterations: 600,
                 fit: true
             },
             barnesHut: {
                 gravitationalConstant: gravity,
-                centralGravity: 0.15,
+                centralGravity: 0.03,
                 springLength: springLen,
-                springConstant: 0.02,
-                damping: 0.3,
-                avoidOverlap: 0.8
+                springConstant: 0.01,
+                damping: 0.4,
+                avoidOverlap: 1.0
             },
             minVelocity: 0.75,
-            maxVelocity: 40
+            maxVelocity: 30
         },
         interaction: {
             hover: true,

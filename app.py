@@ -1490,11 +1490,15 @@ def get_graph():
             fm, _ = extract_frontmatter(content)
             tags = fm.get('tags', [])
             
+            folder = str(md_file.relative_to(_vp()).parent)
+            if folder == '.':
+                folder = '/'
             nodes.append({
                 'id': rel_path,
                 'label': title,
                 'title': title,  # For tooltip
-                'tags': tags
+                'tags': tags,
+                'folder': folder
             })
             
             # Map title, filename stem, path, and variations for link resolution
