@@ -1072,7 +1072,13 @@ async function shareViaMarp() {
     let body = document.getElementById('editor').value;
     const title = document.getElementById('note-title').textContent;
 
-    // Strip Grove frontmatter
+    // Check if note has marp: true in its stored frontmatter
+    let noteMarpFrontmatter = null;
+    if (currentNoteFrontmatter && /^marp:\s*true/m.test(currentNoteFrontmatter)) {
+        noteMarpFrontmatter = currentNoteFrontmatter;
+    }
+
+    // Strip any accidental frontmatter from editor body
     const fmMatch = body.match(/^---\n[\s\S]*?\n---\n*/);
     if (fmMatch) body = body.slice(fmMatch[0].length);
 
@@ -1103,24 +1109,29 @@ async function shareViaMarp() {
         body = body.replace(/\n---\n([^\n])/g, '\n\n---\n\n$1');
     }
 
-    // Fetch Marp template and custom CSS from vault
+    // Fetch Marp template and custom themes from vault
     let template = '---\nmarp: true\ntheme: default\npaginate: true\n---\n';
-    let customCss = '';
+    let customThemes = [];
     try {
         const vaultSel = document.getElementById('vault-select');
         const vaultParam = vaultSel && vaultSel.value ? '?vault=' + encodeURIComponent(vaultSel.value) : '';
-        const [tplResp, cssResp] = await Promise.all([
+        const [tplResp, themesResp] = await Promise.all([
             fetch('/api/marp-template' + vaultParam),
-            fetch('/api/marp-theme-css' + vaultParam)
+            fetch('/api/marp-themes' + vaultParam)
         ]);
         if (tplResp.ok) template = await tplResp.text();
-        if (cssResp.ok) customCss = await cssResp.text();
+        if (themesResp.ok) customThemes = await themesResp.json();
     } catch (e) { /* use defaults */ }
 
-    // Combine template + note body
-    const marpMd = template.includes('{{content}}')
-        ? template.replace('{{content}}', body)
-        : template + '\n' + body;
+    // If note has marp frontmatter, use it directly; otherwise use template
+    let marpMd;
+    if (noteMarpFrontmatter) {
+        marpMd = noteMarpFrontmatter + '\n\n' + body;
+    } else {
+        marpMd = template.includes('{{content}}')
+            ? template.replace('{{content}}', body)
+            : template + '\n' + body;
+    }
 
     // Open presenter page
     const win = window.open('', '_blank');
@@ -1157,25 +1168,25 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:system-ui,sans
 <div class="counter" id="counter" style="display:none"></div>
 <script type="module">
 const marpMd = ${JSON.stringify(marpMd)};
-const customCss = ${JSON.stringify(customCss)};
+const customThemes = ${JSON.stringify(customThemes)};
 
 try {
   const { Marp } = await import('https://esm.sh/@marp-team/marp-core@4');
   const marp = new Marp({ html: true, script: false });
+
+  // Register custom themes before rendering
+  for (const theme of customThemes) {
+    try { marp.themeSet.add(theme.css); } catch(e) { /* skip invalid theme */ }
+  }
+
   const { html, css } = marp.render(marpMd);
 
-  // Inject Marp CSS
+  // Inject Marp CSS (includes custom theme styles)
   const style = document.createElement('style');
   style.textContent = css;
   document.head.appendChild(style);
 
-  // Inject custom theme CSS into document head (after Marp CSS)
   let finalHtml = html;
-  if (customCss) {
-    const custom = document.createElement('style');
-    custom.textContent = customCss;
-    document.head.appendChild(custom);
-  }
 
   // Navigation overrides
   const override = document.createElement('style');
@@ -2133,18 +2144,101 @@ function setupSlashCommands() {
     });
 }
 
-async function openFrontmatterPreview() {
+async function openFrontmatterEditor() {
     if (!currentNote) return;
     const resp = await fetch(`/api/note/${currentNote}`);
     const note = await resp.json();
     const { fm } = stripFrontmatter(note.content || '');
-    const pre = document.getElementById('frontmatter-view');
-    pre.textContent = fm ? fm : '---\n# No frontmatter\n---';
+    const editor = document.getElementById('frontmatter-editor');
+    // Show just the YAML content between the --- delimiters
+    let yaml = '';
+    if (fm) {
+        const inner = fm.match(/^---\n([\s\S]*?)\n---$/);
+        yaml = inner ? inner[1] : fm;
+    }
+    editor.value = yaml;
+    document.getElementById('frontmatter-error').style.display = 'none';
     showModal('frontmatter-modal');
 }
 
+function validateFrontmatter(yaml) {
+    // Basic YAML validation for frontmatter
+    const errors = [];
+    const lines = yaml.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '' || line.trim().startsWith('#')) continue;
+        // Array items under a key are fine
+        if (/^\s+-\s/.test(line)) continue;
+        // Continuation lines (indented) are fine
+        if (/^\s+/.test(line)) continue;
+        // Top-level key: value
+        if (!/^[a-zA-Z_][a-zA-Z0-9_-]*\s*:/.test(line)) {
+            errors.push(`Line ${i + 1}: invalid YAML — expected "key: value", got "${line.trim()}"`);
+        }
+    }
+    // Check for duplicate keys
+    const keys = [];
+    for (const line of lines) {
+        const m = line.match(/^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:/);
+        if (m) {
+            if (keys.includes(m[1])) {
+                errors.push(`Duplicate key: "${m[1]}"`);
+            }
+            keys.push(m[1]);
+        }
+    }
+    // Require title
+    if (!keys.includes('title')) {
+        errors.push('Missing required field: "title"');
+    }
+    return errors;
+}
+
+async function saveFrontmatter() {
+    if (!currentNote) return;
+    const yaml = document.getElementById('frontmatter-editor').value;
+    const errorDiv = document.getElementById('frontmatter-error');
+
+    const errors = validateFrontmatter(yaml);
+    if (errors.length > 0) {
+        errorDiv.textContent = errors.join('\n');
+        errorDiv.style.display = 'block';
+        return;
+    }
+    errorDiv.style.display = 'none';
+
+    // Rebuild frontmatter and update stored copy
+    const newFm = '---\n' + yaml.trimEnd() + '\n---';
+    currentNoteFrontmatter = newFm;
+
+    // Save full content (frontmatter + body)
+    const body = document.getElementById('editor').value;
+    const content = newFm + '\n\n' + body;
+    const resp = await fetch(`/api/note/${currentNote}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+    if (resp.ok) {
+        // Reload to pick up any tag/title/star changes from frontmatter
+        await reloadFrontmatter();
+        const noteResp = await fetch(`/api/note/${currentNote}`);
+        const note = await noteResp.json();
+        document.getElementById('note-title').textContent = note.title;
+        currentNoteTags = note.tags || [];
+        renderTagsDisplay();
+        updateStarButton(note.starred || false);
+        showNotification('Frontmatter saved');
+        hideModal('frontmatter-modal');
+    } else {
+        errorDiv.textContent = 'Failed to save';
+        errorDiv.style.display = 'block';
+    }
+}
+
 function toggleFrontmatter() {
-    // Disabled: frontmatter is managed by backend and not editable in the editor
+    // Disabled: frontmatter is managed via the frontmatter editor modal
     return;
 }
 
@@ -2906,8 +3000,9 @@ function setupEventListeners() {
     setupPreviewAnchorLinks();
 
     // Frontmatter preview (read-only)
-    document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterPreview);
+    document.getElementById('frontmatter-preview').addEventListener('click', openFrontmatterEditor);
     document.getElementById('close-frontmatter-btn').addEventListener('click', () => hideModal('frontmatter-modal'));
+    document.getElementById('save-frontmatter-btn').addEventListener('click', saveFrontmatter);
 
     // Image preview modal
     const closeImagePreviewBtn = document.getElementById('close-image-preview-btn');

@@ -350,16 +350,25 @@ def _seed_vault(path: Path):
                 target = tpl_dir / f.name
                 if not target.exists():
                     target.write_text(f.read_text(encoding="utf-8", errors="replace"))
-    # Seed .grove files if missing (agent.md, marp-template.md, marp-theme.css)
+    # Seed .grove files if missing (agent.md, marp-template.md)
     grove_dir = path / '.grove'
     grove_dir.mkdir(parents=True, exist_ok=True)
     if seed.exists():
-        for fname in ('agent.md', 'marp-template.md', 'marp-theme.css'):
+        for fname in ('agent.md', 'marp-template.md'):
             target = grove_dir / fname
             if not target.exists():
                 src = seed / '.grove' / fname
                 if src.exists():
                     target.write_text(src.read_text(encoding='utf-8', errors='replace'), encoding='utf-8')
+        # Seed marp-themes directory
+        seed_themes = seed / '.grove' / 'marp-themes'
+        vault_themes = grove_dir / 'marp-themes'
+        if seed_themes.is_dir():
+            vault_themes.mkdir(exist_ok=True)
+            for f in seed_themes.glob('*.css'):
+                target = vault_themes / f.name
+                if not target.exists():
+                    target.write_text(f.read_text(encoding='utf-8', errors='replace'), encoding='utf-8')
 
     # Create README from project README if missing
     readme = path / 'README.md'
@@ -1118,15 +1127,20 @@ def get_marp_template():
     return tpl
 
 
-@app.route('/api/marp-theme-css')
-def get_marp_theme_css():
-    """Return custom Marp CSS for the active vault."""
-    css_path = _vp() / '.grove' / 'marp-theme.css'
-    if not css_path.exists():
-        css_path = PROJECT_SEED_VAULT / '.grove' / 'marp-theme.css'
-    if css_path.exists():
-        return css_path.read_text(encoding='utf-8'), 200, {'Content-Type': 'text/css'}
-    return '', 200, {'Content-Type': 'text/css'}
+@app.route('/api/marp-themes')
+def get_marp_themes():
+    """Return all custom Marp theme CSS files from the vault's .grove/marp-themes/ directory."""
+    themes = []
+    for base in [_vp(), PROJECT_SEED_VAULT]:
+        themes_dir = base / '.grove' / 'marp-themes'
+        if themes_dir.is_dir():
+            for f in sorted(themes_dir.glob('*.css')):
+                css = f.read_text(encoding='utf-8', errors='replace')
+                # Only include if not already added (vault overrides seed)
+                name = f.name
+                if not any(t['name'] == name for t in themes):
+                    themes.append({'name': name, 'css': css})
+    return jsonify(themes)
 
 
 @app.route('/api/clip', methods=['POST'])

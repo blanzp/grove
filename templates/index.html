@@ -138,7 +138,7 @@
                     <button id="tags-btn" disabled title="Manage Tags"><i class="fas fa-tags"></i></button>
                     <!-- Frontmatter editing removed: managed by backend for consistency -->
                     <button id="frontmatter-toggle" disabled style="display:none" title="Toggle Frontmatter"><i class="fas fa-code"></i></button>
-                    <button id="frontmatter-preview" disabled title="Preview Frontmatter (read-only)"><i class="fas fa-scroll"></i></button>
+                    <button id="frontmatter-preview" disabled title="Edit Frontmatter"><i class="fas fa-scroll"></i></button>
                     <button id="preview-toggle" disabled title="Preview (Ctrl+P)"><i class="fas fa-eye"></i></button>
                     <button id="llm-btn" disabled title="LLM (optional)"><i class="fas fa-robot"></i></button>
                     <button id="share-btn" disabled title="Share"><i class="fas fa-paper-plane"></i></button>
@@ -224,10 +224,12 @@
     <!-- Frontmatter Preview Modal (read-only) -->
     <div class="modal" id="frontmatter-modal">
         <div class="modal-content modal-small">
-            <h2>Frontmatter (read-only)</h2>
-            <pre id="frontmatter-view" style="max-height: 50vh; overflow: auto; background: var(--bg-tertiary); color: var(--text-primary); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></pre>
+            <h2>Frontmatter</h2>
+            <textarea id="frontmatter-editor" spellcheck="false" style="width:100%;min-height:220px;max-height:50vh;overflow:auto;background:var(--bg-tertiary);color:var(--text-primary);padding:12px;border-radius:6px;border:1px solid var(--border-color);font-family:'Cascadia Code','Consolas','Courier New',monospace;font-size:13px;resize:vertical;tab-size:2;line-height:1.5;"></textarea>
+            <div id="frontmatter-error" style="color:#e74c3c;font-size:13px;margin-top:6px;display:none;"></div>
             <div class="modal-actions">
                 <button class="btn-secondary" id="close-frontmatter-btn">Close</button>
+                <button class="btn-primary" id="save-frontmatter-btn">Save</button>
             </div>
         </div>
     </div>
@@ -873,7 +875,7 @@ Use placeholders:
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
-    <script src="/static/js/app.js?v=20260410g"></script>
+    <script src="/static/js/app.js?v=20260413f"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -41,7 +41,7 @@ Beautiful, lightweight, VS Code-inspired. Organize your thoughts in a personal k
 - **Markdown toolbar** — Bold, italic, headings, lists, checkboxes, links, images, code blocks, blockquotes, wikilinks, TOC, **tables**
 - **Table generator** — toolbar button opens dimension picker to insert markdown tables
 - **Auto-save** with 2-second debounce — never lose work
-- **Frontmatter preview** — read-only view of YAML frontmatter (managed by Grove)
+- **Frontmatter editor** — edit YAML frontmatter with validation (title required, duplicate key detection, YAML format check)
 - **Wikilinks** — clickable `[[note]]` links to navigate between notes (type `[[` for typeahead)
 - **Path-based wikilinks** — use `[[folder/note]]` to disambiguate notes with the same name in different folders
 - **Footnotes** — standard `[^1]` refs with `[^1]: text` definitions, rendered with back-links
@@ -475,46 +475,57 @@ Turn any note into a slide deck via **Share → Present as Slides**. Grove uses 
 | `F` | Toggle fullscreen |
 | `P` | Print / Save as PDF |
 
-**Per-vault Marp template:**
+**Per-note theme via frontmatter:**
 
-Each vault can have its own slide template at `<vault>/.grove/marp-template.md`. The template uses Marp frontmatter directives and a `{{content}}` placeholder where the note body is inserted.
+Add `marp: true` and a `theme` to any note's frontmatter to control its slide theme. Edit frontmatter via the scroll icon in the toolbar:
 
-Default template (Gaia theme with Grove dark colors):
+```yaml
+marp: true
+theme: grove-dark
+paginate: true
+```
+
+When a note has `marp: true` in its frontmatter, that frontmatter is used directly. Notes without it fall back to the vault's default template.
+
+**Default template** (`.grove/marp-template.md`):
+
+Each vault has a fallback template for notes without Marp frontmatter. It uses `{{content}}` as a placeholder:
+
 ```markdown
 ---
 marp: true
-theme: gaia
-class: lead
+theme: grove-light
 paginate: true
-backgroundColor: #1a2318
-color: #d4ddd2
 ---
 
 {{content}}
 ```
 
-To customize, create or edit `.grove/marp-template.md` in your vault directory. Any valid [Marp directives](https://marpit.marp.app/directives) work in the frontmatter.
+**Custom themes** (`.grove/marp-themes/*.css`):
 
-**Custom CSS file:**
+Create custom Marp themes as CSS files in `.grove/marp-themes/`. Each file must start with a `/* @theme <name> */` annotation. All themes in this directory are automatically registered with Marp.
 
-For more extensive styling, create `.grove/marp-theme.css` in your vault. This CSS is automatically injected into the slides. Example:
+Two themes are included:
 
+| Theme | Description |
+|-------|-------------|
+| `grove-light` | Light background, dark green headings, dark code fences |
+| `grove-dark` | Dark background, bright green headings, dark code fences |
+
+Example custom theme:
 ```css
-/* .grove/marp-theme.css */
+/* @theme my-corporate */
 section {
-  font-family: Georgia, serif;
+  background: #ffffff;
+  color: #333333;
+  font-family: 'Helvetica Neue', sans-serif;
 }
-h1 { color: #7fb069; }
-code {
-  background: rgba(127, 176, 105, 0.15);
-  border-radius: 4px;
-}
-blockquote {
-  border-left: 4px solid #7fb069;
-}
+section h1 { color: #0066cc; }
+section pre { background: #1e1e1e; border-radius: 8px; }
+section pre > code { color: #d4d4d4; }
 ```
 
-A default `marp-theme.css` with Grove-styled colors is included. Override it by creating your own in your vault's `.grove/` directory.
+Save as `.grove/marp-themes/my-corporate.css`, then use `theme: my-corporate` in frontmatter.
 
 **Per-slide directives** can also be used inline in your notes:
 ```markdown
@@ -523,7 +534,7 @@ A default `marp-theme.css` with Grove-styled colors is included. Override it by 
 <!-- _color: #ffffff -->
 ```
 
-**Available Marp themes:** `default`, `gaia`, `uncover`
+**Built-in Marp themes** (`default`, `gaia`, `uncover`) are also available.
 
 ### Web Clipper
 
@@ -778,7 +789,9 @@ grove/
 │   ├── .grove/
 │   │   ├── config.json
 │   │   ├── marp-template.md  # Default Marp slide template
-│   │   └── marp-theme.css    # Default Marp slide CSS
+│   │   └── marp-themes/      # Custom Marp slide themes
+│   │       ├── grove-light.css
+│   │       └── grove-dark.css
 │   └── .templates/
 │       ├── meeting.md
 │       ├── decision.md
@@ -809,8 +822,10 @@ Vault data (created at runtime):
     │   │   ├── config.json     # Per-vault config
     │   │   ├── contacts.json   # Contacts database
     │   │   ├── agent.md        # AI agent instructions for this vault
-    │   │   ├── marp-template.md # Slide presentation template (optional)
-    │   │   └── marp-theme.css   # Slide CSS overrides (optional)
+    │   │   ├── marp-template.md  # Slide fallback template (optional)
+    │   │   └── marp-themes/     # Custom Marp themes (optional)
+    │   │       ├── grove-light.css
+    │   │       └── grove-dark.css
     │   ├── .templates/         # Note templates
     │   ├── attachments/        # Uploaded images & files
     │   ├── daily/              # Daily notes
@@ -886,6 +901,7 @@ All endpoints accept an optional `?vault=<name>` query parameter to target a spe
 | `POST` | `/api/clip` | Save clipped page as markdown note |
 | **Slides** | | |
 | `GET` | `/api/marp-template` | Get Marp slide template for active vault |
+| `GET` | `/api/marp-themes` | Get all custom Marp theme CSS files |
 | **Config** | | |
 | `GET` | `/api/config` | Get per-vault config |
 | `PUT` | `/api/config` | Update per-vault config |

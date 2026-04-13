@@ -1,0 +1,108 @@
+/* @theme grove-light */
+
+section {
+  background: #f5f7f4;
+  color: #2c3e2c;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 60px 80px;
+}
+
+section h1 {
+  color: #3d7a1c;
+}
+
+section h2 {
+  color: #4a8c2a;
+}
+
+section h3 {
+  color: #5a9a3a;
+}
+
+section a {
+  color: #3d7a1c;
+}
+
+section code {
+  background: rgba(61, 122, 28, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+section pre {
+  background: #1a2618;
+  border-radius: 8px;
+  padding: 0;
+  margin: 0.5em 0;
+  overflow: auto;
+}
+
+section pre > code {
+  display: block;
+  background: transparent;
+  padding: 16px;
+  margin: 0;
+  color: #f0f4ee;
+  line-height: 1.4;
+  font-size: 0.7em;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Syntax highlighting — light-on-dark */
+section pre > code .hljs-keyword,
+section pre > code .hljs-selector-tag,
+section pre > code .hljs-built_in,
+section pre > code .hljs-type { color: #8cc8ff; }
+
+section pre > code .hljs-string,
+section pre > code .hljs-attr,
+section pre > code .hljs-symbol,
+section pre > code .hljs-bullet { color: #a8d89a; }
+
+section pre > code .hljs-number,
+section pre > code .hljs-literal { color: #d4a6f5; }
+
+section pre > code .hljs-comment,
+section pre > code .hljs-quote { color: #8a9a82; font-style: italic; }
+
+section pre > code .hljs-function,
+section pre > code .hljs-title { color: #e8d87c; }
+
+section pre > code .hljs-params { color: #f0f4ee; }
+
+section pre > code .hljs-meta,
+section pre > code .hljs-doctag { color: #ff9a6c; }
+
+section pre > code .hljs-variable,
+section pre > code .hljs-template-variable { color: #f0c4a0; }
+
+section pre > code .hljs-name,
+section pre > code .hljs-tag { color: #ff8a80; }
+
+section pre > code .hljs-class .hljs-title { color: #e8d87c; }
+
+section pre > code .hljs-deletion { color: #ff8a80; }
+section pre > code .hljs-addition { color: #a8d89a; }
+
+section blockquote {
+  border-left: 4px solid #4a8c2a;
+  padding-left: 16px;
+  color: #5a6e58;
+}
+
+section table th {
+  background: #2c3e2c;
+  color: #e8ede6;
+}
+
+section strong {
+  color: #2c3e2c;
+}
+
+section::after {
+  color: #8a9a82;
+}
