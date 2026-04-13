@@ -6275,8 +6275,8 @@ function renderGraph(data) {
     }
     graphNetwork = new vis.Network(container, graphData, options);
     
-    // Handle node click
-    graphNetwork.on('click', function(params) {
+    // Double-click to open note; single click/drag to move nodes
+    graphNetwork.on('doubleClick', function(params) {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
             hideModal('graph-modal');
