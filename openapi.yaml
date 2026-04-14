@@ -39,6 +39,10 @@ tags:
     description: File uploads, serving, and attachments
   - name: Export
     description: JSONL/JSON export for LLM pipelines
+  - name: Marp
+    description: Marp slide presentation templates and custom themes
+  - name: Clip
+    description: Web clipper for saving web content as notes
   - name: LLM
     description: Optional LLM integration for AI-assisted writing
 paths:
@@ -1130,6 +1134,9 @@ paths:
                           type: array
                           items:
                             type: string
+                        folder:
+                          type: string
+                          description: Parent folder path (/ for vault root)
                   edges:
                     type: array
                     items:
@@ -1209,6 +1216,118 @@ paths:
                       type: string
                     description: Error messages for any failed uploads
 
+  /api/marp-template:
+    get:
+      tags: [Marp]
+      summary: Get Marp slide template
+      description: |
+        Returns the Marp frontmatter template (``.grove/marp-template.md``) for the active vault.
+        Falls back to the seed vault template if the vault doesn't have one.
+        The template typically contains YAML frontmatter with ``marp: true``, theme, and paginate settings,
+        plus a ``{{content}}`` placeholder for the note body.
+      parameters:
+        - $ref: '#/components/parameters/VaultParam'
+      responses:
+        '200':
+          description: Marp template content (raw markdown)
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/marp-themes:
+    get:
+      tags: [Marp]
+      summary: List custom Marp themes
+      description: |
+        Returns all CSS files from the vault's ``.grove/marp-themes/`` directory.
+        Each CSS file must contain a ``/* @theme name */`` annotation for Marp to recognize it.
+        Vault themes override seed vault themes by filename.
+      parameters:
+        - $ref: '#/components/parameters/VaultParam'
+      responses:
+        '200':
+          description: List of custom themes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: CSS filename (e.g., grove-light.css)
+                    css:
+                      type: string
+                      description: Full CSS content including @theme annotation
+
+  /clip:
+    get:
+      tags: [Clip]
+      summary: Web clipper landing page
+      description: |
+        Bookmarklet landing page that reads clip data from the URL hash fragment
+        and POSTs it to ``/api/clip``. Used by the Grove bookmarklet to clip web pages.
+      responses:
+        '200':
+          description: HTML page that processes the clip
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/clip:
+    post:
+      tags: [Clip]
+      summary: Create a note from clipped web content
+      description: |
+        Web clipper endpoint. Creates a note from a web page's title, URL, and
+        HTML/text content. HTML is converted to Markdown. Notes are saved to the
+        ``clips/`` folder by default with the ``clip`` tag.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  default: Untitled Clip
+                url:
+                  type: string
+                  description: Source URL of the clipped page
+                html:
+                  type: string
+                  description: HTML content to convert to Markdown
+                text:
+                  type: string
+                  description: Plain text fallback if no HTML provided
+                folder:
+                  type: string
+                  default: clips
+                  description: Target folder for the clipped note
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  default: [clip]
+      responses:
+        '200':
+          description: Note created from clip
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  path:
+                    type: string
+                  title:
+                    type: string
+
   /api/llm/status:
     get:
       tags: [LLM]
@@ -1284,37 +1403,6 @@ paths:
           description: Missing prompt
         '403':
           description: LLM disabled or not configured
-
-  /share:
-    get:
-      tags: [Notes]
-      summary: Web Share Target endpoint
-      description: |
-        Receives shared content from the Web Share Target API (Android PWA) or iOS Shortcuts.
-        Serves the main app; JavaScript detects the query params and shows a share modal.
-      parameters:
-        - name: url
-          in: query
-          schema:
-            type: string
-          description: Shared URL
-        - name: title
-          in: query
-          schema:
-            type: string
-          description: Shared page title
-        - name: text
-          in: query
-          schema:
-            type: string
-          description: Shared text content
-      responses:
-        '200':
-          description: Main app HTML (share modal auto-opens via JS)
-          content:
-            text/html:
-              schema:
-                type: string
 
 components:
   parameters:
